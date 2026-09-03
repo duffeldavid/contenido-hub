@@ -713,6 +713,18 @@ function renderAprobacion() {
   el.querySelector("#btnWhatsApp").addEventListener("click", function () {
     const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
     const revisadas = todas.filter(p => aprobDe(p).v !== "Pendiente");
+    if (MODO_CLIENTE) {
+      // Mensaje corto del cliente: saludo + sus respuestas
+      const L = ["¡Hola! Estos son los comentarios de los contenidos:", ""];
+      for (const p of revisadas) {
+        const a = aprobDe(p);
+        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)} — *${a.v}*${a.c ? `\n💬 "${a.c}"` : ""}`);
+      }
+      if (!revisadas.length) L.push("(Aún no he revisado piezas)");
+      if (pendientes.length) L.push("", `Me quedan ${pendientes.length} por revisar.`);
+      this.href = "https://wa.me/?text=" + encodeURIComponent(L.join("\n"));
+      return;
+    }
     const marcaTxt = marcaActiva === "todas" ? "Café Forestal + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
     const L = [`*Contenidos ${MES.titulo} · ${marcaTxt}*`];
 
