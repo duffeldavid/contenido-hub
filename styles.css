@@ -103,11 +103,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .bell {
   position: relative; border: 0; cursor: pointer;
   background: rgba(0,0,0,.18); border-radius: 50%;
-  width: 38px; height: 38px; font-size: 16px; line-height: 1;
+  width: 38px; height: 38px;
   display: grid; place-items: center; flex: none;
   transition: transform .15s, background .15s;
 }
 .bell:hover { transform: scale(1.08); background: rgba(0,0,0,.3); }
+/* Corazón estilo Instagram: contorno en reposo, rojo latiendo con novedades */
+.corazon { width: 21px; height: 21px; }
+.corazon path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linejoin: round; transition: fill .2s, stroke .2s; }
+.bell.con-nuevas .corazon path { fill: #FF3040; stroke: #FF3040; }
+.bell.con-nuevas .corazon { animation: latido 1.6s ease-in-out infinite; transform-origin: center; }
+@keyframes latido {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.22); }
+  24% { transform: scale(1); }
+  36% { transform: scale(1.12); }
+  48% { transform: scale(1); }
+}
 .bell-badge {
   position: absolute; top: -3px; right: -3px;
   min-width: 17px; height: 17px; padding: 0 4px;
@@ -657,6 +669,26 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   font-size: 12.5px; color: var(--dim);
 }
 .pdf-check input { accent-color: var(--accent); cursor: pointer; }
+
+/* ═══════════ CANDADO DE ACCESO (link del equipo) ═══════════ */
+.candado {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(14,10,8,.86);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: grid; place-items: center; padding: 20px;
+}
+.candado-caja {
+  width: min(380px, 92vw);
+  background: #FFFDFA; border-radius: 22px; padding: 30px 26px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 40px 120px -30px rgba(0,0,0,.7);
+  text-align: center; color: var(--ink);
+}
+.candado-caja .logo-text { color: var(--ink); }
+.candado-txt { font-size: 13.5px; color: var(--dim); line-height: 1.5; }
+.candado-caja .btn-primary { background: var(--ink); color: #F7F3EC; }
+.candado-error { font-size: 12.5px; color: #B23A2E; font-weight: 600; }
 
 /* ═══════════ AVISO EN TIEMPO REAL ═══════════ */
 .toast-live {

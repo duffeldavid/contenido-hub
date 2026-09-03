@@ -13,6 +13,9 @@ const NTFY_CANAL = "https://ntfy.sh/contenido-hub-david-x8k3n2vq";
 // Canal de DATOS: la página del cliente emite cada aprobación/comentario y
 // la plataforma de David lo escucha en tiempo real (SSE) y se pone al día al abrir.
 const NTFY_DATOS = "https://ntfy.sh/contenido-hub-datos-x8k3n2vq";
+// Acceso del equipo al link de aprobación (protección básica en el navegador)
+const CLAVE_ACCESO = "Mercadeo123";
+const AUTOR_CLIENTE = "Mercadeo";
 // ¿La página se abrió como formulario de aprobación para cliente?
 const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
 
@@ -83,7 +86,7 @@ function notiComentario(p, texto) {
 function emitirDato(p) {
   if (!MODO_CLIENTE) return;
   const a = aprobDe(p);
-  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", ts: Date.now() }) }).catch(() => {});
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", autor: AUTOR_CLIENTE, ts: Date.now() }) }).catch(() => {});
 }
 
 // ---------- Tiempo real en la plataforma de David ----------
@@ -102,14 +105,15 @@ function aplicarEventoCliente(linea, enVivo) {
     if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado
     const d = JSON.parse(m.message);
     if (d.tipo !== "aprob" || !d.id || !PIEZAS.some(p => p.id === d.id)) return false;
-    store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "" };
+    const autor = d.autor || AUTOR_CLIENTE;
+    store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "", por: autor };
     // Registrar en el buzón de notificaciones de la plataforma
-    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
+    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", autor, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
     store.notis = store.notis.slice(0, 60);
     if (enVivo) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
-      toastVivo(`${icono} El cliente ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
+      toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
     }
     return true;
   } catch { return false; }
@@ -129,6 +133,7 @@ function renderCampanita() {
   const sinLeer = store.notis.filter(n => !n.leida).length;
   badge.hidden = sinLeer === 0;
   badge.textContent = sinLeer > 9 ? "9+" : sinLeer;
+  document.getElementById("bellBtn").classList.toggle("con-nuevas", sinLeer > 0);
   const panel = document.getElementById("notiPanel");
   if (panel.hidden) return;
   panel.innerHTML = `
@@ -140,7 +145,7 @@ function renderCampanita() {
         <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
           <span class="noti-ico">${icono}</span>
           <span class="noti-cuerpo">
-            <span class="noti-txt"><b>${n.v === "Aprobado" ? "Aprobado" : n.v === "Ajustar" ? "Pide ajustes" : "Revisado"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
+            <span class="noti-txt"><b>${esc(n.autor || AUTOR_CLIENTE)} ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustes en" : "revisó"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
             ${n.c ? `<span class="noti-com">💬 "${esc(n.c.slice(0, 120))}"</span>` : ""}
             <span class="noti-tiempo">${tiempoRelativo(n.ts)}</span>
           </span>
@@ -159,6 +164,7 @@ function abrirCampanita() {
     store.notis.forEach(n => { n.leida = true; });
     save();
     document.getElementById("bellBadge").hidden = true;
+    document.getElementById("bellBtn").classList.remove("con-nuevas");
   }
 }
 function cerrarCampanita() { document.getElementById("notiPanel").hidden = true; }
@@ -533,7 +539,7 @@ function renderAprobacion() {
         <div class="aprob-info">
           <div class="aprob-thumb" style="--brand-tint:${brandTint(p)}">${img ? `<img src="${img}" alt="">` : `${FORMATO_ICONO[p.formato] || "🎬"}`}</div>
           <div>
-            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
+            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por ? ` · ✍️ respondió ${esc(a.por)}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
             <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
             ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
@@ -1257,12 +1263,44 @@ function renderAll() {
   renderAprobacion();
   renderReferentes();
 }
+// ---------- Candado de acceso del equipo (link de aprobación) ----------
+function pedirClaveAcceso() {
+  let ok = false;
+  try { ok = localStorage.getItem("hubAccesoEquipo") === "si"; } catch {}
+  if (ok) return;
+  const velo = document.createElement("div");
+  velo.className = "candado";
+  velo.innerHTML = `
+    <div class="candado-caja">
+      <div class="logo" style="justify-content:center"><span class="logo-dot"></span><span class="logo-text">Contenido<b>Hub</b></span></div>
+      <p class="candado-txt">Acceso del equipo · escribe la clave para revisar y aprobar los contenidos</p>
+      <input type="password" id="claveInput" class="edit-input" placeholder="Clave de acceso" autocomplete="off">
+      <button class="btn-primary" id="claveBtn">Entrar</button>
+      <p class="candado-error" id="claveError" hidden>Clave incorrecta, inténtalo de nuevo.</p>
+    </div>`;
+  document.body.appendChild(velo);
+  const input = velo.querySelector("#claveInput");
+  const probar = () => {
+    if (input.value.trim() === CLAVE_ACCESO) {
+      try { localStorage.setItem("hubAccesoEquipo", "si"); } catch {}
+      velo.remove();
+    } else {
+      velo.querySelector("#claveError").hidden = false;
+      input.value = ""; input.focus();
+    }
+  };
+  velo.querySelector("#claveBtn").onclick = probar;
+  input.addEventListener("keydown", e => { if (e.key === "Enter") probar(); });
+  setTimeout(() => input.focus(), 100);
+}
+
 document.body.dataset.marca = marcaActiva;
 if (MODO_CLIENTE) {
   // Formulario de aprobación para cliente: solo la vista Aprobación
   document.body.classList.add("modo-cliente");
   renderAll();
   activarVista("aprobacion");
+  pedirClaveAcceso();
 } else {
   restoreUI();
   renderAll();

@@ -108,11 +108,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .bell {
   position: relative; border: 0; cursor: pointer;
   background: rgba(0,0,0,.18); border-radius: 50%;
-  width: 38px; height: 38px; font-size: 16px; line-height: 1;
+  width: 38px; height: 38px;
   display: grid; place-items: center; flex: none;
   transition: transform .15s, background .15s;
 }
 .bell:hover { transform: scale(1.08); background: rgba(0,0,0,.3); }
+/* Corazón estilo Instagram: contorno en reposo, rojo latiendo con novedades */
+.corazon { width: 21px; height: 21px; }
+.corazon path { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linejoin: round; transition: fill .2s, stroke .2s; }
+.bell.con-nuevas .corazon path { fill: #FF3040; stroke: #FF3040; }
+.bell.con-nuevas .corazon { animation: latido 1.6s ease-in-out infinite; transform-origin: center; }
+@keyframes latido {
+  0%, 100% { transform: scale(1); }
+  12% { transform: scale(1.22); }
+  24% { transform: scale(1); }
+  36% { transform: scale(1.12); }
+  48% { transform: scale(1); }
+}
 .bell-badge {
   position: absolute; top: -3px; right: -3px;
   min-width: 17px; height: 17px; padding: 0 4px;
@@ -663,6 +675,26 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 .pdf-check input { accent-color: var(--accent); cursor: pointer; }
 
+/* ═══════════ CANDADO DE ACCESO (link del equipo) ═══════════ */
+.candado {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(14,10,8,.86);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  display: grid; place-items: center; padding: 20px;
+}
+.candado-caja {
+  width: min(380px, 92vw);
+  background: #FFFDFA; border-radius: 22px; padding: 30px 26px;
+  display: flex; flex-direction: column; gap: 14px;
+  box-shadow: 0 40px 120px -30px rgba(0,0,0,.7);
+  text-align: center; color: var(--ink);
+}
+.candado-caja .logo-text { color: var(--ink); }
+.candado-txt { font-size: 13.5px; color: var(--dim); line-height: 1.5; }
+.candado-caja .btn-primary { background: var(--ink); color: #F7F3EC; }
+.candado-error { font-size: 12.5px; color: #B23A2E; font-weight: 600; }
+
 /* ═══════════ AVISO EN TIEMPO REAL ═══════════ */
 .toast-live {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
@@ -708,7 +740,10 @@ body.modo-cliente .aprob-row { cursor: pointer; }
         <button data-brand="manzanares">Manzanares</button>
       </div>
       <button class="bell" id="bellBtn" aria-label="Notificaciones">
-        🔔<span class="bell-badge" id="bellBadge" hidden></span>
+        <svg class="corazon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 21.1S4.9 16.6 2.6 12.9C.9 10.1 2 6.4 5.1 5.2c2-.8 4.2-.1 5.4 1.5L12 8.4l1.5-1.7c1.2-1.6 3.4-2.3 5.4-1.5 3.1 1.2 4.2 4.9 2.5 7.7C19.1 16.6 12 21.1 12 21.1z"/>
+        </svg>
+        <span class="bell-badge" id="bellBadge" hidden></span>
       </button>
       <div class="nav-right">
         <span class="sync-badge" id="syncBadge" hidden></span>
@@ -1246,6 +1281,9 @@ const NTFY_CANAL = "https://ntfy.sh/contenido-hub-david-x8k3n2vq";
 // Canal de DATOS: la página del cliente emite cada aprobación/comentario y
 // la plataforma de David lo escucha en tiempo real (SSE) y se pone al día al abrir.
 const NTFY_DATOS = "https://ntfy.sh/contenido-hub-datos-x8k3n2vq";
+// Acceso del equipo al link de aprobación (protección básica en el navegador)
+const CLAVE_ACCESO = "Mercadeo123";
+const AUTOR_CLIENTE = "Mercadeo";
 // ¿La página se abrió como formulario de aprobación para cliente?
 const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
 
@@ -1316,7 +1354,7 @@ function notiComentario(p, texto) {
 function emitirDato(p) {
   if (!MODO_CLIENTE) return;
   const a = aprobDe(p);
-  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", ts: Date.now() }) }).catch(() => {});
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", autor: AUTOR_CLIENTE, ts: Date.now() }) }).catch(() => {});
 }
 
 // ---------- Tiempo real en la plataforma de David ----------
@@ -1335,14 +1373,15 @@ function aplicarEventoCliente(linea, enVivo) {
     if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado
     const d = JSON.parse(m.message);
     if (d.tipo !== "aprob" || !d.id || !PIEZAS.some(p => p.id === d.id)) return false;
-    store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "" };
+    const autor = d.autor || AUTOR_CLIENTE;
+    store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "", por: autor };
     // Registrar en el buzón de notificaciones de la plataforma
-    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
+    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", autor, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
     store.notis = store.notis.slice(0, 60);
     if (enVivo) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
-      toastVivo(`${icono} El cliente ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
+      toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
     }
     return true;
   } catch { return false; }
@@ -1362,6 +1401,7 @@ function renderCampanita() {
   const sinLeer = store.notis.filter(n => !n.leida).length;
   badge.hidden = sinLeer === 0;
   badge.textContent = sinLeer > 9 ? "9+" : sinLeer;
+  document.getElementById("bellBtn").classList.toggle("con-nuevas", sinLeer > 0);
   const panel = document.getElementById("notiPanel");
   if (panel.hidden) return;
   panel.innerHTML = `
@@ -1373,7 +1413,7 @@ function renderCampanita() {
         <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
           <span class="noti-ico">${icono}</span>
           <span class="noti-cuerpo">
-            <span class="noti-txt"><b>${n.v === "Aprobado" ? "Aprobado" : n.v === "Ajustar" ? "Pide ajustes" : "Revisado"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
+            <span class="noti-txt"><b>${esc(n.autor || AUTOR_CLIENTE)} ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustes en" : "revisó"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
             ${n.c ? `<span class="noti-com">💬 "${esc(n.c.slice(0, 120))}"</span>` : ""}
             <span class="noti-tiempo">${tiempoRelativo(n.ts)}</span>
           </span>
@@ -1392,6 +1432,7 @@ function abrirCampanita() {
     store.notis.forEach(n => { n.leida = true; });
     save();
     document.getElementById("bellBadge").hidden = true;
+    document.getElementById("bellBtn").classList.remove("con-nuevas");
   }
 }
 function cerrarCampanita() { document.getElementById("notiPanel").hidden = true; }
@@ -1766,7 +1807,7 @@ function renderAprobacion() {
         <div class="aprob-info">
           <div class="aprob-thumb" style="--brand-tint:${brandTint(p)}">${img ? `<img src="${img}" alt="">` : `${FORMATO_ICONO[p.formato] || "🎬"}`}</div>
           <div>
-            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
+            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por ? ` · ✍️ respondió ${esc(a.por)}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
             <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
             ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
@@ -2490,12 +2531,44 @@ function renderAll() {
   renderAprobacion();
   renderReferentes();
 }
+// ---------- Candado de acceso del equipo (link de aprobación) ----------
+function pedirClaveAcceso() {
+  let ok = false;
+  try { ok = localStorage.getItem("hubAccesoEquipo") === "si"; } catch {}
+  if (ok) return;
+  const velo = document.createElement("div");
+  velo.className = "candado";
+  velo.innerHTML = `
+    <div class="candado-caja">
+      <div class="logo" style="justify-content:center"><span class="logo-dot"></span><span class="logo-text">Contenido<b>Hub</b></span></div>
+      <p class="candado-txt">Acceso del equipo · escribe la clave para revisar y aprobar los contenidos</p>
+      <input type="password" id="claveInput" class="edit-input" placeholder="Clave de acceso" autocomplete="off">
+      <button class="btn-primary" id="claveBtn">Entrar</button>
+      <p class="candado-error" id="claveError" hidden>Clave incorrecta, inténtalo de nuevo.</p>
+    </div>`;
+  document.body.appendChild(velo);
+  const input = velo.querySelector("#claveInput");
+  const probar = () => {
+    if (input.value.trim() === CLAVE_ACCESO) {
+      try { localStorage.setItem("hubAccesoEquipo", "si"); } catch {}
+      velo.remove();
+    } else {
+      velo.querySelector("#claveError").hidden = false;
+      input.value = ""; input.focus();
+    }
+  };
+  velo.querySelector("#claveBtn").onclick = probar;
+  input.addEventListener("keydown", e => { if (e.key === "Enter") probar(); });
+  setTimeout(() => input.focus(), 100);
+}
+
 document.body.dataset.marca = marcaActiva;
 if (MODO_CLIENTE) {
   // Formulario de aprobación para cliente: solo la vista Aprobación
   document.body.classList.add("modo-cliente");
   renderAll();
   activarVista("aprobacion");
+  pedirClaveAcceso();
 } else {
   restoreUI();
   renderAll();
