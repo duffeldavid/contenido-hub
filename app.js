@@ -103,83 +103,21 @@ const HERO_TEXT = {
   },
 };
 
+// Fotografía real por marca (assets locales; en el Artifact van embebidas)
+const HERO_FOTOS = {
+  forestal: "assets/hero-cafe.jpg",
+  manzanares: "assets/hero-carne.jpg",
+};
 function heroArt(marca) {
-  const grain = `
-    <filter id="grano"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" stitchTiles="stitch"/><feColorMatrix type="saturate" values="0"/><feComponentTransfer><feFuncA type="linear" slope="0.06"/></feComponentTransfer><feComposite operator="in" in2="SourceGraphic"/></filter>
-    <rect width="1200" height="520" filter="url(#grano)" opacity=".8"/>`;
-  const bean = (x, y, s, r, o) => `
-    <g transform="translate(${x} ${y}) rotate(${r}) scale(${s})" opacity="${o}">
-      <ellipse rx="34" ry="48" fill="url(#beanFill)"/>
-      <path d="M0,-46 C 10,-20 -10,20 0,46" stroke="rgba(30,20,12,.55)" stroke-width="6" fill="none" stroke-linecap="round"/>
-    </g>`;
-  if (marca === "forestal") {
-    return `<svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="gF" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#141A12"/><stop offset=".45" stop-color="#22301F"/><stop offset="1" stop-color="#3A2B1A"/>
-        </linearGradient>
-        <radialGradient id="glowF" cx=".72" cy=".38" r=".6">
-          <stop offset="0" stop-color="rgba(217,164,65,.5)"/><stop offset="1" stop-color="rgba(217,164,65,0)"/>
-        </radialGradient>
-        <radialGradient id="beanFill" cx=".38" cy=".32" r="1">
-          <stop offset="0" stop-color="#8A5A32"/><stop offset="1" stop-color="#4A2E18"/>
-        </radialGradient>
-      </defs>
-      <rect width="1200" height="520" fill="url(#gF)"/>
-      <rect width="1200" height="520" fill="url(#glowF)"/>
-      ${bean(880, 150, 2.4, -24, .95)}${bean(1035, 300, 1.9, 18, .85)}${bean(760, 330, 1.5, 40, .6)}
-      ${bean(1120, 120, 1.2, -50, .5)}${bean(950, 440, 1.1, -10, .45)}${bean(660, 120, .9, 25, .3)}
-      <path d="M-20,470 C 300,430 700,505 1220,440" stroke="rgba(217,164,65,.35)" stroke-width="1.5" fill="none"/>
-      ${grain}
-    </svg>`;
+  if (marca === "forestal" || marca === "manzanares") {
+    return `<img class="hero-photo" src="${HERO_FOTOS[marca]}" alt=""><div class="hero-veil"></div>`;
   }
-  if (marca === "manzanares") {
-    return `<svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="gM" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stop-color="#160F0D"/><stop offset=".5" stop-color="#3A1B16"/><stop offset="1" stop-color="#5C221A"/>
-        </linearGradient>
-        <radialGradient id="glowM" cx=".75" cy=".7" r=".65">
-          <stop offset="0" stop-color="rgba(226,114,91,.45)"/><stop offset="1" stop-color="rgba(226,114,91,0)"/>
-        </radialGradient>
-        <radialGradient id="beanFill" cx=".38" cy=".32" r="1">
-          <stop offset="0" stop-color="#8A5A32"/><stop offset="1" stop-color="#4A2E18"/>
-        </radialGradient>
-      </defs>
-      <rect width="1200" height="520" fill="url(#gM)"/>
-      <rect width="1200" height="520" fill="url(#glowM)"/>
-      <g fill="none" stroke-linecap="round" opacity=".8">
-        <path d="M700,60 C 850,150 800,290 980,360 C 1080,400 1120,470 1140,540" stroke="rgba(246,233,228,.28)" stroke-width="10"/>
-        <path d="M810,20 C 900,140 880,240 1040,300 C 1140,340 1170,420 1180,520" stroke="rgba(246,233,228,.16)" stroke-width="22"/>
-        <path d="M620,140 C 740,240 720,330 860,410 C 940,455 960,500 970,560" stroke="rgba(246,233,228,.12)" stroke-width="5"/>
-        <path d="M980,40 C 1040,120 1010,200 1110,260" stroke="rgba(246,233,228,.2)" stroke-width="7"/>
-      </g>
-      <path d="M-20,480 C 340,440 760,510 1220,450" stroke="rgba(226,114,91,.4)" stroke-width="1.5" fill="none"/>
-      ${grain}
-    </svg>`;
-  }
-  return `<svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="gT" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0" stop-color="#191512"/><stop offset=".55" stop-color="#2B221A"/><stop offset="1" stop-color="#463020"/>
-      </linearGradient>
-      <radialGradient id="glowT" cx=".7" cy=".4" r=".65">
-        <stop offset="0" stop-color="rgba(233,196,106,.4)"/><stop offset="1" stop-color="rgba(233,196,106,0)"/>
-      </radialGradient>
-      <radialGradient id="beanFill" cx=".38" cy=".32" r="1">
-        <stop offset="0" stop-color="#8A5A32"/><stop offset="1" stop-color="#4A2E18"/>
-      </radialGradient>
-    </defs>
-    <rect width="1200" height="520" fill="url(#gT)"/>
-    <rect width="1200" height="520" fill="url(#glowT)"/>
-    ${bean(920, 180, 2, -20, .8)}${bean(1070, 330, 1.4, 22, .6)}
-    <g fill="none" stroke-linecap="round" opacity=".7">
-      <path d="M700,400 C 820,340 900,420 1020,380" stroke="rgba(226,114,91,.35)" stroke-width="9"/>
-      <path d="M640,460 C 800,400 940,480 1100,430" stroke="rgba(246,233,228,.12)" stroke-width="16"/>
-    </g>
-    <path d="M-20,475 C 320,435 740,505 1220,445" stroke="rgba(233,196,106,.35)" stroke-width="1.5" fill="none"/>
-    ${grain}
-  </svg>`;
+  return `
+    <div class="hero-diptych">
+      <img class="hero-photo" src="${HERO_FOTOS.forestal}" alt="">
+      <img class="hero-photo" src="${HERO_FOTOS.manzanares}" alt="">
+    </div>
+    <div class="hero-veil"></div>`;
 }
 
 function renderHero() {
