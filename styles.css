@@ -581,10 +581,12 @@ select.edit-input { cursor: pointer; }
 .drawer .link-btn:hover { color: var(--ink); }
 
 /* ═══════════ MODO CLIENTE (formulario de aprobación) ═══════════ */
-body.modo-cliente .tabs,
 body.modo-cliente .footer-actions,
 body.modo-cliente .sync-badge { display: none; }
-body.modo-cliente .sheet { padding-top: 18px; }
+/* El cliente solo ve dos secciones: Aprobación y Pipeline */
+body.modo-cliente .tabs button { display: none; }
+body.modo-cliente .tabs button[data-view="aprobacion"],
+body.modo-cliente .tabs button[data-view="pipeline"] { display: inline-block; }
 body.modo-cliente .aprob-row { cursor: pointer; }
 
 /* ═══════════ MICRO-ANIMACIONES ═══════════ */

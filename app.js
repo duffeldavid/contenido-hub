@@ -285,7 +285,9 @@ function moverPieza(id, fecha, idx) {
 function renderPipeline() {
   const el = document.getElementById("view-pipeline");
   const piezas = piezasVisibles();
-  let html = `<p class="view-note">El flujo de producción. Toca una pieza y cambia su estado desde el panel — el avance se guarda solo.</p><div class="pipeline">`;
+  let html = `<p class="view-note">${MODO_CLIENTE
+    ? `Así está organizada la producción: cada pieza avanza de <b>Idea</b> a <b>Publicado</b>. Toca cualquiera para ver de qué trata.`
+    : `El flujo de producción. Toca una pieza y cambia su estado desde el panel — el avance se guarda solo.`}</p><div class="pipeline">`;
   for (const est of ESTADOS) {
     const grupo = piezas.filter(p => estadoDe(p) === est);
     html += `
@@ -954,6 +956,7 @@ function openDrawerCliente(id) {
     <div class="sub">Se publica el ${dia.toLowerCase()} ${num} de septiembre</div>
     <div class="tag-row">
       <span class="chip">${FORMATO_ICONO[p.formato] || "🎬"} ${p.formato} · ${FORMATO_DESC[p.formato] || ""}</span>
+      <span class="chip estado ${ESTADO_CLASS[estadoDe(p)]}">${estadoDe(p)}</span>
     </div>
 
     ${img ? `
