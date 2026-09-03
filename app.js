@@ -345,7 +345,10 @@ function renderPageBg() {
 function renderHero() {
   const t = HERO_TEXT[marcaActiva];
   renderPageBg();
-  document.getElementById("heroEyebrow").textContent = t.eyebrow;
+  // El @ de la marca enlaza directo a su Instagram
+  document.getElementById("heroEyebrow").innerHTML = (marcaActiva === "todas")
+    ? esc(t.eyebrow)
+    : `${esc(MES.titulo)} · <a class="eyebrow-ig" href="${MARCAS[marcaActiva].instagram}" target="_blank" rel="noopener">${esc(MARCAS[marcaActiva].handle)}</a>`;
   document.getElementById("heroTitle").textContent = t.title;
   document.getElementById("heroSub").textContent = t.sub;
   document.getElementById("monthPill").textContent = MES.titulo;

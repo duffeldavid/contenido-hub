@@ -15,6 +15,7 @@ const MARCAS = {
   forestal: {
     nombre: "Café Forestal",
     handle: "@forestalcafea",
+    instagram: "https://www.instagram.com/forestalcafea/",
     color: "#7FB069",
     colorFuerte: "#4A7C59",
     notion: "https://app.notion.com/p/3c4dcde6938f810aafa2c6d674284a98",
@@ -22,6 +23,7 @@ const MARCAS = {
   manzanares: {
     nombre: "Carnes Manzanares",
     handle: "@carnesmanzanares",
+    instagram: "https://www.instagram.com/carnesmanzanares/",
     color: "#E2725B",
     colorFuerte: "#B2452C",
     notion: "https://app.notion.com/p/3d0dcde6938f81c2b352f39e517d0184",

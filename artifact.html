@@ -773,6 +773,10 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   .drawer { padding: 20px; }
 }
 
+/* El @ de la marca en el héroe enlaza a Instagram */
+.eyebrow-ig { color: #E9C46A; text-decoration: none; border-bottom: 1px solid rgba(233,196,106,.45); transition: border-color .15s; }
+.eyebrow-ig:hover { border-color: #E9C46A; }
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
@@ -869,6 +873,7 @@ const MARCAS = {
   forestal: {
     nombre: "Café Forestal",
     handle: "@forestalcafea",
+    instagram: "https://www.instagram.com/forestalcafea/",
     color: "#7FB069",
     colorFuerte: "#4A7C59",
     notion: "https://app.notion.com/p/3c4dcde6938f810aafa2c6d674284a98",
@@ -876,6 +881,7 @@ const MARCAS = {
   manzanares: {
     nombre: "Carnes Manzanares",
     handle: "@carnesmanzanares",
+    instagram: "https://www.instagram.com/carnesmanzanares/",
     color: "#E2725B",
     colorFuerte: "#B2452C",
     notion: "https://app.notion.com/p/3d0dcde6938f81c2b352f39e517d0184",
@@ -1665,7 +1671,10 @@ function renderPageBg() {
 function renderHero() {
   const t = HERO_TEXT[marcaActiva];
   renderPageBg();
-  document.getElementById("heroEyebrow").textContent = t.eyebrow;
+  // El @ de la marca enlaza directo a su Instagram
+  document.getElementById("heroEyebrow").innerHTML = (marcaActiva === "todas")
+    ? esc(t.eyebrow)
+    : `${esc(MES.titulo)} · <a class="eyebrow-ig" href="${MARCAS[marcaActiva].instagram}" target="_blank" rel="noopener">${esc(MARCAS[marcaActiva].handle)}</a>`;
   document.getElementById("heroTitle").textContent = t.title;
   document.getElementById("heroSub").textContent = t.sub;
   document.getElementById("monthPill").textContent = MES.titulo;

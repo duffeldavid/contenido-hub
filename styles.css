@@ -767,3 +767,7 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   .tabs { padding: 4px 8px 0; justify-content: flex-start; }
   .drawer { padding: 20px; }
 }
+
+/* El @ de la marca en el héroe enlaza a Instagram */
+.eyebrow-ig { color: #E9C46A; text-decoration: none; border-bottom: 1px solid rgba(233,196,106,.45); transition: border-color .15s; }
+.eyebrow-ig:hover { border-color: #E9C46A; }
