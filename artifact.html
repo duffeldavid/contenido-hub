@@ -777,6 +777,11 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 .eyebrow-ig { color: #E9C46A; text-decoration: none; border-bottom: 1px solid rgba(233,196,106,.45); transition: border-color .15s; }
 .eyebrow-ig:hover { border-color: #E9C46A; }
 
+/* En pantallas táctiles los campos van a 16px: iOS no hace auto-zoom al enfocar */
+@media (hover: none) {
+  .edit-input, .aprob-comment, .searchbar input { font-size: 16px; }
+}
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
@@ -1414,6 +1419,11 @@ function emitirDato(p) {
   const a = aprobDe(p);
   fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", autor: AUTOR_CLIENTE, ts: Date.now() }) }).catch(() => {});
 }
+// Ediciones de contenido de David hacia el link del cliente (tiempo real)
+function emitirContenido(obj) {
+  if (MODO_CLIENTE) return;
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ ...obj, autor: "David", ts: Date.now() }) }).catch(() => {});
+}
 
 // ---------- Tiempo real en la plataforma de David ----------
 function toastVivo(txt) {
@@ -1424,13 +1434,32 @@ function toastVivo(txt) {
   clearTimeout(t._h);
   t._h = setTimeout(() => t.classList.remove("on"), 6000);
 }
+const nidsVistos = new Set(); // dedup de eventos en esta sesión
 function aplicarEventoCliente(linea, enVivo) {
   try {
     const m = JSON.parse(linea);
     if (m.event !== "message") return false;
-    if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado
+    if (m.id) { if (nidsVistos.has(m.id)) return false; nidsVistos.add(m.id); }
     const d = JSON.parse(m.message);
-    if (d.tipo !== "aprob" || !d.id || !PIEZAS.some(p => p.id === d.id)) return false;
+    if (!d.id || !PIEZAS.some(p => p.id === d.id)) return false;
+    // Ediciones de contenido de David → se aplican en el link del cliente
+    if (d.tipo === "edicion") {
+      if (d.e && (d.e.titulo || d.e.copy)) store.ediciones[d.id] = d.e; else delete store.ediciones[d.id];
+      if (enVivo && MODO_CLIENTE) toastVivo("✨ David actualizó un contenido");
+      return true;
+    }
+    if (d.tipo === "fecha") {
+      const base = PIEZAS.find(p => p.id === d.id);
+      if (d.fecha === base.fecha) delete store.fechas[d.id]; else store.fechas[d.id] = d.fecha;
+      if (d.orden) Object.assign(store.orden, d.orden);
+      return true;
+    }
+    if (d.tipo === "estado") {
+      store.estados[d.id] = d.v;
+      return true;
+    }
+    if (d.tipo !== "aprob") return false;
+    if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado entre sesiones
     const autor = d.autor || AUTOR_CLIENTE;
     store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "", por: autor };
     // Registrar en el buzón de notificaciones de la plataforma
@@ -1811,6 +1840,7 @@ function moverPieza(id, fecha, idx) {
   delDia.splice(idx === undefined ? delDia.length : idx, 0, p);
   delDia.forEach((x, i) => { store.orden[x.id] = i; });
   save();
+  emitirContenido({ tipo: "fecha", id, fecha, orden: store.orden });
   renderAll();
 }
 
@@ -2490,6 +2520,7 @@ function openDrawer(id) {
     if (c && c !== p.copy) e.copy = c; else delete e.copy;
     if (Object.keys(e).length) store.ediciones[p.id] = e; else delete store.ediciones[p.id];
     save();
+    emitirContenido({ tipo: "edicion", id: p.id, e: store.ediciones[p.id] || null });
     renderAll();
   }
   inTit.onchange = guardarEdicion;
@@ -2505,6 +2536,7 @@ function openDrawer(id) {
     b.onclick = () => {
       store.estados[p.id] = b.dataset.estado;
       save();
+      emitirContenido({ tipo: "estado", id: p.id, v: b.dataset.estado });
       openDrawer(p.id);
       renderAll({ keep: true });
     };
@@ -2729,7 +2761,7 @@ function pedirClaveAcceso({ clave, texto, guardado }) {
   };
   velo.querySelector("#claveBtn").onclick = probar;
   input.addEventListener("keydown", e => { if (e.key === "Enter") probar(); });
-  setTimeout(() => input.focus(), 100);
+  if (matchMedia("(hover: hover)").matches) setTimeout(() => input.focus(), 100); // sin autofoco en táctil: evita el zoom de iOS
 }
 
 document.body.dataset.marca = marcaActiva;

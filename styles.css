@@ -771,3 +771,8 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 /* El @ de la marca en el héroe enlaza a Instagram */
 .eyebrow-ig { color: #E9C46A; text-decoration: none; border-bottom: 1px solid rgba(233,196,106,.45); transition: border-color .15s; }
 .eyebrow-ig:hover { border-color: #E9C46A; }
+
+/* En pantallas táctiles los campos van a 16px: iOS no hace auto-zoom al enfocar */
+@media (hover: none) {
+  .edit-input, .aprob-comment, .searchbar input { font-size: 16px; }
+}
