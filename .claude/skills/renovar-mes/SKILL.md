@@ -26,7 +26,7 @@ Genera el calendario del mes que David indique (si no lo indica, el mes siguient
 
 6. **Sincroniza con Notion**: crea las páginas nuevas en las bases "Calendario Forestal" (collection://1fabd923-a0c8-4f7e-aa31-8b9db162fbfb) y "Calendario Manzanares" (collection://8025589e-72b2-4318-bd90-d9ac54edf01a) con las mismas propiedades, y actualiza los enlaces `notion` de cada pieza en data.js.
 
-7. **Commit y push** para que el repo quede al día.
+7. **Commit y push**, y actualiza el enlace público con `git push origin main:gh-pages` (Pages sirve la rama gh-pages). Regenera también `python3 build_artifact.py` y republica el artifact de claude.ai fusionando antes el estado en vivo (bloque #hub-state).
 
 ## Reglas de David
 
