@@ -13,7 +13,7 @@ const MES = {
 
 const MARCAS = {
   forestal: {
-    nombre: "Forestal Café",
+    nombre: "Café Forestal",
     handle: "@forestalcafea",
     color: "#7FB069",
     colorFuerte: "#4A7C59",

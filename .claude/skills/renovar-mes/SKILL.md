@@ -1,6 +1,6 @@
 ---
 name: renovar-mes
-description: Renueva el calendario de contenidos de Contenido Hub para un nuevo mes — genera las piezas de Forestal Café y Carnes Manzanares en las fechas lunes-miércoles-viernes, actualiza data.js y sincroniza con Notion. Úsalo cuando David diga "renueva el mes", "nuevo mes de contenidos", "calendario de octubre" o similar.
+description: Renueva el calendario de contenidos de Contenido Hub para un nuevo mes — genera las piezas de Café Forestal y Carnes Manzanares en las fechas lunes-miércoles-viernes, actualiza data.js y sincroniza con Notion. Úsalo cuando David diga "renueva el mes", "nuevo mes de contenidos", "calendario de octubre" o similar.
 ---
 
 # Renovar el mes de contenidos

@@ -1,6 +1,6 @@
 # Contenido Hub
 
-Plataforma interna de David para organizar el contenido mensual de **Forestal Café** (@forestalcafea) y **Carnes Manzanares** (@carnesmanzanares).
+Plataforma interna de David para organizar el contenido mensual de **Café Forestal** (@forestalcafea) y **Carnes Manzanares** (@carnesmanzanares).
 
 Cadencia: **lunes, miércoles y viernes** (3 publicaciones por semana por marca).
 

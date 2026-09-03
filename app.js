@@ -272,7 +272,7 @@ const HERO_TEXT = {
   todas: {
     eyebrow: `${MES.titulo} · ${MES.cadencia}`,
     title: "Contenido que posiciona",
-    sub: "Forestal Café y Carnes Manzanares — el mes completo planificado, grabable en dos sesiones y listo para aprobar.",
+    sub: "Café Forestal y Carnes Manzanares — el mes completo planificado, grabable en dos sesiones y listo para aprobar.",
   },
   forestal: {
     eyebrow: `${MES.titulo} · @forestalcafea`,
@@ -624,7 +624,7 @@ function renderAprobacion() {
   el.querySelector("#btnWhatsApp").addEventListener("click", function () {
     const pendientes = piezas.filter(p => aprobDe(p).v === "Pendiente");
     const revisadas = piezas.filter(p => aprobDe(p).v !== "Pendiente");
-    const marcaTxt = marcaActiva === "todas" ? "Forestal Café + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
+    const marcaTxt = marcaActiva === "todas" ? "Café Forestal + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
     const L = [`*Contenidos ${MES.titulo} · ${marcaTxt}*`];
 
     if (pendientes.length) {

@@ -802,7 +802,7 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 
   <!-- Generador de PDF (aprobación para cliente) -->
 
-<script id="hub-state" type="application/json">{"estados": {"f-0904": "Idea"}, "checks": {}, "aprob": {"m-0904": {"v": "Aprobado", "c": "Este contenido ya se realizó el mes pasado, probemos con una idea similar", "por": "Mercadeo GM"}, "f-0911": {"v": "Aprobado", "c": "Me gusta, probemos sacar un carrusel", "por": "Mercadeo GM"}, "m-0907": {"v": "Aprobado", "c": "", "por": "Mercadeo GM"}}, "portadas": {}, "fechas": {"f-0909": "2026-09-04", "f-0904": "2026-09-09", "f-0930": "2026-09-21"}, "ediciones": {}, "orden": {}, "pdf": {}, "updatedAt": 1788413986056, "notis": [{"nid": "real-m-0907-1788413327", "piezaId": "m-0907", "v": "Aprobado", "c": "", "autor": "Mercadeo GM", "ts": 1788413327000, "leida": false}, {"nid": "real-f-0911-1788413208", "piezaId": "f-0911", "v": "Aprobado", "c": "Me gusta, probemos sacar un carrusel", "autor": "Mercadeo GM", "ts": 1788413208000, "leida": false}, {"nid": "real-m-0904-1788413132", "piezaId": "m-0904", "v": "Aprobado", "c": "Este contenido ya se realizó el mes pasado, probemos con una idea similar", "autor": "Mercadeo GM", "ts": 1788413132000, "leida": false}]}</script>
+<script id="hub-state" type="application/json">{"estados":{"f-0904":"Idea"},"checks":{},"aprob":{"m-0904":{"v":"Aprobado","c":"Este contenido ya se realizó el mes pasado, probemos con una idea similar","por":"Mercadeo GM"},"f-0911":{"v":"Aprobado","c":"Me gusta, probemos sacar un carrusel","por":"Mercadeo GM"},"m-0907":{"v":"Aprobado","c":"","por":"Mercadeo GM"}},"portadas":{},"fechas":{"f-0909":"2026-09-04","f-0904":"2026-09-09","f-0930":"2026-09-21"},"ediciones":{},"orden":{},"pdf":{},"notis":[{"nid":"real-m-0907-1788413327","piezaId":"m-0907","v":"Aprobado","c":"","autor":"Mercadeo GM","ts":1788413327000,"leida":true},{"nid":"real-f-0911-1788413208","piezaId":"f-0911","v":"Aprobado","c":"Me gusta, probemos sacar un carrusel","autor":"Mercadeo GM","ts":1788413208000,"leida":true},{"nid":"real-m-0904-1788413132","piezaId":"m-0904","v":"Aprobado","c":"Este contenido ya se realizó el mes pasado, probemos con una idea similar","autor":"Mercadeo GM","ts":1788413132000,"leida":true}],"updatedAt":1788414028697}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 window.__PRISTINE = "<!doctype html>\n" + document.documentElement.outerHTML;
@@ -821,7 +821,7 @@ const MES = {
 
 const MARCAS = {
   forestal: {
-    nombre: "Forestal Café",
+    nombre: "Café Forestal",
     handle: "@forestalcafea",
     color: "#7FB069",
     colorFuerte: "#4A7C59",
@@ -1546,7 +1546,7 @@ const HERO_TEXT = {
   todas: {
     eyebrow: `${MES.titulo} · ${MES.cadencia}`,
     title: "Contenido que posiciona",
-    sub: "Forestal Café y Carnes Manzanares — el mes completo planificado, grabable en dos sesiones y listo para aprobar.",
+    sub: "Café Forestal y Carnes Manzanares — el mes completo planificado, grabable en dos sesiones y listo para aprobar.",
   },
   forestal: {
     eyebrow: `${MES.titulo} · @forestalcafea`,
@@ -1898,7 +1898,7 @@ function renderAprobacion() {
   el.querySelector("#btnWhatsApp").addEventListener("click", function () {
     const pendientes = piezas.filter(p => aprobDe(p).v === "Pendiente");
     const revisadas = piezas.filter(p => aprobDe(p).v !== "Pendiente");
-    const marcaTxt = marcaActiva === "todas" ? "Forestal Café + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
+    const marcaTxt = marcaActiva === "todas" ? "Café Forestal + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
     const L = [`*Contenidos ${MES.titulo} · ${marcaTxt}*`];
 
     if (pendientes.length) {
