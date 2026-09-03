@@ -37,14 +37,14 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, notis: [] };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, notis: [] };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
     estados: s.estados || {}, checks: s.checks || {},
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
-    orden: s.orden || {}, pdf: s.pdf || {},
+    orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {},
     notis: s.notis || [],
     updatedAt: s.updatedAt || 0,
   };
@@ -95,9 +95,35 @@ function emitirContenido(obj) {
 }
 
 // ---------- Tiempo real en la plataforma de David ----------
+// Quitar / restaurar contenidos del mes (David tiene el control total)
+function quitarPieza(id) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p) return;
+  store.ocultas[id] = true;
+  save();
+  emitirContenido({ tipo: "ocultar", id, oculta: true });
+  renderAll();
+  toastAccion(`Quitado: ${tituloDe(p)}`, "Deshacer", () => {
+    delete store.ocultas[id];
+    save();
+    emitirContenido({ tipo: "ocultar", id, oculta: false });
+    renderAll();
+  });
+}
+function toastAccion(txt, accion, fn) {
+  let t = document.getElementById("toastLive");
+  if (!t) { t = document.createElement("div"); t.id = "toastLive"; t.className = "toast-live"; document.body.appendChild(t); }
+  t.innerHTML = `${esc(txt)} <button class="toast-btn">${esc(accion)}</button>`;
+  t.querySelector(".toast-btn").onclick = () => { fn(); t.classList.remove("on"); };
+  t.classList.add("on");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("on"), 8000);
+}
+
 function toastVivo(txt) {
   let t = document.getElementById("toastLive");
   if (!t) { t = document.createElement("div"); t.id = "toastLive"; t.className = "toast-live"; document.body.appendChild(t); }
+  t.innerHTML = "";
   t.textContent = txt;
   t.classList.add("on");
   clearTimeout(t._h);
@@ -110,7 +136,21 @@ function aplicarEventoCliente(linea, enVivo) {
     if (m.event !== "message") return false;
     if (m.id) { if (nidsVistos.has(m.id)) return false; nidsVistos.add(m.id); }
     const d = JSON.parse(m.message);
+    // Foto completa del estado de contenidos de David (re-transmisión al abrir su plataforma)
+    if (d.tipo === "snap") {
+      store.ediciones = d.ediciones || {};
+      store.fechas = d.fechas || {};
+      store.orden = d.orden || {};
+      store.estados = Object.assign({}, store.estados, d.estados || {});
+      store.ocultas = d.ocultas || {};
+      return true;
+    }
     if (!d.id || !PIEZAS.some(p => p.id === d.id)) return false;
+    if (d.tipo === "ocultar") {
+      if (d.oculta) store.ocultas[d.id] = true; else delete store.ocultas[d.id];
+      if (enVivo && MODO_CLIENTE) toastVivo(d.oculta ? "David quitó un contenido del mes" : "David restauró un contenido");
+      return true;
+    }
     // Ediciones de contenido de David → se aplican en el link del cliente
     if (d.tipo === "edicion") {
       if (d.e && (d.e.titulo || d.e.copy)) store.ediciones[d.id] = d.e; else delete store.ediciones[d.id];
@@ -228,6 +268,13 @@ function iniciarTiempoReal() {
       if (aplicarEventoCliente(e.data, true)) { save(); renderAll(); }
     };
   } catch {}
+  // David re-transmite su estado de contenidos al abrir: el cliente
+  // converge siempre a la última versión aunque haya perdido eventos.
+  if (!MODO_CLIENTE) setTimeout(() => {
+    const snap = { tipo: "snap", ediciones: store.ediciones, fechas: store.fechas, orden: store.orden, estados: store.estados, ocultas: store.ocultas, ts: Date.now() };
+    const cuerpo = JSON.stringify(snap);
+    if (cuerpo.length < 3800) fetch(NTFY_DATOS, { method: "POST", body: cuerpo }).catch(() => {});
+  }, 4000);
   // Redes de seguridad: re-sincronizar cada minuto y al volver a la pestaña
   setInterval(() => ponerseAlDia(false), 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) ponerseAlDia(false); });
@@ -251,7 +298,7 @@ const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
 // ---------- Filtro de marca ----------
 let marcaActiva = "todas";
 function piezasVisibles() {
-  return PIEZAS.filter(p => marcaActiva === "todas" || p.marca === marcaActiva)
+  return PIEZAS.filter(p => !store.ocultas[p.id] && (marcaActiva === "todas" || p.marca === marcaActiva))
     .slice().sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)));
 }
 
@@ -311,6 +358,7 @@ function pieceCard(p, { compact = false, drag = false } = {}) {
   return `
     <article class="piece ${done ? "done" : ""}" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}" data-id="${p.id}" ${drag ? `draggable="true"` : ""}>
       ${coverHtml(p, compact ? "cover-mini" : "")}
+      ${drag && !MODO_CLIENTE ? `<button class="btn-quitar" data-quitar="${p.id}" title="Quitar del mes" aria-label="Quitar del mes">✕</button>` : ""}
       <div class="piece-top">
         <span class="chip brand">${MARCAS[p.marca].nombre}</span>
         <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span>
@@ -472,6 +520,7 @@ function renderCalendario() {
 // ---------- Arrastrar y soltar entre fechas ----------
 function activarDnD(root) {
   root.querySelectorAll('.piece[draggable="true"]').forEach(card => {
+    if (!MODO_CLIENTE) activarSwipeQuitar(card);
     card.addEventListener("dragstart", e => {
       e.dataTransfer.setData("text/plain", card.dataset.id);
       e.dataTransfer.effectAllowed = "move";
@@ -499,6 +548,37 @@ function activarDnD(root) {
     });
   });
 }
+// Deslizar la tarjeta a la izquierda (táctil) para quitarla del mes
+function activarSwipeQuitar(card) {
+  let x0 = 0, y0 = 0, dx = 0, activo = false;
+  card.addEventListener("touchstart", e => {
+    x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; activo = true;
+    card.style.transition = "none";
+  }, { passive: true });
+  card.addEventListener("touchmove", e => {
+    if (!activo) return;
+    const t = e.touches[0];
+    dx = t.clientX - x0;
+    const dy = Math.abs(t.clientY - y0);
+    if (dx < -12 && dy < 40) {
+      card.style.transform = `translateX(${Math.max(dx, -150)}px)`;
+      card.style.opacity = String(Math.max(0.35, 1 + dx / 300));
+    }
+  }, { passive: true });
+  card.addEventListener("touchend", () => {
+    if (!activo) return;
+    activo = false;
+    card.style.transition = "transform .2s ease, opacity .2s ease";
+    if (dx < -95) {
+      card.style.transform = "translateX(-120%)";
+      card.style.opacity = "0";
+      setTimeout(() => quitarPieza(card.dataset.id), 180);
+    } else {
+      card.style.transform = ""; card.style.opacity = "";
+    }
+  });
+}
+
 function moverPieza(id, fecha, idx) {
   const p = PIEZAS.find(x => x.id === id);
   if (!p || !fecha) return;
@@ -561,7 +641,7 @@ function renderFeed() {
   let html = `<p class="view-note">Así se vería el feed de cada cuenta con las piezas del mes. Toca una casilla para abrir la pieza y <b>subir su portada</b> — la imagen se comprime y se guarda sola.</p><div class="feed-wrap">`;
   for (const mk of marcas) {
     const m = MARCAS[mk];
-    const piezas = PIEZAS.filter(p => p.marca === mk).sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)) || porOrden(a, b));
+    const piezas = PIEZAS.filter(p => p.marca === mk && !store.ocultas[p.id]).sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)) || porOrden(a, b));
     html += `
       <div class="phone">
         <div class="phone-head">
@@ -1311,12 +1391,14 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(
 
 // clic en tarjetas y casillas del feed
 document.getElementById("main").addEventListener("click", e => {
+  const q = e.target.closest("[data-quitar]");
+  if (q) { e.stopPropagation(); quitarPieza(q.dataset.quitar); return; }
   const card = e.target.closest(".piece, .cell");
   if (card) openDrawer(card.dataset.id);
 });
 
 // ---------- Navegación ----------
-let vistaActiva = "referentes";
+let vistaActiva = "calendario";
 function activarVista(v) {
   vistaActiva = v;
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
@@ -1384,7 +1466,7 @@ document.getElementById("btnExport").onclick = async () => {
 };
 document.getElementById("btnReset").onclick = () => {
   if (confirm("¿Reiniciar estados, checklists, aprobaciones, portadas, fechas y ediciones al valor original del calendario?")) {
-    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {} };
+    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, notis: [] };
     save();
     renderAll({ keep: true });
   }

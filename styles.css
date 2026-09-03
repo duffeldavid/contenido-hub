@@ -776,3 +776,21 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 @media (hover: none) {
   .edit-input, .aprob-comment, .searchbar input { font-size: 16px; }
 }
+
+/* Quitar contenidos: ✕ en escritorio, deslizar a la izquierda en táctil */
+.piece { touch-action: pan-y; }
+.btn-quitar {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  width: 26px; height: 26px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(12,8,6,.55); color: #fff; font-size: 13px; line-height: 1;
+  opacity: 0; transition: opacity .15s, background .15s;
+  backdrop-filter: blur(4px);
+}
+.piece { position: relative; }
+.piece:hover .btn-quitar { opacity: 1; }
+.btn-quitar:hover { background: #B23A2E; }
+@media (hover: none) { .btn-quitar { display: none; } } /* en táctil se desliza */
+.toast-btn {
+  margin-left: 12px; border: 0; border-radius: 999px; padding: 5px 14px;
+  background: #E9C46A; color: #211C16; font-weight: 700; font-size: 12.5px; cursor: pointer;
+}
