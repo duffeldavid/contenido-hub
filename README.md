@@ -40,6 +40,15 @@ Los calendarios originales viven en Notion:
 - [Sistema de Contenido Forestal](https://app.notion.com/p/3c4dcde6938f810aafa2c6d674284a98)
 - [Sistema de Contenido Carnes Manzanares](https://app.notion.com/p/3d0dcde6938f81c2b352f39e517d0184)
 
+## Cómo funciona el tiempo real (no romper)
+
+Ambos lados comparten un canal de eventos (ntfy.sh):
+- **Mercadeo GM → David**: aprobaciones y comentarios (`tipo: "aprob"`), con push al celular por el canal de notificaciones.
+- **David → Mercadeo GM**: ediciones de título/copy (`edicion`), fechas (`fecha`) y estados (`estado`).
+- Cada lado escucha por SSE + se re-sincroniza cada 60s y al volver a la pestaña.
+- **Regla de oro**: para que las ediciones lleguen en vivo al cliente, David edita desde el **enlace público o local** (el visor de claude.ai bloquea conexiones salientes). Las portadas subidas no viajan por el canal (límite de 4KB): el cliente ve las fotos de referencia.
+- Claves de acceso: plataforma `Duffel21` · link del cliente `Mercadeo123` (constantes `CLAVE_DAVID` / `CLAVE_ACCESO` en app.js).
+
 ## Equipos
 
 Sony A7V · Micrófonos Hollyland · Luz Ulanzi 40W. Los presets por formato están en `data.js` (`GEAR`).
