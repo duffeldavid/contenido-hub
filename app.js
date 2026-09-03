@@ -530,13 +530,14 @@ function renderReferentes() {
       <input type="search" id="pinQuery" class="edit-input" placeholder="Busca referencias… ej: specialty coffee reel, parrilla ASMR, butcher shop">
       <a class="btn-primary" id="pinGo" href="https://www.pinterest.com/" target="_blank" rel="noopener">Buscar en Pinterest</a>
     </form>
-    <div class="masonry">
-      ${R.mosaico.map(m => `
-        <a class="mas-item" href="https://www.pinterest.com/search/pins/?q=${encodeURIComponent(m.q)}" target="_blank" rel="noopener">
-          <img src="${m.img}" alt="${esc(m.q)}" loading="lazy">
-          <span class="mas-label">📌 ${esc(m.q)}</span>
-        </a>`).join("")}
-    </div>`;
+    ${[R.mosaico.filter((_, i) => i % 2 === 0), R.mosaico.filter((_, i) => i % 2 === 1)].map((fila, fi) => `
+      <div class="mas-rail" data-dir="${fi === 0 ? 1 : -1}">
+        ${fila.map(m => `
+          <a class="mas-item" href="https://www.pinterest.com/search/pins/?q=${encodeURIComponent(m.q)}" target="_blank" rel="noopener">
+            <img src="${m.img}" alt="${esc(m.q)}" loading="lazy">
+            <span class="mas-label">📌 ${esc(m.q)}</span>
+          </a>`).join("")}
+      </div>`).join("")}`;
 
   // rieles con flechas
   el.querySelectorAll(".rail-wrap").forEach(w => {
@@ -561,28 +562,35 @@ function renderReferentes() {
   railAnim = null;
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
     const rieles = [];
-    el.querySelectorAll(".rail-wrap").forEach(w => {
-      const rail = w.querySelector(".ref-rail");
-      if (!rail.querySelector(".ref-slide")) return; // solo los de fotos
+    const armarRiel = (rail, dir) => {
       rail.classList.add("auto");
       rail.innerHTML += rail.innerHTML; // duplicado para el bucle infinito sin saltos
-      const s = { rail, pos: 0, hover: false, hasta: 0 };
+      const s = { rail, dir, pos: dir < 0 ? rail.scrollWidth / 2 : 0, hover: false, hasta: 0 };
+      if (dir < 0) rail.scrollLeft = s.pos;
       rail.addEventListener("pointerenter", () => { s.hover = true; });
       rail.addEventListener("pointerleave", () => { s.hover = false; s.pos = rail.scrollLeft; });
       ["pointerdown", "touchstart", "wheel"].forEach(ev =>
         rail.addEventListener(ev, () => { s.hasta = performance.now() + 4000; s.pos = rail.scrollLeft; }, { passive: true }));
+      rieles.push(s);
+      return s;
+    };
+    el.querySelectorAll(".rail-wrap").forEach(w => {
+      const rail = w.querySelector(".ref-rail");
+      if (!rail.querySelector(".ref-slide")) return; // solo los de fotos
+      const s = armarRiel(rail, 1);
       w.querySelectorAll(".rail-btn").forEach(b =>
         b.addEventListener("click", () => { s.hasta = performance.now() + 4000; setTimeout(() => { s.pos = rail.scrollLeft; }, 450); }));
-      rieles.push(s);
     });
+    el.querySelectorAll(".mas-rail").forEach(rail => armarRiel(rail, Number(rail.dataset.dir) || 1));
     if (rieles.length) {
       const tick = now => {
         if (document.getElementById("view-referentes").classList.contains("active")) {
           for (const s of rieles) {
             if (s.hover || now < s.hasta) continue;
-            s.pos += 0.4; // ~24px por segundo: lento, fluido
+            s.pos += 0.4 * s.dir; // ~24px por segundo: lento, fluido
             const mitad = s.rail.scrollWidth / 2;
             if (s.pos >= mitad) s.pos -= mitad;
+            if (s.pos < 0) s.pos += mitad;
             s.rail.scrollLeft = s.pos;
           }
         }
