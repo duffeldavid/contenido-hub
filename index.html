@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contenido Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
+</head>
+<body>
+
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="logo">
+        <span class="logo-dot"></span>
+        <span class="logo-text">Contenido<b>Hub</b></span>
+      </div>
+
+      <div class="brand-switch" id="brandSwitch">
+        <button data-brand="todas" class="active">Ambas</button>
+        <button data-brand="forestal">Forestal</button>
+        <button data-brand="manzanares">Manzanares</button>
+      </div>
+
+      <div class="month-info">
+        <span class="month-name" id="monthName"></span>
+        <span class="month-cadence" id="monthCadence"></span>
+      </div>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button data-view="calendario" class="active">Calendario</button>
+      <button data-view="pipeline">Pipeline</button>
+      <button data-view="rodaje">Plan de rodaje</button>
+      <button data-view="referentes">Referentes</button>
+    </nav>
+  </header>
+
+  <div class="progress-strip" id="progressStrip"></div>
+
+  <main id="main">
+    <section id="view-calendario" class="view active"></section>
+    <section id="view-pipeline" class="view"></section>
+    <section id="view-rodaje" class="view"></section>
+    <section id="view-referentes" class="view"></section>
+  </main>
+
+  <!-- Panel de detalle -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer"></aside>
+
+  <footer class="footer">
+    <span>Hecho para David · datos sincronizados desde Notion</span>
+    <span class="footer-actions">
+      <button id="btnExport" class="link-btn">Exportar avance</button>
+      <button id="btnReset" class="link-btn">Reiniciar avance</button>
+    </span>
+  </footer>
+
+  <script src="data.js"></script>
+  <script src="referentes.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

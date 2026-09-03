@@ -1,0 +1,37 @@
+# Contenido Hub
+
+Plataforma interna de David para organizar el contenido mensual de **Forestal Café** (@forestalcafea) y **Carnes Manzanares** (@carnesmanzanares).
+
+Cadencia: **lunes, miércoles y viernes** (3 publicaciones por semana por marca).
+
+## Cómo usarla
+
+Abre `index.html` en el navegador (doble clic). No necesita servidor ni instalación.
+
+- **Calendario** — las fechas del mes con sus piezas. Toca una pieza para ver copy, checklist, equipo y referencias.
+- **Pipeline** — el flujo de producción (Idea → Por grabar → En edición → Listo → Programado → Publicado). Cambia el estado desde el panel de cada pieza.
+- **Plan de rodaje** — la clave anti-estancamiento: dos días de rodaje al mes (Sesión 1 tienda, Sesión 2 finca/campo) surten las 12 fechas de cada marca. El resto es edición.
+- **Referentes** — cuentas reales verificadas (Pergamino, Onyx, La Cabra, Victor Churchill, Max the Meat Guy…), tácticas 2025-26 y búsquedas listas para Pinterest/TikTok.
+
+El avance (estados y checklists) se guarda en el navegador (localStorage). El botón **Exportar avance** descarga un JSON con el estado del mes.
+
+## Estructura
+
+| Archivo | Qué es |
+|---|---|
+| `data.js` | Las piezas del mes (fechas, copys, checklists, equipo, referencias) |
+| `referentes.js` | Cuentas referentes y tácticas |
+| `app.js` | Lógica de la app |
+| `styles.css` | Diseño |
+
+## Renovar el mes
+
+Abre esta carpeta en Claude Code y di **"renueva el mes de contenidos"**. La skill `renovar-mes` genera el nuevo calendario (fechas L-M-V del mes siguiente, rotación de mensajes sin redundar) y lo sincroniza con Notion.
+
+Los calendarios originales viven en Notion:
+- [Sistema de Contenido Forestal](https://app.notion.com/p/3c4dcde6938f810aafa2c6d674284a98)
+- [Sistema de Contenido Carnes Manzanares](https://app.notion.com/p/3d0dcde6938f81c2b352f39e517d0184)
+
+## Equipos
+
+Sony A7V · Micrófonos Hollyland · Luz Ulanzi 40W. Los presets por formato están en `data.js` (`GEAR`).
