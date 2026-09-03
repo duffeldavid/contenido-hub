@@ -37,14 +37,14 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, notis: [] };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [] };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
     estados: s.estados || {}, checks: s.checks || {},
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
-    orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {},
+    orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {}, nuevas: s.nuevas || [],
     notis: s.notis || [],
     updatedAt: s.updatedAt || 0,
   };
@@ -143,6 +143,16 @@ function aplicarEventoCliente(linea, enVivo) {
       store.orden = d.orden || {};
       store.estados = Object.assign({}, store.estados, d.estados || {});
       store.ocultas = d.ocultas || {};
+      store.nuevas = d.nuevas || store.nuevas;
+      hidratarNuevas();
+      return true;
+    }
+    if (d.tipo === "nueva" && d.pieza && d.pieza.id) {
+      if (!store.nuevas.some(n => n.id === d.pieza.id)) {
+        store.nuevas.push(d.pieza);
+        hidratarNuevas();
+        if (enVivo && MODO_CLIENTE) toastVivo("➕ David agregó un contenido nuevo");
+      }
       return true;
     }
     if (!d.id || !PIEZAS.some(p => p.id === d.id)) return false;
@@ -271,7 +281,7 @@ function iniciarTiempoReal() {
   // David re-transmite su estado de contenidos al abrir: el cliente
   // converge siempre a la última versión aunque haya perdido eventos.
   if (!MODO_CLIENTE) setTimeout(() => {
-    const snap = { tipo: "snap", ediciones: store.ediciones, fechas: store.fechas, orden: store.orden, estados: store.estados, ocultas: store.ocultas, ts: Date.now() };
+    const snap = { tipo: "snap", ediciones: store.ediciones, fechas: store.fechas, orden: store.orden, estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas, ts: Date.now() };
     const cuerpo = JSON.stringify(snap);
     if (cuerpo.length < 3800) fetch(NTFY_DATOS, { method: "POST", body: cuerpo }).catch(() => {});
   }, 4000);
@@ -294,6 +304,64 @@ function conceptoDe(p) { return (store.ediciones[p.id] || {}).copy || p.concepto
 function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
 // Todas las fechas L-M-V del mes (los "espacios" fijos del calendario)
 const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
+
+// ---------- Piezas nuevas creadas por David ----------
+const FOTOS_DEFECTO = {
+  forestal: ["assets/ref/finca.jpg", "assets/ref/granos.jpg"],
+  manzanares: ["assets/ref/tabla.jpg", "assets/ref/victorchurchill.jpg"],
+};
+function hidratarNuevas() {
+  // quitar del arreglo las creadas que ya no estén en el estado
+  for (let i = PIEZAS.length - 1; i >= 0; i--) {
+    if (PIEZAS[i].id.startsWith("n-") && !store.nuevas.some(n => n.id === PIEZAS[i].id)) PIEZAS.splice(i, 1);
+  }
+  for (const n of store.nuevas) {
+    if (PIEZAS.some(p => p.id === n.id)) continue;
+    PIEZAS.push({
+      id: n.id, marca: n.marca, fecha: n.fecha,
+      titulo: n.titulo, formato: n.formato || "Reel",
+      mensaje: n.mensaje || "La gente", tono: n.tono || "Emocional",
+      estado: "Idea", reencauche: false, sesion: "s1",
+      copy: n.concepto || n.titulo, concepto: n.concepto || n.titulo,
+      gear: GEAR.reelNarrativo, fotos: FOTOS_DEFECTO[n.marca] || [],
+      checklist: ["Definir el plano clave", "Grabar en la próxima sesión", "Editar y subtitular", "Programar en Meta Business Suite"],
+      refs: [{ label: "Pinterest · referencias", url: "https://www.pinterest.com/search/pins/?q=" + encodeURIComponent(n.titulo) }],
+      notion: n.marca === "forestal" ? MARCAS.forestal.notion : MARCAS.manzanares.notion,
+    });
+  }
+}
+
+// Banco de ideas construido del ADN estratégico de cada marca
+const IDEAS = {
+  forestal: [
+    { t: "El error #1 al preparar café en casa (y cómo evitarlo)", c: "Video educativo corto: el error más común al preparar café en casa y la corrección en 15 segundos. Autoridad + utilidad = compartible.", f: "Reel", m: "Experiencia en tienda", tn: "Educativo" },
+    { t: "24 horas en la finca: un día de cosecha", c: "Mini-documental de un día completo en la finca: amanecer, recolección, beneficio. La historia que solo nosotros podemos contar.", f: "Reel", m: "Finca propia", tn: "Emocional" },
+    { t: "Grano verde vs tostado: el antes y después", c: "Serie de fotos comparando el grano crudo y el tostado de un mismo lote. La transformación que nadie ve.", f: "Foto", m: "3 orígenes", tn: "Dato curioso" },
+    { t: "POV: pides un café y te preguntamos el origen", c: "Video con humor: la cara del cliente cuando descubre que su café tiene nombre, finca y altura. Cercano y compartible.", f: "Reel", m: "Experiencia en tienda", tn: "Trend/Humor" },
+    { t: "Cata a ciegas: ¿reconoces tu origen favorito?", c: "Reto en tienda: clientes prueban los 3 orígenes a ciegas e intentan adivinar el suyo. Interacción real con el producto.", f: "Reel", m: "3 orígenes", tn: "Trend/Humor" },
+    { t: "3 señales de que tu café ya no está fresco", c: "Carrusel guardable: cómo saber si el café perdió frescura y cómo conservarlo bien en casa.", f: "Carrusel", m: "Orgánico", tn: "Educativo" },
+    { t: "El sonido de la primera extracción de la mañana", c: "ASMR de apertura de tienda: la máquina encendiendo, el primer espresso, la calma antes de abrir. Sensorial puro.", f: "Reel", m: "Experiencia en tienda", tn: "Sensorial" },
+    { t: "¿Por qué nuestro café no necesita azúcar?", c: "Pieza gráfica con un dato que reposiciona: el dulzor natural de un café de especialidad bien tostado. Educar es vender.", f: "Pieza gráfica", m: "Orgánico", tn: "Dato curioso" },
+  ],
+  manzanares: [
+    { t: "¿Término medio o tres cuartos? La guía definitiva", c: "Carrusel guardable: los términos de la carne explicados con fotos reales, para pedir y cocinar con seguridad.", f: "Carrusel", m: "Recetas", tn: "Educativo" },
+    { t: "El corte que los parrilleros piden en secreto", c: "Video revelando el corte favorito de los que saben — por qué rinde, cómo pedirlo y cómo llevarlo al punto.", f: "Reel", m: "Cortes y productos", tn: "Dato curioso" },
+    { t: "POV: llegas al asado con carne Manzanares", c: "Video con humor: la reacción del parche cuando ven el corte que trajiste. La marca como estatus del asador.", f: "Reel", m: "Tradición santandereana", tn: "Trend/Humor" },
+    { t: "Maduración día 1 vs día 21: la diferencia se ve", c: "Serie de fotos comparando el mismo corte al inicio y al final de la maduración. La prueba visual de nuestro estándar.", f: "Foto", m: "Calidad y maduración", tn: "Dato curioso" },
+    { t: "3 marinadas santandereanas para el fin de semana", c: "Carrusel de recetas locales: tres marinadas de la región con nuestros cortes. Tradición + antojo + guardable.", f: "Carrusel", m: "Recetas", tn: "Educativo" },
+    { t: "El sonido del sellado perfecto", c: "ASMR de cocina: el corte tocando la plancha caliente, el punto exacto de volteo, el reposo. Sin música, puro antojo.", f: "Reel", m: "Recetas", tn: "Sensorial" },
+    { t: "¿Cuánta carne por persona? El cálculo del asador", c: "Pieza gráfica con la fórmula sencilla para calcular carne por invitado. Útil, guardable y con sello de autoridad.", f: "Pieza gráfica", m: "Cortes y productos", tn: "Educativo" },
+    { t: "La vitrina a las 6 am: así empieza el estándar", c: "Video del montaje de la vitrina al amanecer: los cortes acomodándose como joyería. El oficio antes de abrir.", f: "Reel", m: "La gente", tn: "Emocional" },
+  ],
+};
+const ideasUsadas = new Set();
+function generarIdea(marca) {
+  const banco = IDEAS[marca] || IDEAS.forestal;
+  const libres = banco.filter(i => !ideasUsadas.has(i.t));
+  const idea = (libres.length ? libres : banco)[Math.floor(Math.random() * (libres.length ? libres.length : banco.length))];
+  ideasUsadas.add(idea.t);
+  return idea;
+}
 
 // ---------- Filtro de marca ----------
 let marcaActiva = "todas";
@@ -458,6 +526,7 @@ function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
         ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
       </div>
       ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
+      ${MODO_CLIENTE ? "" : `<button class="btn-mas" data-mas="${f}" title="Agregar contenido">+</button>`}
     </div>`;
 }
 
@@ -471,9 +540,12 @@ function renderCalendario() {
 
   let html = `
     <p class="view-note">Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).</p>
-    <div class="cal-toggle">
-      <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Por semanas</button>
-      <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">Lunes · Miércoles · Viernes</button>
+    <div class="cal-barra">
+      <div class="cal-toggle">
+        <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Por semanas</button>
+        <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">Lunes · Miércoles · Viernes</button>
+      </div>
+      ${!MODO_CLIENTE && Object.keys(store.ocultas).length ? `<button class="btn-restaurar" id="btnQuitados">↩ Quitados (${Object.keys(store.ocultas).length})</button>` : ""}
     </div>`;
 
   if (calModo === "dias") {
@@ -514,6 +586,9 @@ function renderCalendario() {
   el.querySelectorAll(".cal-toggle button").forEach(b => {
     b.onclick = () => { calModo = b.dataset.m; renderCalendario(); };
   });
+  const bq = el.querySelector("#btnQuitados");
+  if (bq) bq.onclick = abrirQuitados;
+  el.querySelectorAll("[data-mas]").forEach(b => { b.onclick = e => { e.stopPropagation(); abrirCreador(b.dataset.mas); }; });
   activarDnD(el);
 }
 
@@ -560,20 +635,24 @@ function activarSwipeQuitar(card) {
     const t = e.touches[0];
     dx = t.clientX - x0;
     const dy = Math.abs(t.clientY - y0);
-    if (dx < -12 && dy < 40) {
-      card.style.transform = `translateX(${Math.max(dx, -150)}px)`;
-      card.style.opacity = String(Math.max(0.35, 1 + dx / 300));
+    if (dx < -10 && dy < 48) {
+      // amortiguado: la tarjeta sigue el dedo con resistencia, fluido
+      const tx = dx * 0.72;
+      card.style.transform = `translateX(${Math.max(tx, -card.offsetWidth)}px)`;
+      card.style.opacity = String(Math.max(0.3, 1 + tx / (card.offsetWidth * 1.4)));
     }
   }, { passive: true });
   card.addEventListener("touchend", () => {
     if (!activo) return;
     activo = false;
-    card.style.transition = "transform .2s ease, opacity .2s ease";
-    if (dx < -95) {
-      card.style.transform = "translateX(-120%)";
+    const umbral = -card.offsetWidth * 0.5; // hay que arrastrar más de media tarjeta
+    if (dx * 0.72 < umbral) {
+      card.style.transition = "transform .35s cubic-bezier(.22,.8,.36,1), opacity .35s ease";
+      card.style.transform = "translateX(-115%)";
       card.style.opacity = "0";
-      setTimeout(() => quitarPieza(card.dataset.id), 180);
+      setTimeout(() => quitarPieza(card.dataset.id), 330);
     } else {
+      card.style.transition = "transform .3s cubic-bezier(.22,.8,.36,1), opacity .3s ease";
       card.style.transform = ""; card.style.opacity = "";
     }
   });
@@ -1381,6 +1460,104 @@ function openDrawerCliente(id) {
   conectarComentario(drawer, p, () => { openDrawerCliente(p.id); renderAll(); });
 }
 
+// ---------- Crear contenido nuevo (solo David) + ideas ----------
+function abrirCreador(fecha) {
+  const { dia, num } = fmtFecha(fecha);
+  const marcaIni = marcaActiva !== "todas" ? marcaActiva : "forestal";
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <h2>Nuevo contenido</h2>
+    <div class="sub">Se publicará el ${dia.toLowerCase()} ${num} de septiembre</div>
+    <section>
+      <h4>Marca</h4>
+      <div class="aprob-pills" id="creadorMarca">
+        <button data-mk="forestal" class="${marcaIni === "forestal" ? "sel" : ""}">Café Forestal</button>
+        <button data-mk="manzanares" class="${marcaIni === "manzanares" ? "sel" : ""}">Carnes Manzanares</button>
+      </div>
+    </section>
+    <section>
+      <h4>Idea</h4>
+      <input id="creadorTitulo" class="edit-input" placeholder="Título del contenido">
+      <textarea id="creadorConcepto" class="aprob-comment" style="margin-top:8px;min-height:90px" placeholder="Concepto: de qué va, qué se ve, cuál es el gancho…"></textarea>
+      <button class="btn-ghost" id="creadorIdea" style="margin-top:8px">✨ Sugerir idea</button>
+    </section>
+    <section>
+      <h4>Formato</h4>
+      <select id="creadorFormato" class="edit-input">
+        ${["Reel", "Foto", "Carrusel", "Pieza gráfica", "Historia"].map(f => `<option>${f}</option>`).join("")}
+      </select>
+    </section>
+    <button class="btn-primary" id="creadorGuardar" style="width:100%">Agregar al calendario</button>`;
+
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+
+  let mk = marcaIni;
+  let ideaMeta = null;
+  drawer.querySelectorAll("#creadorMarca button").forEach(b => {
+    b.onclick = () => {
+      mk = b.dataset.mk;
+      drawer.querySelectorAll("#creadorMarca button").forEach(x => x.classList.toggle("sel", x === b));
+    };
+  });
+  drawer.querySelector("#creadorIdea").onclick = () => {
+    const idea = generarIdea(mk);
+    ideaMeta = idea;
+    drawer.querySelector("#creadorTitulo").value = idea.t;
+    drawer.querySelector("#creadorConcepto").value = idea.c;
+    drawer.querySelector("#creadorFormato").value = idea.f;
+  };
+  drawer.querySelector("#creadorGuardar").onclick = () => {
+    const titulo = drawer.querySelector("#creadorTitulo").value.trim();
+    if (!titulo) { drawer.querySelector("#creadorTitulo").focus(); return; }
+    const nueva = {
+      id: "n-" + Date.now().toString(36),
+      marca: mk, fecha: fecha, titulo,
+      concepto: drawer.querySelector("#creadorConcepto").value.trim() || titulo,
+      formato: drawer.querySelector("#creadorFormato").value,
+      mensaje: ideaMeta ? ideaMeta.m : (mk === "forestal" ? "Experiencia en tienda" : "Cortes y productos"),
+      tono: ideaMeta ? ideaMeta.tn : "Emocional",
+    };
+    store.nuevas.push(nueva);
+    hidratarNuevas();
+    save();
+    emitirContenido({ tipo: "nueva", pieza: nueva });
+    closeDrawer();
+    renderAll();
+    toastVivo(`➕ Agregado al ${num} de septiembre: ${titulo}`);
+  };
+}
+
+// Panel de contenidos quitados: recuperar en un toque
+function abrirQuitados() {
+  const ocultas = PIEZAS.filter(p => store.ocultas[p.id]);
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <h2>Contenidos quitados</h2>
+    <div class="sub">Recupera cualquiera con un toque</div>
+    ${ocultas.map(p => `
+      <div class="quitado-fila">
+        <span class="chip brand" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}">${MARCAS[p.marca].nombre}</span>
+        <span class="quitado-titulo">${esc(tituloDe(p))}</span>
+        <button class="btn-ghost" data-restaurar="${p.id}">↩ Restaurar</button>
+      </div>`).join("") || `<p class="sub">No hay contenidos quitados.</p>`}`;
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  drawer.querySelectorAll("[data-restaurar]").forEach(b => {
+    b.onclick = () => {
+      delete store.ocultas[b.dataset.restaurar];
+      save();
+      emitirContenido({ tipo: "ocultar", id: b.dataset.restaurar, oculta: false });
+      renderAll();
+      if (Object.keys(store.ocultas).length) abrirQuitados(); else closeDrawer();
+    };
+  });
+}
+
 function closeDrawer() {
   drawer.classList.remove("open");
   backdrop.classList.remove("open");
@@ -1411,7 +1588,8 @@ document.getElementById("brandSwitch").addEventListener("click", e => {
   const b = e.target.closest("button");
   if (!b) return;
   marcaActiva = b.dataset.brand;
-  document.body.dataset.marca = marcaActiva;
+  hidratarNuevas();
+document.body.dataset.marca = marcaActiva;
   document.querySelectorAll("#brandSwitch button").forEach(x => x.classList.toggle("active", x === b));
   renderAll({ keep: true });
   saveUI();
@@ -1466,7 +1644,7 @@ document.getElementById("btnExport").onclick = async () => {
 };
 document.getElementById("btnReset").onclick = () => {
   if (confirm("¿Reiniciar estados, checklists, aprobaciones, portadas, fechas y ediciones al valor original del calendario?")) {
-    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, notis: [] };
+    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [] };
     save();
     renderAll({ keep: true });
   }

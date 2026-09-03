@@ -794,3 +794,29 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   margin-left: 12px; border: 0; border-radius: 999px; padding: 5px 14px;
   background: #E9C46A; color: #211C16; font-weight: 700; font-size: 12.5px; cursor: pointer;
 }
+
+/* Botón + minimalista para agregar contenido a un día */
+.btn-mas {
+  width: 100%; border: 1.5px dashed rgba(255,255,255,.35); background: transparent;
+  color: rgba(255,255,255,.75); border-radius: var(--radius);
+  font-size: 20px; font-weight: 300; padding: 8px 0; cursor: pointer;
+  transition: all .18s;
+}
+.btn-mas:hover { border-color: #E9C46A; color: #E9C46A; background: rgba(255,255,255,.06); }
+
+/* Barra del calendario: conmutador + quitados */
+.cal-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 22px; }
+.cal-barra .cal-toggle { margin-bottom: 0; }
+.btn-restaurar {
+  border: 0; background: rgba(255,255,255,.12); color: #fff;
+  font-size: 12.5px; font-weight: 600; padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  transition: background .15s;
+}
+.btn-restaurar:hover { background: rgba(255,255,255,.22); }
+
+/* Fila del panel de quitados */
+.quitado-fila {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 12px 0; border-bottom: 1px solid var(--line-soft);
+}
+.quitado-fila .quitado-titulo { flex: 1; min-width: 140px; font-size: 13.5px; font-weight: 600; }
