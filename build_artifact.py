@@ -71,6 +71,7 @@ artifact = f"""<title>Contenido Hub</title>
 {body}
 
 <script id="hub-state" type="application/json">{{"estados":{{}},"checks":{{}},"updatedAt":0}}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 window.__PRISTINE = "<!doctype html>\\n" + document.documentElement.outerHTML;
 {data}

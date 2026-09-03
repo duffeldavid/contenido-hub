@@ -611,45 +611,6 @@ body.modo-cliente .sheet { padding-top: 18px; }
 }
 .pdf-check input { accent-color: var(--accent); cursor: pointer; }
 
-#printDoc { display: none; }
-@media print {
-  @page { margin: 14mm; }
-  body > *:not(#printDoc) { display: none !important; }
-  .page-bg, .drawer, .drawer-backdrop, .tabs, .hero, .sheet { display: none !important; }
-  body { background: #fff !important; }
-  #printDoc { display: block !important; }
-}
-#printDoc { font-family: var(--font-body); color: #211C16; background: #fff; }
-.pd-header { border-bottom: 3px solid #211C16; padding-bottom: 16px; margin-bottom: 22px; }
-.pd-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: #8A5A2B; }
-.pd-header h1 { font-family: var(--font-head); font-size: 30px; line-height: 1.1; margin: 6px 0 8px; }
-.pd-meta { font-size: 12.5px; color: #6E675C; }
-.pd-intro { font-size: 13px; color: #211C16; margin-top: 10px; max-width: 70ch; }
-.pd-marca { margin-bottom: 26px; }
-.pd-marca h2 {
-  font-family: var(--font-head); font-size: 19px; margin: 18px 0 6px;
-  display: flex; align-items: center; gap: 9px;
-}
-.pd-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--pd-color); }
-.pd-handle { font-size: 13px; font-weight: 400; color: #6E675C; }
-.pd-piece {
-  display: flex; gap: 14px; padding: 13px 0;
-  border-bottom: 1px solid #E7E1D6;
-  break-inside: avoid; page-break-inside: avoid;
-}
-.pd-thumb {
-  width: 84px; aspect-ratio: 3 / 4; border-radius: 10px; overflow: hidden; flex: none;
-  background: #F3EFE8; display: grid; place-items: center; font-size: 22px;
-  border: 1px solid #E7E1D6;
-}
-.pd-thumb img { width: 100%; height: 100%; object-fit: cover; }
-.pd-fecha { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--pd-color, #8A5A2B); }
-.pd-body h3 { font-family: var(--font-head); font-size: 15.5px; margin: 3px 0 5px; }
-.pd-body p { font-size: 12.5px; color: #4A443C; line-height: 1.5; }
-.pd-footer { margin-top: 26px; break-inside: avoid; }
-.pd-cta { font-size: 13.5px; background: #F3EFE8; border-radius: 12px; padding: 14px 16px; }
-.pd-firma { display: flex; justify-content: space-between; gap: 20px; margin-top: 34px; font-size: 13px; color: #4A443C; flex-wrap: wrap; }
-
 /* ═══════════ MÓVIL ═══════════ */
 @media (max-width: 640px) {
   .hero { padding: 12px 14px 0; border-radius: 0 0 20px 20px; }

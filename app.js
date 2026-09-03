@@ -121,8 +121,8 @@ const HERO_TEXT = {
 
 // Fotografía real de fondo por marca (assets locales; en el Artifact van embebidas)
 const BG_FOTOS = {
-  forestal: "assets/bg-forestal.jpg",     // finca con sombrío
-  tostadora: "assets/bg-tostadora.jpg",   // tostadora con granos
+  forestal: "assets/bg-tostadora.jpg",    // tostadora con granos (llamativa)
+  tostadora: "assets/bg-tostadora.jpg",
   manzanares: "assets/bg-manzanares.jpg", // cortes sobre madera
 };
 let bgActual = null;
@@ -601,63 +601,114 @@ function renderReferentes() {
   }
 }
 
-// ---------- PDF de aprobación para cliente ----------
-function renderPrintDoc() {
+// ---------- PDF de aprobación para cliente (jsPDF) ----------
+const PDF_COLORES = { ink: [33, 28, 22], dim: [110, 103, 92], suave: [74, 68, 60], miel: [138, 90, 43] };
+
+function construirPdf() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const W = 210, M = 16, ANCHO = W - M * 2;
+  let y = 20;
   const piezas = piezasVisibles().filter(p => store.pdf[p.id] !== false);
   const marcas = [...new Set(piezas.map(p => p.marca))];
   const hoy = new Date();
   const fechaDoc = `${hoy.getDate()} de ${["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][hoy.getMonth()]} de ${hoy.getFullYear()}`;
+  const salto = alto => { if (y + alto > 278) { doc.addPage(); y = 20; } };
 
-  let html = `
-    <div class="pd-header">
-      <div class="pd-eyebrow">Propuesta de contenidos · ${esc(MES.titulo)}</div>
-      <h1>${marcas.map(m => MARCAS[m].nombre).join(" · ")}</h1>
-      <div class="pd-meta">${piezas.length} piezas · Publicación ${MES.cadencia.toLowerCase()} · Preparado por David · ${fechaDoc}</div>
-      <p class="pd-intro">Revisa cada pieza y responde con tu aprobación o los ajustes que quieras. Cada contenido incluye su fecha de publicación, formato y concepto.</p>
-    </div>`;
+  // Cabecera
+  doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...PDF_COLORES.miel);
+  doc.text(`PROPUESTA DE CONTENIDOS · ${MES.titulo.toUpperCase()}`, M, y); y += 8;
+  doc.setFontSize(22).setTextColor(...PDF_COLORES.ink);
+  doc.text(marcas.map(m => MARCAS[m].nombre).join("  ·  "), M, y); y += 7;
+  doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...PDF_COLORES.dim);
+  doc.text(`${piezas.length} piezas · Publicación ${MES.cadencia.toLowerCase()} · Preparado por David · ${fechaDoc}`, M, y); y += 7;
+  doc.setFontSize(10.5).setTextColor(...PDF_COLORES.suave);
+  const intro = doc.splitTextToSize("Revisa cada pieza y responde con tu aprobación o los ajustes que quieras. Cada contenido incluye su fecha de publicación, formato y concepto.", ANCHO);
+  doc.text(intro, M, y); y += intro.length * 4.6 + 3;
+  doc.setDrawColor(...PDF_COLORES.ink).setLineWidth(0.8).line(M, y, W - M, y); y += 9;
 
   for (const mk of marcas) {
     const m = MARCAS[mk];
-    const grupo = piezas.filter(p => p.marca === mk);
-    html += `
-      <div class="pd-marca" style="--pd-color:${m.colorFuerte}">
-        <h2><span class="pd-dot"></span>${m.nombre} <span class="pd-handle">${m.handle}</span></h2>
-        ${grupo.map(p => {
-          const f = fmtFecha(fechaDe(p));
-          const img = portadaDe(p);
-          return `
-            <div class="pd-piece">
-              <div class="pd-thumb">${img ? `<img src="${img}" alt="">` : `<span>${FORMATO_ICONO[p.formato] || "🎬"}</span>`}</div>
-              <div class="pd-body">
-                <div class="pd-fecha">${f.dia} ${f.num} de septiembre · ${p.formato} · ${esc(p.mensaje)} · ${esc(p.tono)}</div>
-                <h3>${esc(tituloDe(p))}</h3>
-                <p>${esc(copyDe(p))}</p>
-              </div>
-            </div>`;
-        }).join("")}
-      </div>`;
+    const rgb = mk === "forestal" ? [74, 124, 89] : [178, 69, 44];
+    salto(16);
+    doc.setFillColor(...rgb).circle(M + 2.2, y - 1.6, 2.2, "F");
+    doc.setFont("helvetica", "bold").setFontSize(14).setTextColor(...PDF_COLORES.ink);
+    doc.text(m.nombre, M + 7, y);
+    doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...PDF_COLORES.dim);
+    doc.text(m.handle, M + 9 + doc.getTextWidth(m.nombre) * 1.4, y);
+    y += 7;
+
+    for (const p of piezas.filter(x => x.marca === mk)) {
+      const f = fmtFecha(fechaDe(p));
+      const img = portadaDe(p);
+      const xTexto = M + 27, anchoTexto = ANCHO - 27;
+      const titulo = doc.setFont("helvetica", "bold").setFontSize(12).splitTextToSize(tituloDe(p), anchoTexto);
+      const copy = doc.setFont("helvetica", "normal").setFontSize(9.5).splitTextToSize(copyDe(p), anchoTexto);
+      const altoBloque = Math.max(30, 6 + titulo.length * 5 + copy.length * 4 + 4);
+      salto(altoBloque + 6);
+
+      if (img) {
+        try { doc.addImage(img, "JPEG", M, y, 22, 29); } catch {}
+      } else {
+        doc.setFillColor(243, 239, 232).roundedRect(M, y, 22, 29, 2, 2, "F");
+        doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...PDF_COLORES.dim);
+        doc.text(p.formato.toUpperCase(), M + 11, y + 15.5, { align: "center" });
+      }
+      doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...rgb);
+      doc.text(`${f.dia.toUpperCase()} ${f.num} DE SEPTIEMBRE · ${p.formato.toUpperCase()} · ${p.mensaje.toUpperCase()}`, xTexto, y + 3.5);
+      doc.setFontSize(12).setTextColor(...PDF_COLORES.ink);
+      doc.text(titulo, xTexto, y + 9.5);
+      doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(...PDF_COLORES.suave);
+      doc.text(copy, xTexto, y + 10 + titulo.length * 5);
+      y += altoBloque;
+      doc.setDrawColor(231, 225, 214).setLineWidth(0.25).line(M, y, W - M, y);
+      y += 6;
+    }
+    y += 4;
   }
 
-  html += `
-    <div class="pd-footer">
-      <p class="pd-cta">¿Todo listo? Responde por WhatsApp: <b>"Aprobado para que los realices"</b> — o indícanos los ajustes pieza por pieza.</p>
-      <div class="pd-firma">
-        <span>Aprobado por: ________________________</span>
-        <span>Fecha: ______________</span>
-      </div>
-    </div>`;
-  document.getElementById("printDoc").innerHTML = html;
+  // Cierre y firma
+  salto(46);
+  doc.setFillColor(243, 239, 232).roundedRect(M, y, ANCHO, 18, 3, 3, "F");
+  doc.setFont("helvetica", "bold").setFontSize(10.5).setTextColor(...PDF_COLORES.ink);
+  doc.text("¿Todo listo? Responde por WhatsApp: \"Aprobado para que los realices\"", M + 6, y + 8);
+  doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(...PDF_COLORES.suave);
+  doc.text("— o indícanos los ajustes pieza por pieza.", M + 6, y + 13.5);
+  y += 30;
+  doc.setFontSize(10.5).setTextColor(...PDF_COLORES.suave);
+  doc.text("Aprobado por: ________________________", M, y);
+  doc.text("Fecha: ________________", W - M, y, { align: "right" });
+
+  // Pie de página
+  const paginas = doc.getNumberOfPages();
+  for (let i = 1; i <= paginas; i++) {
+    doc.setPage(i);
+    doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(...PDF_COLORES.dim);
+    doc.text(`Contenido Hub · ${MES.titulo}`, M, 290);
+    doc.text(`Página ${i} de ${paginas}`, W - M, 290, { align: "right" });
+  }
+  return doc;
 }
 
-function exportarPdf() {
-  renderPrintDoc();
-  document.body.classList.add("imprimiendo");
-  try {
-    window.print(); // el diálogo permite "Guardar como PDF"
-  } catch {
-    alert("Tu navegador bloqueó la impresión aquí. Abre la plataforma en el navegador (index.html o el enlace público) y vuelve a intentarlo.");
+async function exportarPdf() {
+  if (!window.jspdf) {
+    alert("El generador de PDF no cargó. Revisa tu conexión e intenta recargar la página.");
+    return;
   }
-  setTimeout(() => document.body.classList.remove("imprimiendo"), 500);
+  const doc = construirPdf();
+  const filename = `contenidos-${MES.clave}.pdf`;
+  if (window.claude && typeof window.claude.use === "function") {
+    try {
+      const dl = await window.claude.use("downloads");
+      if (dl) { await dl.save({ filename, data: doc.output("arraybuffer") }); return; }
+      alert("Aquí el visor aún no permite descargas. Abre la plataforma desde el enlace público o el archivo local y el PDF se descargará directo.");
+      return;
+    } catch (e) {
+      if (e && (e.code === "declined" || e.code === "rate_limited")) return;
+      // cualquier otro error: intentamos la descarga directa
+    }
+  }
+  doc.save(filename);
 }
 
 // ---------- Portadas (subir imagen) ----------
