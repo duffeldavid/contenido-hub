@@ -168,16 +168,31 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   justify-content: center;
 }
 .tabs button {
-  border: 0; background: transparent; color: #fff;
+  border: 0; cursor: pointer; white-space: nowrap;
   font-family: var(--font-head); font-size: 19px; font-weight: 700;
-  padding: 14px 20px; cursor: pointer; white-space: nowrap;
+  padding: 14px 20px;
   border-bottom: 3px solid transparent;
-  text-shadow: 0 1px 10px rgba(0,0,0,.55);
-  opacity: .78;
-  transition: opacity .18s, border-color .18s, transform .18s;
+  /* acabado cromado: degradado metálico dentro de las letras + destello en movimiento */
+  background: linear-gradient(105deg,
+    #cfccc5 0%, #ffffff 18%, #b9b5ad 32%, #ffffff 48%,
+    #d8d4cd 62%, #ffffff 80%, #cfccc5 100%);
+  background-size: 240% 100%;
+  -webkit-background-clip: text; background-clip: text;
+  color: transparent; -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)) drop-shadow(0 0 14px rgba(255,255,255,.2));
+  animation: cromado 7s linear infinite;
+  opacity: .82;
+  transition: opacity .18s, border-color .18s, transform .18s, filter .18s;
 }
-.tabs button:hover { opacity: 1; transform: translateY(-1px); }
-.tabs button.active { opacity: 1; border-bottom-color: #E9C46A; }
+@keyframes cromado { from { background-position: 0% 0; } to { background-position: 240% 0; } }
+.tabs button:hover {
+  opacity: 1; transform: translateY(-1px);
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)) drop-shadow(0 0 18px rgba(255,255,255,.45));
+}
+.tabs button.active {
+  opacity: 1; border-bottom-color: #E9C46A;
+  filter: drop-shadow(0 1px 4px rgba(0,0,0,.65)) drop-shadow(0 0 16px rgba(233,196,106,.5));
+}
 
 /* ═══════════ MAIN ═══════════ */
 main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
