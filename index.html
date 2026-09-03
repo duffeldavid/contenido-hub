@@ -12,10 +12,11 @@
 </head>
 <body data-marca="todas">
 
+  <!-- Fondo fotográfico de toda la página -->
+  <div class="page-bg" id="pageBg" aria-hidden="true"></div>
+
   <!-- ═══════════ HERO ═══════════ -->
   <div class="hero" id="hero">
-    <div class="hero-art" id="heroArt" aria-hidden="true"></div>
-
     <header class="navbar">
       <div class="logo">
         <span class="logo-dot"></span>
@@ -41,6 +42,8 @@
     <div class="hero-stats" id="heroStats"></div>
   </div>
 
+  <!-- Lámina de vidrio esmerilado con todo el contenido -->
+  <div class="sheet">
   <nav class="tabs" id="tabs">
     <button data-view="calendario" class="active">Calendario</button>
     <button data-view="pipeline">Pipeline</button>
@@ -70,6 +73,7 @@
       <button id="btnReset" class="link-btn">Reiniciar avance</button>
     </span>
   </footer>
+  </div><!-- /sheet -->
 
   <script src="data.js"></script>
   <script src="referentes.js"></script>

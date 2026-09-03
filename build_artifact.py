@@ -82,7 +82,7 @@ window.__PRISTINE = "<!doctype html>\\n" + document.documentElement.outerHTML;
 # Fotos del héroe embebidas como data URI (el visor de claude.ai
 # bloquea imágenes externas y no sirve archivos locales aparte)
 import base64
-for nombre in ("hero-cafe.jpg", "hero-carne.jpg"):
+for nombre in ("bg-forestal.jpg", "bg-tostadora.jpg", "bg-manzanares.jpg"):
     ruta = ROOT / "assets" / nombre
     if ruta.exists():
         b64 = base64.b64encode(ruta.read_bytes()).decode()

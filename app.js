@@ -23,12 +23,13 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {} };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {} };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
     estados: s.estados || {}, checks: s.checks || {},
     aprob: s.aprob || {}, portadas: s.portadas || {},
+    fechas: s.fechas || {}, ediciones: s.ediciones || {},
     updatedAt: s.updatedAt || 0,
   };
 }
@@ -41,12 +42,18 @@ function estadoDe(p) { return store.estados[p.id] || p.estado; }
 function checksDe(p) { return store.checks[p.id] || []; }
 function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
 function portadaDe(p) { return store.portadas[p.id] || null; }
+function fechaDe(p) { return store.fechas[p.id] || p.fecha; }
+function tituloDe(p) { return (store.ediciones[p.id] || {}).titulo || p.titulo; }
+function copyDe(p) { return (store.ediciones[p.id] || {}).copy || p.copy; }
+function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
+// Todas las fechas L-M-V del mes (los "espacios" fijos del calendario)
+const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
 
 // ---------- Filtro de marca ----------
 let marcaActiva = "todas";
 function piezasVisibles() {
   return PIEZAS.filter(p => marcaActiva === "todas" || p.marca === marcaActiva)
-    .slice().sort((a, b) => a.fecha.localeCompare(b.fecha));
+    .slice().sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)));
 }
 
 // ---------- Helpers ----------
@@ -66,20 +73,21 @@ function brandColor(p) { return MARCAS[p.marca].color; }
 function brandTint(p) { return p.marca === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"; }
 const FORMATO_ICONO = { "Reel": "🎬", "Foto": "📷", "Carrusel": "🖼️", "Pieza gráfica": "✏️", "Historia": "⚡" };
 
-function pieceCard(p, { compact = false } = {}) {
+function pieceCard(p, { compact = false, drag = false } = {}) {
   const est = estadoDe(p);
   const ap = aprobDe(p).v;
   const done = est === "Publicado";
   return `
-    <article class="piece ${done ? "done" : ""}" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}" data-id="${p.id}">
+    <article class="piece ${done ? "done" : ""}" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}" data-id="${p.id}" ${drag ? `draggable="true"` : ""}>
       <div class="piece-top">
         <span class="chip brand">${MARCAS[p.marca].nombre}</span>
         <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span>
         ${ap === "Aprobado" ? `<span class="chip aprobado">✓ Aprobado</span>` : ""}
         ${ap === "Ajustar" ? `<span class="chip ajustar">Ajustar</span>` : ""}
         ${p.reencauche ? `<span class="chip reencauche">Reencauche</span>` : ""}
+        ${editadaDe(p) ? `<span class="chip editada">Editada</span>` : ""}
       </div>
-      <div class="piece-title">${esc(p.titulo)}</div>
+      <div class="piece-title">${esc(tituloDe(p))}</div>
       ${compact ? "" : `<div class="piece-meta">${p.formato} · ${esc(p.mensaje)} · ${esc(p.tono)}</div>`}
     </article>`;
 }
@@ -103,26 +111,32 @@ const HERO_TEXT = {
   },
 };
 
-// Fotografía real por marca (assets locales; en el Artifact van embebidas)
-const HERO_FOTOS = {
-  forestal: "assets/hero-cafe.jpg",
-  manzanares: "assets/hero-carne.jpg",
+// Fotografía real de fondo por marca (assets locales; en el Artifact van embebidas)
+const BG_FOTOS = {
+  forestal: "assets/bg-forestal.jpg",     // finca con sombrío
+  tostadora: "assets/bg-tostadora.jpg",   // tostadora con granos
+  manzanares: "assets/bg-manzanares.jpg", // cortes sobre madera
 };
-function heroArt(marca) {
-  if (marca === "forestal" || marca === "manzanares") {
-    return `<img class="hero-photo" src="${HERO_FOTOS[marca]}" alt=""><div class="hero-veil"></div>`;
+let bgActual = null;
+function renderPageBg() {
+  if (bgActual === marcaActiva) return; // no recargar las fotos en cada render
+  bgActual = marcaActiva;
+  const bg = document.getElementById("pageBg");
+  if (marcaActiva === "forestal" || marcaActiva === "manzanares") {
+    bg.innerHTML = `<img class="bg-photo" src="${BG_FOTOS[marcaActiva]}" alt=""><div class="bg-veil"></div>`;
+  } else {
+    bg.innerHTML = `
+      <div class="bg-diptych">
+        <img class="bg-photo" src="${BG_FOTOS.tostadora}" alt="">
+        <img class="bg-photo" src="${BG_FOTOS.manzanares}" alt="">
+      </div>
+      <div class="bg-veil"></div>`;
   }
-  return `
-    <div class="hero-diptych">
-      <img class="hero-photo" src="${HERO_FOTOS.forestal}" alt="">
-      <img class="hero-photo" src="${HERO_FOTOS.manzanares}" alt="">
-    </div>
-    <div class="hero-veil"></div>`;
 }
 
 function renderHero() {
   const t = HERO_TEXT[marcaActiva];
-  document.getElementById("heroArt").innerHTML = heroArt(marcaActiva);
+  renderPageBg();
   document.getElementById("heroEyebrow").textContent = t.eyebrow;
   document.getElementById("heroTitle").textContent = t.title;
   document.getElementById("heroSub").textContent = t.sub;
@@ -147,11 +161,12 @@ function renderCalendario() {
   const hoy = hoyISO();
 
   const porFecha = {};
-  piezas.forEach(p => (porFecha[p.fecha] = porFecha[p.fecha] || []).push(p));
-  const fechas = Object.keys(porFecha).sort();
+  piezas.forEach(p => (porFecha[fechaDe(p)] = porFecha[fechaDe(p)] || []).push(p));
 
+  // Los espacios del calendario son SIEMPRE todos los L-M-V del mes,
+  // aunque queden vacíos al arrastrar piezas a otra fecha.
   const semanas = {};
-  fechas.forEach(f => {
+  FECHAS_MES.forEach(f => {
     const { date } = fmtFecha(f);
     const monday = new Date(date);
     monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
@@ -159,26 +174,63 @@ function renderCalendario() {
     (semanas[wk] = semanas[wk] || []).push(f);
   });
 
-  let html = `<p class="view-note">Cada fecha de publicación con sus piezas. Toca una pieza para ver el copy completo, el checklist, el equipo, la portada y las referencias.</p>`;
+  let html = `<p class="view-note">Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).</p>`;
   let wkNum = 1;
   for (const wk of Object.keys(semanas).sort()) {
     html += `<div class="cal-week"><div class="cal-week-label">Semana ${wkNum++}</div><div class="cal-days">`;
     for (const f of semanas[wk]) {
       const { dia, num } = fmtFecha(f);
       const esHoy = f === hoy;
+      const grupo = porFecha[f] || [];
       html += `
-        <div class="cal-day">
+        <div class="cal-day" data-fecha="${f}">
           <div class="cal-day-head ${esHoy ? "today" : ""}">
             <span class="cal-day-name">${dia}</span>
             <span class="cal-day-date">${num} de septiembre</span>
             ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
           </div>
-          ${porFecha[f].map(p => pieceCard(p)).join("")}
+          ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
+          <div class="drop-hint">Suelta aquí</div>
         </div>`;
     }
     html += `</div></div>`;
   }
   el.innerHTML = html;
+  activarDnD(el);
+}
+
+// ---------- Arrastrar y soltar entre fechas ----------
+function activarDnD(root) {
+  root.querySelectorAll('.piece[draggable="true"]').forEach(card => {
+    card.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", card.dataset.id);
+      e.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+      root.classList.add("drag-activa");
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("dragging");
+      root.classList.remove("drag-activa");
+      root.querySelectorAll(".cal-day.drag-over").forEach(d => d.classList.remove("drag-over"));
+    });
+  });
+  root.querySelectorAll(".cal-day").forEach(day => {
+    day.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; day.classList.add("drag-over"); });
+    day.addEventListener("dragleave", () => day.classList.remove("drag-over"));
+    day.addEventListener("drop", e => {
+      e.preventDefault();
+      const id = e.dataTransfer.getData("text/plain");
+      moverPieza(id, day.dataset.fecha);
+    });
+  });
+}
+function moverPieza(id, fecha) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p || !fecha || fechaDe(p) === fecha) return;
+  if (fecha === p.fecha) delete store.fechas[id];
+  else store.fechas[id] = fecha;
+  save();
+  renderAll();
 }
 
 // ---------- Vista: Pipeline ----------
@@ -227,7 +279,7 @@ function renderFeed() {
   let html = `<p class="view-note">Así se vería el feed de cada cuenta con las piezas del mes. Toca una casilla para abrir la pieza y <b>subir su portada</b> — la imagen se comprime y se guarda sola.</p><div class="feed-wrap">`;
   for (const mk of marcas) {
     const m = MARCAS[mk];
-    const piezas = PIEZAS.filter(p => p.marca === mk).sort((a, b) => b.fecha.localeCompare(a.fecha));
+    const piezas = PIEZAS.filter(p => p.marca === mk).sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)));
     html += `
       <div class="phone">
         <div class="phone-head">
@@ -240,12 +292,12 @@ function renderFeed() {
         <div class="phone-grid">
           ${piezas.map(p => {
             const img = portadaDe(p);
-            const d = p.fecha.slice(8);
+            const d = fechaDe(p).slice(8);
             return `
-              <button class="cell ${img ? "has-img" : ""}" data-id="${p.id}" title="${esc(p.titulo)}">
+              <button class="cell ${img ? "has-img" : ""}" data-id="${p.id}" title="${esc(tituloDe(p))}">
                 ${img
-                  ? `<img src="${img}" alt="${esc(p.titulo)}">`
-                  : `<span class="cell-ph"><span class="cell-fmt">${FORMATO_ICONO[p.formato] || "🎬"}</span><span class="cell-tit">${esc(p.titulo)}</span></span>`}
+                  ? `<img src="${img}" alt="${esc(tituloDe(p))}">`
+                  : `<span class="cell-ph"><span class="cell-fmt">${FORMATO_ICONO[p.formato] || "🎬"}</span><span class="cell-tit">${esc(tituloDe(p))}</span></span>`}
                 <span class="cell-date">${d} sep</span>
                 <span class="cell-hint">${img ? "Toca para abrir" : "Toca para abrir y subir portada"}</span>
               </button>`;
@@ -266,17 +318,18 @@ function renderAprobacion() {
     <p class="view-note">Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.</p>
     <div class="aprob-toolbar">
       <button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>
+      <button class="btn-ghost" id="btnWhatsApp">📲 Enviar revisión por WhatsApp</button>
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${piezas.length} aprobadas</span>
     </div>`;
   for (const p of piezas) {
-    const { dia, num } = fmtFecha(p.fecha);
+    const { dia, num } = fmtFecha(fechaDe(p));
     const a = aprobDe(p);
     html += `
       <div class="aprob-row" data-id="${p.id}">
         <div class="aprob-info">
           <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
-          <h4>${esc(p.titulo)}</h4>
-          <div class="copy">${esc(p.copy)}</div>
+          <h4>${esc(tituloDe(p))}</h4>
+          <div class="copy">${esc(copyDe(p))}</div>
           <button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>
         </div>
         <div class="aprob-controls">
@@ -309,6 +362,20 @@ function renderAprobacion() {
     if (window.hubFlush) window.hubFlush();
     btn.textContent = "Revisión guardada ✓";
     setTimeout(() => { btn.textContent = "Guardar revisión"; }, 2500);
+  };
+  el.querySelector("#btnWhatsApp").onclick = () => {
+    const lineas = [`*Revisión de contenidos · ${MES.titulo}*`];
+    for (const p of piezas) {
+      const a = aprobDe(p);
+      if (a.v === "Pendiente" && !a.c) continue;
+      const marca = MARCAS[p.marca].nombre;
+      const icono = a.v === "Aprobado" ? "✅" : a.v === "Ajustar" ? "✏️" : "⏳";
+      lineas.push(`${icono} ${fechaDe(p).slice(8)}/09 · ${marca} · ${tituloDe(p)} — *${a.v}*${a.c ? `\n   💬 ${a.c}` : ""}`);
+    }
+    if (lineas.length === 1) lineas.push("(Sin piezas revisadas todavía)");
+    const texto = lineas.join("\n");
+    if (navigator.share) { navigator.share({ text: texto }).catch(() => {}); return; }
+    window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank", "noopener");
   };
 }
 
@@ -409,7 +476,7 @@ function openDrawer(id) {
   if (!p) return;
   piezaAbierta = p;
   const m = MARCAS[p.marca];
-  const { dia, num } = fmtFecha(p.fecha);
+  const { dia, num } = fmtFecha(fechaDe(p));
   const est = estadoDe(p);
   const checks = checksDe(p);
   const a = aprobDe(p);
@@ -418,8 +485,8 @@ function openDrawer(id) {
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
     <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${brandTint(p)}">${m.nombre} · ${m.handle}</span>
-    <h2>${esc(p.titulo)}</h2>
-    <div class="sub">${dia} ${num} de septiembre · ${p.formato}${p.reencauche ? " · Reencauche" : ""}</div>
+    <h2>${esc(tituloDe(p))}</h2>
+    <div class="sub">${dia} ${num} de septiembre · ${p.formato}${p.reencauche ? " · Reencauche" : ""}${editadaDe(p) ? " · Editada" : ""}</div>
     <div class="tag-row">
       <span class="chip">${esc(p.mensaje)}</span>
       <span class="chip">${esc(p.tono)}</span>
@@ -447,8 +514,20 @@ function openDrawer(id) {
     </section>
 
     <section>
-      <h4>Idea / Copy</h4>
-      <div class="copy-text">${esc(p.copy)}</div>
+      <h4>Contenido · edítalo y fusiona tus ideas</h4>
+      <input id="editTitulo" class="edit-input" value="${esc(tituloDe(p))}" placeholder="Título de la pieza">
+      <textarea id="editCopy" class="aprob-comment" style="min-height:120px;margin-top:8px">${esc(copyDe(p))}</textarea>
+      ${editadaDe(p) ? `<button class="link-btn" id="btnRestaurar" style="margin-top:6px">Restablecer versión original</button>` : ""}
+    </section>
+
+    <section>
+      <h4>Fecha de publicación</h4>
+      <select id="selFecha" class="edit-input">
+        ${FECHAS_MES.map(f => {
+          const d = fmtFecha(f);
+          return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de septiembre</option>`;
+        }).join("")}
+      </select>
     </section>
 
     <section>
@@ -486,6 +565,26 @@ function openDrawer(id) {
 
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
   drawer.querySelector("#btnPortada").onclick = () => pedirPortada(p.id);
+
+  // Edición de contenido
+  const inTit = drawer.querySelector("#editTitulo");
+  const inCopy = drawer.querySelector("#editCopy");
+  function guardarEdicion() {
+    const e = { ...(store.ediciones[p.id] || {}) };
+    const t = inTit.value.trim(), c = inCopy.value.trim();
+    if (t && t !== p.titulo) e.titulo = t; else delete e.titulo;
+    if (c && c !== p.copy) e.copy = c; else delete e.copy;
+    if (Object.keys(e).length) store.ediciones[p.id] = e; else delete store.ediciones[p.id];
+    save();
+    renderAll();
+  }
+  inTit.onchange = guardarEdicion;
+  inCopy.onchange = guardarEdicion;
+  const btnRest = drawer.querySelector("#btnRestaurar");
+  if (btnRest) btnRest.onclick = () => { delete store.ediciones[p.id]; save(); renderAll(); openDrawer(p.id); };
+
+  // Cambio de fecha (alternativa táctil al arrastre)
+  drawer.querySelector("#selFecha").onchange = e => { moverPieza(p.id, e.target.value); openDrawer(p.id); };
   const quitar = drawer.querySelector("#btnQuitarPortada");
   if (quitar) quitar.onclick = () => { delete store.portadas[p.id]; save(); renderAll({ keep: true }); openDrawer(p.id); };
   drawer.querySelectorAll("[data-estado]").forEach(b => {
@@ -580,8 +679,8 @@ window.addEventListener("scroll", () => { clearTimeout(window.__uiT); window.__u
 // ---------- Export / reset ----------
 document.getElementById("btnExport").onclick = async () => {
   const data = PIEZAS.map(p => ({
-    marca: MARCAS[p.marca].nombre, fecha: p.fecha, pieza: p.titulo,
-    estado: estadoDe(p), aprobacion: aprobDe(p),
+    marca: MARCAS[p.marca].nombre, fecha: fechaDe(p), pieza: tituloDe(p),
+    copy: copyDe(p), estado: estadoDe(p), aprobacion: aprobDe(p),
     checklist: p.checklist.map((c, i) => ({ tarea: c, hecha: checksDe(p).includes(i) })),
   }));
   const payload = JSON.stringify({ mes: MES.titulo, exportado: new Date().toISOString(), piezas: data }, null, 2);
@@ -599,8 +698,8 @@ document.getElementById("btnExport").onclick = async () => {
   a.click();
 };
 document.getElementById("btnReset").onclick = () => {
-  if (confirm("¿Reiniciar estados, checklists, aprobaciones y portadas al valor original del calendario?")) {
-    store = { estados: {}, checks: {}, aprob: {}, portadas: {} };
+  if (confirm("¿Reiniciar estados, checklists, aprobaciones, portadas, fechas y ediciones al valor original del calendario?")) {
+    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {} };
     save();
     renderAll({ keep: true });
   }

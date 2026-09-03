@@ -5,7 +5,7 @@
    ════════════════════════════════════════════════════════════ */
 :root {
   --bg: #F6F4EF;
-  --card: #FFFFFF;
+  --card: rgba(255,255,255,.88);
   --line: #E7E1D6;
   --line-soft: #EFEAE1;
   --ink: #211C16;
@@ -55,25 +55,24 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
   outline: 2px solid var(--accent); outline-offset: 2px;
 }
 
-/* ═══════════ HERO ═══════════ */
-.hero {
-  position: relative;
-  overflow: hidden;
-  color: #F7F3EC;
-  padding: 18px 24px 0;
-  border-radius: 0 0 28px 28px;
-}
-.hero-art { position: absolute; inset: 0; z-index: 0; background: #171210; }
-.hero-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.hero-diptych { position: absolute; inset: 0; display: flex; }
-.hero-diptych .hero-photo { position: relative; width: 50%; height: 100%; flex: 1; }
-.hero-veil {
+/* ═══════════ FONDO FOTOGRÁFICO ═══════════ */
+.page-bg { position: fixed; inset: 0; z-index: 0; background: #171210; }
+.bg-photo { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.bg-diptych { position: absolute; inset: 0; display: flex; }
+.bg-diptych .bg-photo { position: relative; width: 50%; height: 100%; flex: 1; }
+.bg-veil {
   position: absolute; inset: 0;
   background:
-    linear-gradient(100deg, rgba(18,12,9,.93) 0%, rgba(18,12,9,.75) 40%, rgba(18,12,9,.45) 68%, rgba(18,12,9,.62) 100%),
-    linear-gradient(to top, rgba(18,12,9,.84), transparent 45%);
+    linear-gradient(100deg, rgba(18,12,9,.82) 0%, rgba(18,12,9,.6) 40%, rgba(18,12,9,.34) 70%, rgba(18,12,9,.48) 100%),
+    linear-gradient(to bottom, rgba(18,12,9,.72), rgba(18,12,9,.18) 55%, rgba(18,12,9,.42) 100%);
 }
-.hero > :not(.hero-art) { position: relative; z-index: 1; }
+
+/* ═══════════ HERO ═══════════ */
+.hero {
+  position: relative; z-index: 1;
+  color: #F7F3EC;
+  padding: 18px 24px 0;
+}
 
 /* Navbar píldora de vidrio */
 .navbar {
@@ -138,13 +137,28 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .hstat .num { font-family: var(--font-head); font-weight: 700; font-size: 19px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hstat .lbl { font-size: 12px; color: rgba(247,243,236,.7); }
 
+/* ═══════════ LÁMINA DE VIDRIO ═══════════ */
+.sheet {
+  position: relative; z-index: 1;
+  margin-top: 26px;
+  background: rgba(246,244,239,.7);
+  backdrop-filter: blur(18px) saturate(1.3);
+  -webkit-backdrop-filter: blur(18px) saturate(1.3);
+  border-top: 1px solid rgba(255,255,255,.6);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -24px 60px -30px rgba(18,12,9,.55);
+  min-height: 70vh;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sheet { background: rgba(246,244,239,.95); }
+}
+
 /* ═══════════ TABS ═══════════ */
 .tabs {
   position: sticky; top: 0; z-index: 50;
-  background: rgba(246,244,239,.9);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--line);
+  background: rgba(246,244,239,.85);
+  border-bottom: 1px solid rgba(255,255,255,.5);
+  border-radius: 28px 28px 0 0;
   display: flex; gap: 2px;
   padding: 6px 24px 0;
   overflow-x: auto;
@@ -209,6 +223,7 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .chip.reencauche { color: var(--honey); background: var(--honey-tint); border-color: transparent; }
 .chip.aprobado { color: #2E7D43; background: #E5F2E7; border-color: transparent; }
 .chip.ajustar { color: #B23A2E; background: #F9E8E5; border-color: transparent; }
+.chip.editada { color: #6B5CB8; background: #EEEAF8; border-color: transparent; }
 .piece-title { font-family: var(--font-head); font-weight: 600; font-size: 14.5px; line-height: 1.35; }
 .piece-meta { margin-top: 6px; font-size: 12.5px; color: var(--faint); }
 
@@ -219,6 +234,27 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .st-Listo { background: #4C8BC2; }
 .st-Programado { background: #8E6BC9; }
 .st-Publicado { background: #3F9459; }
+
+/* Arrastrar y soltar */
+.piece[draggable="true"] { cursor: grab; }
+.piece.dragging { opacity: .45; cursor: grabbing; }
+.cal-day { border-radius: var(--radius); transition: background .15s, outline .15s; }
+.cal-day .drop-hint {
+  display: none; text-align: center; font-size: 12px; font-weight: 600;
+  color: var(--accent); border: 2px dashed color-mix(in srgb, var(--accent) 45%, transparent);
+  border-radius: var(--radius); padding: 14px;
+}
+.view.drag-activa .cal-day .drop-hint { display: block; }
+.cal-day.drag-over { background: var(--accent-tint); outline: 2px dashed var(--accent); outline-offset: 4px; }
+.cal-day.drag-over .drop-hint { background: rgba(255,255,255,.6); }
+
+/* Campos de edición */
+.edit-input {
+  width: 100%; border: 1px solid var(--line); border-radius: 12px;
+  padding: 10px 12px; font-family: var(--font-body); font-size: 13.5px;
+  color: var(--ink); background: var(--bg);
+}
+select.edit-input { cursor: pointer; }
 
 /* ═══════════ PIPELINE ═══════════ */
 .pipeline { display: grid; grid-template-columns: repeat(6, minmax(185px, 1fr)); gap: 12px; }
@@ -357,7 +393,7 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
 .drawer {
   position: fixed; top: 0; right: 0; bottom: 0; width: min(480px, 100vw);
-  background: var(--card); border-left: 1px solid var(--line);
+  background: #FFFDFA; border-left: 1px solid var(--line);
   transform: translateX(100%); transition: transform .25s ease; z-index: 100;
   overflow-y: auto; padding: 26px;
   box-shadow: -24px 0 60px -30px rgba(33,28,22,.3);
