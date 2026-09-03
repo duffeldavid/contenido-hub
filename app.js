@@ -244,9 +244,41 @@ function hoyISO() {
 function esc(s) {
   return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 }
+// Resuelve rutas de imagen: en el Artifact existe window.__IMG (cada foto
+// incrustada UNA sola vez); en local/Pages la ruta pasa tal cual.
+function IMG(ruta) { return (window.__IMG && window.__IMG[ruta]) || ruta; }
+
 function brandColor(p) { return MARCAS[p.marca].color; }
 function brandTint(p) { return p.marca === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"; }
 const FORMATO_ICONO = { "Reel": "🎬", "Foto": "📷", "Carrusel": "🖼️", "Pieza gráfica": "✏️", "Historia": "⚡" };
+
+// Íconos de línea minimalistas (estilo app moderna) para el link del cliente
+const ICOL = {
+  ok: '<svg class="icl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.3 12.4l2.5 2.5 4.9-5.3"/></svg>',
+  ajuste: '<svg class="icl" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/></svg>',
+  reloj: '<svg class="icl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>',
+  enviar: '<svg class="icl" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+  lista: '<svg class="icl" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+};
+// En el link del cliente: ícono de línea; en la plataforma de David: emoji
+const icl = n => MODO_CLIENTE ? (ICOL[n] || "") : ({ ok: "✅", ajuste: "✏️", reloj: "⏳", enviar: "📲", lista: "" }[n] || "");
+
+// Portada visual de cada pieza: la real si David la subió; si no, un
+// fundido lento entre dos fotos de referencia acordes al concepto.
+function coverHtml(p, clase = "") {
+  const img = portadaDe(p);
+  if (img) {
+    return `<div class="cover ${clase}"><img class="f1" src="${img}" alt=""><span class="cover-tag portada">Portada</span></div>`;
+  }
+  const fs = p.fotos || [];
+  if (!fs.length) return "";
+  return `
+    <div class="cover ${clase}">
+      <img class="f1" src="${IMG(fs[0])}" alt="" loading="lazy">
+      ${fs[1] ? `<img class="f2" src="${IMG(fs[1])}" alt="" loading="lazy">` : ""}
+      <span class="cover-tag">Referencia</span>
+    </div>`;
+}
 
 function pieceCard(p, { compact = false, drag = false } = {}) {
   const est = estadoDe(p);
@@ -254,6 +286,7 @@ function pieceCard(p, { compact = false, drag = false } = {}) {
   const done = est === "Publicado";
   return `
     <article class="piece ${done ? "done" : ""}" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}" data-id="${p.id}" ${drag ? `draggable="true"` : ""}>
+      ${coverHtml(p, compact ? "cover-mini" : "")}
       <div class="piece-top">
         <span class="chip brand">${MARCAS[p.marca].nombre}</span>
         <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span>
@@ -298,12 +331,12 @@ function renderPageBg() {
   bgActual = marcaActiva;
   const bg = document.getElementById("pageBg");
   if (marcaActiva === "forestal" || marcaActiva === "manzanares") {
-    bg.innerHTML = `<img class="bg-photo" src="${BG_FOTOS[marcaActiva]}" alt=""><div class="bg-veil"></div>`;
+    bg.innerHTML = `<img class="bg-photo" src="${IMG(BG_FOTOS[marcaActiva])}" alt=""><div class="bg-veil"></div>`;
   } else {
     bg.innerHTML = `
       <div class="bg-diptych">
-        <img class="bg-photo" src="${BG_FOTOS.tostadora}" alt="">
-        <img class="bg-photo" src="${BG_FOTOS.manzanares}" alt="">
+        <img class="bg-photo" src="${IMG(BG_FOTOS.tostadora)}" alt="">
+        <img class="bg-photo" src="${IMG(BG_FOTOS.manzanares)}" alt="">
       </div>
       <div class="bg-veil"></div>`;
   }
@@ -515,12 +548,14 @@ function renderFeed() {
             const img = portadaDe(p);
             const d = fechaDe(p).slice(8);
             return `
-              <button class="cell ${img ? "has-img" : ""}" data-id="${p.id}" title="${esc(tituloDe(p))}">
+              <button class="cell has-img ${img ? "" : "es-ref"}" data-id="${p.id}" title="${esc(tituloDe(p))}">
                 ${img
                   ? `<img src="${img}" alt="${esc(tituloDe(p))}">`
-                  : `<span class="cell-ph"><span class="cell-fmt">${FORMATO_ICONO[p.formato] || "🎬"}</span><span class="cell-tit">${esc(tituloDe(p))}</span></span>`}
+                  : `<img src="${IMG((p.fotos || [])[0] || "")}" alt="" loading="lazy">
+                     <span class="cell-grad"></span>
+                     <span class="cell-tit-over">${esc(tituloDe(p))}</span>`}
                 <span class="cell-date">${d} sep</span>
-                <span class="cell-hint">${img ? "Toca para abrir" : "Toca para abrir y subir portada"}</span>
+                <span class="cell-hint">${img ? "Toca para abrir" : "Referencia · toca para abrir y subir tu portada"}</span>
               </button>`;
           }).join("")}
         </div>
@@ -543,11 +578,11 @@ function bloqueComentario(p) {
   if (a.c && !comentarioEditando[p.id]) {
     return `
       <div class="coment-fijo">💬 ${esc(a.c)}</div>
-      <button class="btn-ghost btn-coment" data-editar="${p.id}">✏️ Editar comentario</button>`;
+      <button class="btn-ghost btn-coment" data-editar="${p.id}">${ICOL.ajuste} Editar comentario</button>`;
   }
   return `
     <textarea class="aprob-comment" placeholder="Escribe tu comentario o ajuste…">${esc(a.c || "")}</textarea>
-    <button class="btn-primary btn-coment" data-enviar="${p.id}">Enviar comentario</button>`;
+    <button class="btn-primary btn-coment" data-enviar="${p.id}">${ICOL.enviar} Enviar comentario</button>`;
 }
 function conectarComentario(cont, p, refrescar) {
   const ta = cont.querySelector(".aprob-comment");
@@ -581,16 +616,16 @@ function renderAprobacion() {
       : `Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.`}</p>
     <div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
-      <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">📲 ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
+      <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">${icl("enviar")} ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">📄 Exportar PDF para cliente (${todas.filter(p => store.pdf[p.id] !== false).length})</button>`}
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">🔗 Copiar link para cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${todas.length} aprobadas</span>
     </div>
     <div class="cal-toggle aprob-filtros">
-      <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">Todas (${todas.length})</button>
-      <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">✅ Aprobadas (${aprobadas})</button>
-      <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">✏️ Con ajustes (${conAjustes})</button>
-      <button data-f="Pendiente" class="${aprobFiltro === "Pendiente" ? "active" : ""}">⏳ Pendientes (${todas.length - aprobadas - conAjustes})</button>
+      <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
+      <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">${icl("ok")} Aprobadas (${aprobadas})</button>
+      <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">${icl("ajuste")} Con ajustes (${conAjustes})</button>
+      <button data-f="Pendiente" class="${aprobFiltro === "Pendiente" ? "active" : ""}">${icl("reloj")} Pendientes (${todas.length - aprobadas - conAjustes})</button>
     </div>
     ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`;
   for (const p of piezas) {
@@ -600,7 +635,7 @@ function renderAprobacion() {
     html += `
       <div class="aprob-row" data-id="${p.id}">
         <div class="aprob-info">
-          <div class="aprob-thumb" style="--brand-tint:${brandTint(p)}">${img ? `<img src="${img}" alt="">` : `${FORMATO_ICONO[p.formato] || "🎬"}`}</div>
+          ${coverHtml(p, "cover-thumb")}
           <div>
             <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por ? ` · ✍️ respondió ${esc(a.por)}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
@@ -610,7 +645,7 @@ function renderAprobacion() {
         </div>
         <div class="aprob-controls">
           <div class="aprob-pills">
-            ${APROB.map(v => `<button data-v="${v}" class="${a.v === v ? "sel" : ""}">${v === "Aprobado" ? "✓ " : ""}${v}</button>`).join("")}
+            ${APROB.map(v => `<button data-v="${v}" class="${a.v === v ? "sel" : ""}">${v === "Aprobado" ? (MODO_CLIENTE ? ICOL.ok + " " : "✓ ") : v === "Ajustar" && MODO_CLIENTE ? ICOL.ajuste + " " : ""}${v}</button>`).join("")}
           </div>
           ${bloqueComentario(p)}
           ${MODO_CLIENTE ? "" : `
@@ -711,7 +746,7 @@ function refRail(items, tipo) {
   const cards = tipo === "cuenta"
     ? items.map(r => `
         <a class="ref-slide" href="${r.url}" target="_blank" rel="noopener">
-          <img src="${r.img}" alt="${esc(r.handle)}" loading="lazy">
+          <img src="${IMG(r.img)}" alt="${esc(r.handle)}" loading="lazy">
           <span class="ref-grad"></span>
           <span class="ref-slide-body">
             <span class="ref-cat">Instagram</span>
@@ -767,7 +802,7 @@ function renderReferentes() {
       <div class="mas-rail" data-dir="${fi === 0 ? 1 : -1}">
         ${fila.map(m => `
           <a class="mas-item" href="https://www.pinterest.com/search/pins/?q=${encodeURIComponent(m.q)}" target="_blank" rel="noopener">
-            <img src="${m.img}" alt="${esc(m.q)}" loading="lazy">
+            <img src="${IMG(m.img)}" alt="${esc(m.q)}" loading="lazy">
             <span class="mas-label">📌 ${esc(m.q)}</span>
           </a>`).join("")}
       </div>`).join("")}`;
@@ -879,7 +914,7 @@ function construirPdf() {
 
     for (const p of semanas[wk].sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)) || porOrden(a, b))) {
       const f = fmtFecha(fechaDe(p));
-      const img = portadaDe(p);
+      const img = portadaDe(p) || IMG((p.fotos || [])[0] || "") || null; // portada real o referencia visual
       const rgb = p.marca === "forestal" ? [74, 124, 89] : [178, 69, 44];
       const xTexto = img ? M + 27 : M, anchoTexto = ANCHO - (img ? 27 : 0);
       const titulo = doc.setFont("helvetica", "bold").setFontSize(12.5).splitTextToSize(tituloDe(p), anchoTexto);
@@ -1034,7 +1069,7 @@ function openDrawer(id) {
     <section>
       <h4>Portada para el feed</h4>
       <div class="portada-box">
-        <div class="portada-prev">${img ? `<img src="${img}" alt="Portada">` : `${FORMATO_ICONO[p.formato] || "🎬"}`}</div>
+        ${coverHtml(p, "cover-prev")}
         <div class="portada-acts">
           <button class="btn-ghost" id="btnPortada">${img ? "Cambiar portada" : "Subir portada"}</button>
           ${img ? `<button class="btn-ghost" id="btnQuitarPortada">Quitar</button>` : ""}
@@ -1070,7 +1105,7 @@ function openDrawer(id) {
     <section>
       <h4>Aprobación de mercadeo</h4>
       <div class="aprob-pills">
-        ${APROB.map(v => `<button data-aprob="${v}" class="${a.v === v ? "sel" : ""}" data-v="${v}">${v === "Aprobado" ? "✓ " : ""}${v}</button>`).join("")}
+        ${APROB.map(v => `<button data-aprob="${v}" class="${a.v === v ? "sel" : ""}" data-v="${v}">${v === "Aprobado" ? ICOL.ok + " " : v === "Ajustar" ? ICOL.ajuste + " " : ""}${v}</button>`).join("")}
       </div>
       <textarea class="aprob-comment" id="drawerComment" placeholder="Comentario para David (opcional)…" style="margin-top:10px">${esc(a.c || "")}</textarea>
     </section>
@@ -1181,11 +1216,10 @@ function openDrawerCliente(id) {
       <span class="chip estado ${ESTADO_CLASS[estadoDe(p)]}">${estadoDe(p)}</span>
     </div>
 
-    ${img ? `
     <section>
-      <h4>Así se verá en el feed</h4>
-      <div class="portada-prev" style="width:150px"><img src="${img}" alt="Portada"></div>
-    </section>` : ""}
+      <h4>${img ? "Así se verá en el feed" : "Referencia visual del estilo"}</h4>
+      ${coverHtml(p, "cover-drawer")}
+    </section>
 
     <section>
       <h4>De qué trata</h4>

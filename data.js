@@ -67,7 +67,7 @@ const GEAR = {
 const PIEZAS = [
   // ══════════════ FORESTAL CAFÉ ══════════════
   {
-    id: "f-0904", concepto: "Video emotivo que abre el mes: los paisajes de nuestra finca con una voz que recuerda que de ahí sale cada taza. Cierre: 'Finca propia. Trazabilidad real.'", marca: "forestal", fecha: "2026-09-04",
+    id: "f-0904", fotos: ["assets/ref/finca.jpg", "assets/ref/granos.jpg"], concepto: "Video emotivo que abre el mes: los paisajes de nuestra finca con una voz que recuerda que de ahí sale cada taza. Cierre: 'Finca propia. Trazabilidad real.'", marca: "forestal", fecha: "2026-09-04",
     titulo: "Esto no es un paisaje, es de donde sale tu café",
     formato: "Reel", mensaje: "Finca propia", tono: "Emocional",
     estado: "Idea", reencauche: true, sesion: "ed",
@@ -81,7 +81,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f8150a8d4cec9506cea0d",
   },
   {
-    id: "f-0907", concepto: "Carrusel elegante presentando nuestros 3 orígenes: de qué finca sale cada uno, su perfil de sabor y para quién es. Invita a preguntar en tienda cuál va contigo.", marca: "forestal", fecha: "2026-09-07",
+    id: "f-0907", fotos: ["assets/ref/onyx.jpg", "assets/ref/costal.jpg"], concepto: "Carrusel elegante presentando nuestros 3 orígenes: de qué finca sale cada uno, su perfil de sabor y para quién es. Invita a preguntar en tienda cuál va contigo.", marca: "forestal", fecha: "2026-09-07",
     titulo: "¿Cuál de nuestros 3 orígenes va contigo?",
     formato: "Carrusel", mensaje: "3 orígenes", tono: "Educativo",
     estado: "Idea", reencauche: false, sesion: "s1",
@@ -95,7 +95,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f81b28f45d36e60977422",
   },
   {
-    id: "f-0909", concepto: "Video sensorial sin voz: los sonidos reales del café — el molino, el vapor, la leche, la taza. 'Sube el volumen 🎧'.", marca: "forestal", fecha: "2026-09-09",
+    id: "f-0909", fotos: ["assets/ref/verve.jpg", "assets/ref/lacabra.jpg"], concepto: "Video sensorial sin voz: los sonidos reales del café — el molino, el vapor, la leche, la taza. 'Sube el volumen 🎧'.", marca: "forestal", fecha: "2026-09-09",
     titulo: "ASMR: así suena tu café antes de llegar a tu mesa",
     formato: "Reel", mensaje: "Experiencia en tienda", tono: "Sensorial",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -109,7 +109,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f81e79346d20c236a9d38",
   },
   {
-    id: "f-0911", concepto: "Pieza gráfica con un dato potente: qué significa de verdad que un café sea orgánico, conectado con nuestras fincas propias.", marca: "forestal", fecha: "2026-09-11",
+    id: "f-0911", fotos: ["assets/ref/granos.jpg", "assets/ref/finca.jpg"], concepto: "Pieza gráfica con un dato potente: qué significa de verdad que un café sea orgánico, conectado con nuestras fincas propias.", marca: "forestal", fecha: "2026-09-11",
     titulo: "Dato: qué significa realmente que un café sea orgánico",
     formato: "Pieza gráfica", mensaje: "Orgánico", tono: "Dato curioso",
     estado: "Idea", reencauche: false, sesion: "ed",
@@ -122,7 +122,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f819c8e19d3a7aa335bc5",
   },
   {
-    id: "f-0914", concepto: "Mini-entrevista a un barista del equipo contando qué es lo que más ama de trabajar con este café. Cercano y humano.", marca: "forestal", fecha: "2026-09-14",
+    id: "f-0914", fotos: ["assets/ref/morgan.jpg", "assets/ref/amorperfecto.jpg"], concepto: "Mini-entrevista a un barista del equipo contando qué es lo que más ama de trabajar con este café. Cercano y humano.", marca: "forestal", fecha: "2026-09-14",
     titulo: "Las manos detrás de tu taza",
     formato: "Reel", mensaje: "La gente", tono: "Testimonial",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -136,7 +136,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f81dd8d98e579bbba6203",
   },
   {
-    id: "f-0916", concepto: "El video estrella del mes: el recorrido completo de tu bolsa — finca, beneficio, tueste y tienda. 'Pocas marcas en Colombia pueden mostrarte esto.'", marca: "forestal", fecha: "2026-09-16",
+    id: "f-0916", fotos: ["assets/ref/finca.jpg", "assets/ref/tostadora.jpg"], concepto: "El video estrella del mes: el recorrido completo de tu bolsa — finca, beneficio, tueste y tienda. 'Pocas marcas en Colombia pueden mostrarte esto.'", marca: "forestal", fecha: "2026-09-16",
     titulo: "Trazabilidad en 30 segundos: de qué finca viene tu bolsa",
     formato: "Reel", mensaje: "Finca propia", tono: "Educativo",
     estado: "Por grabar", reencauche: false, sesion: "s2",
@@ -150,7 +150,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f81c7a4f0e5788348572b",
   },
   {
-    id: "f-0918", concepto: "La bebida del mes preparada al ritmo de un audio en tendencia: ligero, compartible y con el producto como cierre.", marca: "forestal", fecha: "2026-09-18",
+    id: "f-0918", fotos: ["assets/ref/amorperfecto.jpg", "assets/ref/taza.jpg"], concepto: "La bebida del mes preparada al ritmo de un audio en tendencia: ligero, compartible y con el producto como cierre.", marca: "forestal", fecha: "2026-09-18",
     titulo: "Bebida del mes con audio en tendencia",
     formato: "Reel", mensaje: "Temporada/Bebida del mes", tono: "Trend/Humor",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -163,7 +163,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f8105b8bdf33875bcacd3",
   },
   {
-    id: "f-0921", concepto: "Serie de fotos macro del grano crudo y tostado de los 3 orígenes: pura textura y belleza.", marca: "forestal", fecha: "2026-09-21",
+    id: "f-0921", fotos: ["assets/ref/granos.jpg", "assets/ref/costal.jpg"], concepto: "Serie de fotos macro del grano crudo y tostado de los 3 orígenes: pura textura y belleza.", marca: "forestal", fecha: "2026-09-21",
     titulo: "Macro: el grano como nunca lo has visto",
     formato: "Foto", mensaje: "3 orígenes", tono: "Sensorial",
     estado: "Idea", reencauche: false, sesion: "s1",
@@ -176,7 +176,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f8100be82c57a893a27f1",
   },
   {
-    id: "f-0923", concepto: "Video contemplativo del cultivo: manos en la tierra, plantas y cerezas, sobre el cuidado de un café sin químicos.", marca: "forestal", fecha: "2026-09-23",
+    id: "f-0923", fotos: ["assets/ref/finca.jpg", "assets/ref/libertario.jpg"], concepto: "Video contemplativo del cultivo: manos en la tierra, plantas y cerezas, sobre el cuidado de un café sin químicos.", marca: "forestal", fecha: "2026-09-23",
     titulo: "Del suelo a la taza: por qué lo orgánico se siente",
     formato: "Reel", mensaje: "Orgánico", tono: "Emocional",
     estado: "Por grabar", reencauche: true, sesion: "s2",
@@ -189,7 +189,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f81f2804edd780dbeddac",
   },
   {
-    id: "f-0925", concepto: "Carrusel para guardar: 3 métodos de preparación que puedes pedir en tienda y con cuál origen brilla cada uno.", marca: "forestal", fecha: "2026-09-25",
+    id: "f-0925", fotos: ["assets/ref/lacabra.jpg", "assets/ref/verve.jpg"], concepto: "Carrusel para guardar: 3 métodos de preparación que puedes pedir en tienda y con cuál origen brilla cada uno.", marca: "forestal", fecha: "2026-09-25",
     titulo: "3 métodos que puedes pedir en tienda (y cuál va contigo)",
     formato: "Carrusel", mensaje: "Experiencia en tienda", tono: "Dato curioso",
     estado: "Idea", reencauche: false, sesion: "s1",
@@ -202,7 +202,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f817f8c2ef86a936a935b",
   },
   {
-    id: "f-0928", concepto: "Secuencia emotiva de los rostros y manos que hacen posible Forestal. 'Detrás de cada taza hay nombres.'", marca: "forestal", fecha: "2026-09-28",
+    id: "f-0928", fotos: ["assets/ref/morgan.jpg", "assets/ref/verve.jpg"], concepto: "Secuencia emotiva de los rostros y manos que hacen posible Forestal. 'Detrás de cada taza hay nombres.'", marca: "forestal", fecha: "2026-09-28",
     titulo: "Retrato: el equipo que hace posible Forestal",
     formato: "Reel", mensaje: "La gente", tono: "Emocional",
     estado: "Idea", reencauche: true, sesion: "ed",
@@ -215,7 +215,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3cfdcde6938f810f90e1c376c27d0e17",
   },
   {
-    id: "f-0930", concepto: "El caficultor cuenta en sus propias palabras qué hace especial este lote. La voz real del origen.", marca: "forestal", fecha: "2026-09-30",
+    id: "f-0930", fotos: ["assets/ref/finca.jpg", "assets/ref/costal.jpg"], concepto: "El caficultor cuenta en sus propias palabras qué hace especial este lote. La voz real del origen.", marca: "forestal", fecha: "2026-09-30",
     titulo: "El caficultor cuenta: qué hace especial este lote",
     formato: "Reel", mensaje: "Finca propia", tono: "Testimonial",
     estado: "Por grabar", reencauche: false, sesion: "s2",
@@ -230,7 +230,7 @@ const PIEZAS = [
 
   // ══════════════ CARNES MANZANARES ══════════════
   {
-    id: "m-0904", concepto: "Video emotivo que abre el mes con nuestra historia: 'una buena carne cuenta una historia'. La trazabilidad como bandera.", marca: "manzanares", fecha: "2026-09-04",
+    id: "m-0904", fotos: ["assets/bg-manzanares.jpg", "assets/ref/tabla.jpg"], concepto: "Video emotivo que abre el mes con nuestra historia: 'una buena carne cuenta una historia'. La trazabilidad como bandera.", marca: "manzanares", fecha: "2026-09-04",
     titulo: "Una buena carne cuenta una historia",
     formato: "Reel", mensaje: "Del campo a la mesa", tono: "Emocional",
     estado: "Idea", reencauche: true, sesion: "ed",
@@ -243,7 +243,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f8165b0b4de97e0b7818c",
   },
   {
-    id: "m-0907", concepto: "Carrusel para guardar: qué corte pedir según lo que vas a cocinar — parrilla, horno o guiso — con foto de cada corte.", marca: "manzanares", fecha: "2026-09-07",
+    id: "m-0907", fotos: ["assets/ref/victorchurchill.jpg", "assets/ref/meatthebutchers.jpg"], concepto: "Carrusel para guardar: qué corte pedir según lo que vas a cocinar — parrilla, horno o guiso — con foto de cada corte.", marca: "manzanares", fecha: "2026-09-07",
     titulo: "Guía rápida: qué corte pedir según lo que vas a cocinar",
     formato: "Carrusel", mensaje: "Cortes y productos", tono: "Educativo",
     estado: "Idea", reencauche: false, sesion: "s1",
@@ -257,7 +257,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f81c7a2f4d992ebc516e8",
   },
   {
-    id: "m-0909", concepto: "Video con gancho 'La carne buena no se apura': qué es la maduración y por qué nuestra carne sabe mejor.", marca: "manzanares", fecha: "2026-09-09",
+    id: "m-0909", fotos: ["assets/ref/flannerybeef.jpg", "assets/ref/victorchurchill.jpg"], concepto: "Video con gancho 'La carne buena no se apura': qué es la maduración y por qué nuestra carne sabe mejor.", marca: "manzanares", fecha: "2026-09-09",
     titulo: "La carne buena no se apura: qué es la maduración",
     formato: "Reel", mensaje: "Calidad y maduración", tono: "Dato curioso",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -270,7 +270,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f810ba869cfc909ce16f9",
   },
   {
-    id: "m-0911", concepto: "Video sensorial del corte en la parrilla: el chisporroteo, los jugos, el corte final. 'Sube el volumen 🔥'.", marca: "manzanares", fecha: "2026-09-11",
+    id: "m-0911", fotos: ["assets/ref/maxthemeatguy.jpg", "assets/ref/ribs.jpg"], concepto: "Video sensorial del corte en la parrilla: el chisporroteo, los jugos, el corte final. 'Sube el volumen 🔥'.", marca: "manzanares", fecha: "2026-09-11",
     titulo: "ASMR: así suena un corte Manzanares en la parrilla",
     formato: "Reel", mensaje: "Recetas", tono: "Sensorial",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -284,7 +284,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f81aeabd8e1400d2c3fe9",
   },
   {
-    id: "m-0914", concepto: "Mini-entrevista al carnicero con más trayectoria: cómo se reconoce una buena carne. La autoridad de la casa hablando en persona.", marca: "manzanares", fecha: "2026-09-14",
+    id: "m-0914", fotos: ["assets/ref/beardedbutchers.jpg", "assets/ref/victorchurchill.jpg"], concepto: "Mini-entrevista al carnicero con más trayectoria: cómo se reconoce una buena carne. La autoridad de la casa hablando en persona.", marca: "manzanares", fecha: "2026-09-14",
     titulo: "El experto: cómo reconocer una buena carne",
     formato: "Reel", mensaje: "La gente", tono: "Testimonial",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -297,7 +297,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f81f9999fdd72a9a99f55",
   },
   {
-    id: "m-0916", concepto: "El video estrella del mes: el camino completo de tu carne — campo, selección, maduración y mostrador.", marca: "manzanares", fecha: "2026-09-16",
+    id: "m-0916", fotos: ["assets/bg-manzanares.jpg", "assets/ref/meatthebutchers.jpg"], concepto: "El video estrella del mes: el camino completo de tu carne — campo, selección, maduración y mostrador.", marca: "manzanares", fecha: "2026-09-16",
     titulo: "Trazabilidad real: el camino de tu carne en 30 segundos",
     formato: "Reel", mensaje: "Del campo a la mesa", tono: "Educativo",
     estado: "Por grabar", reencauche: false, sesion: "s2",
@@ -310,7 +310,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f81d4904acf661de736a3",
   },
   {
-    id: "m-0918", concepto: "Receta santandereana con nuestra carne al ritmo de un audio en tendencia: tradición y antojo en un solo video.", marca: "manzanares", fecha: "2026-09-18",
+    id: "m-0918", fotos: ["assets/ref/ribs.jpg", "assets/ref/tabla.jpg"], concepto: "Receta santandereana con nuestra carne al ritmo de un audio en tendencia: tradición y antojo en un solo video.", marca: "manzanares", fecha: "2026-09-18",
     titulo: "Receta santandereana con trend del momento",
     formato: "Reel", mensaje: "Tradición santandereana", tono: "Trend/Humor",
     estado: "Por grabar", reencauche: false, sesion: "s1",
@@ -323,7 +323,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f817f8a9dc829a69d6701",
   },
   {
-    id: "m-0921", concepto: "Serie de fotos macro del marmoleo de nuestros cortes premium: la calidad que se ve a simple vista.", marca: "manzanares", fecha: "2026-09-21",
+    id: "m-0921", fotos: ["assets/ref/victorchurchill.jpg", "assets/ref/flannerybeef.jpg"], concepto: "Serie de fotos macro del marmoleo de nuestros cortes premium: la calidad que se ve a simple vista.", marca: "manzanares", fecha: "2026-09-21",
     titulo: "Macro: el marmoleo que diferencia una carne premium",
     formato: "Foto", mensaje: "Cortes y productos", tono: "Sensorial",
     estado: "Idea", reencauche: false, sesion: "s1",
@@ -336,7 +336,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f810ea608fa8c708b0590",
   },
   {
-    id: "m-0923", concepto: "Video contemplativo sobre el estándar de selección: no toda carne llega a ser Manzanares.", marca: "manzanares", fecha: "2026-09-23",
+    id: "m-0923", fotos: ["assets/ref/beardedbutchers.jpg", "assets/bg-manzanares.jpg"], concepto: "Video contemplativo sobre el estándar de selección: no toda carne llega a ser Manzanares.", marca: "manzanares", fecha: "2026-09-23",
     titulo: "No toda carne llega a ser Manzanares",
     formato: "Reel", mensaje: "Calidad y maduración", tono: "Emocional",
     estado: "Por grabar", reencauche: true, sesion: "s2",
@@ -349,7 +349,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f811bb1fbcaadfd250233",
   },
   {
-    id: "m-0925", concepto: "Carrusel para compartir: 3 errores que están arruinando tu carne y cómo evitarlos.", marca: "manzanares", fecha: "2026-09-25",
+    id: "m-0925", fotos: ["assets/ref/maxthemeatguy.jpg", "assets/ref/tabla.jpg"], concepto: "Carrusel para compartir: 3 errores que están arruinando tu carne y cómo evitarlos.", marca: "manzanares", fecha: "2026-09-25",
     titulo: "3 errores que están arruinando tu carne",
     formato: "Carrusel", mensaje: "Recetas", tono: "Dato curioso",
     estado: "Idea", reencauche: false, sesion: "s1",
@@ -362,7 +362,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f813cacc6e576e2e321fb",
   },
   {
-    id: "m-0928", concepto: "Secuencia emotiva del equipo — campo, planta y mostrador. Décadas siendo el referente de carnes en Santander.", marca: "manzanares", fecha: "2026-09-28",
+    id: "m-0928", fotos: ["assets/ref/meatthebutchers.jpg", "assets/ref/beardedbutchers.jpg"], concepto: "Secuencia emotiva del equipo — campo, planta y mostrador. Décadas siendo el referente de carnes en Santander.", marca: "manzanares", fecha: "2026-09-28",
     titulo: "Retrato: la gente detrás del referente",
     formato: "Reel", mensaje: "La gente", tono: "Emocional",
     estado: "Idea", reencauche: true, sesion: "ed",
@@ -375,7 +375,7 @@ const PIEZAS = [
     notion: "https://app.notion.com/3d0dcde6938f81d499cfc83f60bc0b4c",
   },
   {
-    id: "m-0930", concepto: "El ganadero cuenta qué se exige para que una res cumpla el estándar Manzanares. La voz real del origen cierra el mes.", marca: "manzanares", fecha: "2026-09-30",
+    id: "m-0930", fotos: ["assets/bg-manzanares.jpg", "assets/ref/tabla.jpg"], concepto: "El ganadero cuenta qué se exige para que una res cumpla el estándar Manzanares. La voz real del origen cierra el mes.", marca: "manzanares", fecha: "2026-09-30",
     titulo: "El ganadero cuenta: el estándar Manzanares",
     formato: "Reel", mensaje: "Del campo a la mesa", tono: "Testimonial",
     estado: "Por grabar", reencauche: false, sesion: "s2",

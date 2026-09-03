@@ -72,6 +72,7 @@ artifact = f"""<title>Contenido Hub</title>
 
 <script id="hub-state" type="application/json">{{"estados":{{}},"checks":{{}},"updatedAt":0}}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script id="img-map">window.__IMG = {{img_map}};</script>
 <script>
 window.__PRISTINE = "<!doctype html>\\n" + document.documentElement.outerHTML;
 {data}
@@ -81,13 +82,15 @@ window.__PRISTINE = "<!doctype html>\\n" + document.documentElement.outerHTML;
 </script>
 """
 
-# Fotos del héroe embebidas como data URI (el visor de claude.ai
-# bloquea imágenes externas y no sirve archivos locales aparte)
-import base64
+# Fotos embebidas UNA sola vez en un mapa (window.__IMG): las rutas del
+# código se resuelven en tiempo de ejecución vía IMG(ruta). El visor de
+# claude.ai bloquea imágenes externas y no sirve archivos locales aparte.
+import base64, json
+mapa = {}
 for ruta in sorted((ROOT / "assets").rglob("*.jpg")):
     rel = ruta.relative_to(ROOT).as_posix()
-    b64 = base64.b64encode(ruta.read_bytes()).decode()
-    artifact = artifact.replace(rel, f"data:image/jpeg;base64,{b64}")
+    mapa[rel] = "data:image/jpeg;base64," + base64.b64encode(ruta.read_bytes()).decode()
+artifact = artifact.replace("{img_map}", json.dumps(mapa), 1)
 
 (ROOT / "artifact.html").write_text(artifact)
 print(f"artifact.html generado ({len(artifact):,} bytes)")
