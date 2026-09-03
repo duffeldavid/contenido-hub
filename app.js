@@ -7,6 +7,12 @@
 
 // Enlace público de la plataforma (GitHub Pages) — el que se comparte a clientes
 const ENLACE_PUBLICO = "https://duffeldavid.github.io/contenido-hub/";
+// Canal de notificaciones push para David (ntfy.sh, gratuito).
+// Suscribirse en la app ntfy (iPhone/Android) o en el navegador a este tema:
+const NTFY_CANAL = "https://ntfy.sh/contenido-hub-david-x8k3n2vq";
+// Canal de DATOS: la página del cliente emite cada aprobación/comentario y
+// la plataforma de David lo escucha en tiempo real (SSE) y se pone al día al abrir.
+const NTFY_DATOS = "https://ntfy.sh/contenido-hub-datos-x8k3n2vq";
 // ¿La página se abrió como formulario de aprobación para cliente?
 const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
 
@@ -44,6 +50,84 @@ function save() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch {}
   if (window.hubSync) window.hubSync();
 }
+// ---------- Notificaciones al celular/compu de David (solo modo cliente) ----------
+let notiCola = [], notiTimer = null;
+function notificarDavid(linea) {
+  if (!MODO_CLIENTE) return;
+  notiCola.push(linea);
+  clearTimeout(notiTimer);
+  notiTimer = setTimeout(enviarNoti, 8000); // agrupa acciones seguidas en un solo aviso
+}
+function enviarNoti() {
+  if (!notiCola.length) return;
+  const cuerpo = notiCola.join("\n");
+  notiCola = [];
+  fetch(NTFY_CANAL, {
+    method: "POST",
+    headers: { "Title": "Contenido Hub: respuesta del cliente", "Tags": "bell,memo" },
+    body: cuerpo,
+  }).catch(() => {});
+}
+window.addEventListener("pagehide", () => {
+  if (notiCola.length) { try { navigator.sendBeacon(NTFY_CANAL, notiCola.join("\n")); notiCola = []; } catch {} }
+});
+function notiAprobacion(p, valor) {
+  const icono = valor === "Aprobado" ? "✅" : valor === "Ajustar" ? "✏️" : "⏳";
+  notificarDavid(`${icono} ${fechaDe(p).slice(8)}/09 · ${MARCAS[p.marca].nombre} · ${tituloDe(p)} → ${valor}`);
+}
+function notiComentario(p, texto) {
+  if (texto.trim()) notificarDavid(`💬 ${tituloDe(p)}: "${texto.trim().slice(0, 200)}"`);
+}
+// Evento estructurado hacia la plataforma de David (inmediato, sin agrupar)
+function emitirDato(p) {
+  if (!MODO_CLIENTE) return;
+  const a = aprobDe(p);
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", ts: Date.now() }) }).catch(() => {});
+}
+
+// ---------- Tiempo real en la plataforma de David ----------
+function toastVivo(txt) {
+  let t = document.getElementById("toastLive");
+  if (!t) { t = document.createElement("div"); t.id = "toastLive"; t.className = "toast-live"; document.body.appendChild(t); }
+  t.textContent = txt;
+  t.classList.add("on");
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("on"), 6000);
+}
+function aplicarEventoCliente(linea, enVivo) {
+  try {
+    const m = JSON.parse(linea);
+    if (m.event !== "message") return false;
+    const d = JSON.parse(m.message);
+    if (d.tipo !== "aprob" || !d.id || !PIEZAS.some(p => p.id === d.id)) return false;
+    store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "" };
+    if (enVivo) {
+      const p = PIEZAS.find(x => x.id === d.id);
+      const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
+      toastVivo(`${icono} El cliente ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
+    }
+    return true;
+  } catch { return false; }
+}
+function iniciarTiempoReal() {
+  if (MODO_CLIENTE) return;
+  // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
+  fetch(NTFY_DATOS + "/json?poll=1&since=96h")
+    .then(r => r.text())
+    .then(t => {
+      let alguno = false;
+      t.split("\n").forEach(l => { if (l.trim() && aplicarEventoCliente(l, false)) alguno = true; });
+      if (alguno) { save(); renderAll(); toastVivo("📥 Respuestas del cliente sincronizadas"); }
+    }).catch(() => {});
+  // Escuchar en vivo
+  try {
+    const es = new EventSource(NTFY_DATOS + "/sse");
+    es.onmessage = e => {
+      if (aplicarEventoCliente(e.data, true)) { save(); renderAll(); }
+    };
+  } catch {}
+}
+
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
 function checksDe(p) { return store.checks[p.id] || []; }
 function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
@@ -416,12 +500,15 @@ function renderAprobacion() {
       b.onclick = () => {
         store.aprob[id] = { ...aprobDe({ id }), v: b.dataset.v };
         save();
+        const pieza = PIEZAS.find(x => x.id === id);
+        notiAprobacion(pieza, b.dataset.v);
+        emitirDato(pieza);
         renderAll({ keep: "aprobacion" });
       };
     });
     const ta = row.querySelector(".aprob-comment");
     ta.oninput = () => { store.aprob[id] = { ...aprobDe({ id }), c: ta.value }; };
-    ta.onchange = () => save();
+    ta.onchange = () => { save(); const pieza = PIEZAS.find(x => x.id === id); notiComentario(pieza, ta.value); emitirDato(pieza); };
     const pdfCb = row.querySelector("[data-pdf]");
     if (pdfCb) pdfCb.onchange = () => {
       if (pdfCb.checked) delete store.pdf[id]; else store.pdf[id] = false;
@@ -994,13 +1081,15 @@ function openDrawerCliente(id) {
     b.onclick = () => {
       store.aprob[p.id] = { ...aprobDe(p), v: b.dataset.aprob };
       save();
+      notiAprobacion(p, b.dataset.aprob);
+      emitirDato(p);
       openDrawerCliente(p.id);
       renderAll();
     };
   });
   const ta = drawer.querySelector("#drawerComment");
   ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
-  ta.onchange = () => save();
+  ta.onchange = () => { save(); notiComentario(p, ta.value); emitirDato(p); };
 }
 
 function closeDrawer() {
@@ -1111,4 +1200,5 @@ if (MODO_CLIENTE) {
 } else {
   restoreUI();
   renderAll();
+  iniciarTiempoReal();
 }
