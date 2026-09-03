@@ -53,6 +53,8 @@ function ordenDe(p) { return store.orden[p.id] ?? PIEZAS.findIndex(x => x.id ===
 function porOrden(a, b) { return ordenDe(a) - ordenDe(b); }
 function tituloDe(p) { return (store.ediciones[p.id] || {}).titulo || p.titulo; }
 function copyDe(p) { return (store.ediciones[p.id] || {}).copy || p.copy; }
+// Versión para cliente: sin jerga de producción. Si David editó el copy, van sus palabras.
+function conceptoDe(p) { return (store.ediciones[p.id] || {}).copy || p.concepto || p.copy; }
 function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
 // Todas las fechas L-M-V del mes (los "espacios" fijos del calendario)
 const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
@@ -380,7 +382,7 @@ function renderAprobacion() {
           <div>
             <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
             <h4>${esc(tituloDe(p))}</h4>
-            <div class="copy">${esc(copyDe(p))}</div>
+            <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
             ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
           </div>
         </div>
@@ -452,7 +454,7 @@ function renderAprobacion() {
       L.push("", `📋 *${pendientes.length} piezas para tu aprobación*`, `_Responde con el número + "ok", o el ajuste que quieras:_`);
       pendientes.forEach((p, i) => {
         const f = fmtFecha(fechaDe(p));
-        const concepto = (copyDe(p).split(". ")[0] + ".").slice(0, 150);
+        const concepto = conceptoDe(p).slice(0, 180);
         L.push("",
           `*${i + 1}️⃣  ${tituloDe(p)}*`,
           `${f.dia} ${f.num}/09 · ${MARCAS[p.marca].nombre} · ${p.formato} ${FORMATO_ICONO[p.formato] || ""}`,
@@ -627,39 +629,40 @@ function construirPdf() {
   doc.text(intro, M, y); y += intro.length * 4.6 + 3;
   doc.setDrawColor(...PDF_COLORES.ink).setLineWidth(0.8).line(M, y, W - M, y); y += 9;
 
-  for (const mk of marcas) {
-    const m = MARCAS[mk];
-    const rgb = mk === "forestal" ? [74, 124, 89] : [178, 69, 44];
-    salto(16);
-    doc.setFillColor(...rgb).circle(M + 2.2, y - 1.6, 2.2, "F");
-    doc.setFont("helvetica", "bold").setFontSize(14).setTextColor(...PDF_COLORES.ink);
-    doc.text(m.nombre, M + 7, y);
-    doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...PDF_COLORES.dim);
-    doc.text(m.handle, M + 9 + doc.getTextWidth(m.nombre) * 1.4, y);
+  // Organizado por semanas, como el calendario de la plataforma
+  const semanas = {};
+  for (const p of piezas) {
+    const { date } = fmtFecha(fechaDe(p));
+    const lunes = new Date(date);
+    lunes.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+    const wk = lunes.toISOString().slice(0, 10);
+    (semanas[wk] = semanas[wk] || []).push(p);
+  }
+  let numSemana = 1;
+  for (const wk of Object.keys(semanas).sort()) {
+    salto(18);
+    doc.setFont("helvetica", "bold").setFontSize(10).setTextColor(...PDF_COLORES.miel);
+    doc.text(`SEMANA ${numSemana++}`, M, y);
+    doc.setDrawColor(...PDF_COLORES.miel).setLineWidth(0.5).line(M + 26, y - 1.2, W - M, y - 1.2);
     y += 7;
 
-    for (const p of piezas.filter(x => x.marca === mk)) {
+    for (const p of semanas[wk].sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)) || porOrden(a, b))) {
       const f = fmtFecha(fechaDe(p));
       const img = portadaDe(p);
-      const xTexto = M + 27, anchoTexto = ANCHO - 27;
-      const titulo = doc.setFont("helvetica", "bold").setFontSize(12).splitTextToSize(tituloDe(p), anchoTexto);
-      const copy = doc.setFont("helvetica", "normal").setFontSize(9.5).splitTextToSize(copyDe(p), anchoTexto);
-      const altoBloque = Math.max(30, 6 + titulo.length * 5 + copy.length * 4 + 4);
+      const rgb = p.marca === "forestal" ? [74, 124, 89] : [178, 69, 44];
+      const xTexto = img ? M + 27 : M, anchoTexto = ANCHO - (img ? 27 : 0);
+      const titulo = doc.setFont("helvetica", "bold").setFontSize(12.5).splitTextToSize(tituloDe(p), anchoTexto);
+      const concepto = doc.setFont("helvetica", "normal").setFontSize(10).splitTextToSize(conceptoDe(p), anchoTexto);
+      const altoBloque = Math.max(img ? 32 : 0, 6 + titulo.length * 5.4 + concepto.length * 4.6 + 4);
       salto(altoBloque + 6);
 
-      if (img) {
-        try { doc.addImage(img, "JPEG", M, y, 22, 29); } catch {}
-      } else {
-        doc.setFillColor(243, 239, 232).roundedRect(M, y, 22, 29, 2, 2, "F");
-        doc.setFont("helvetica", "bold").setFontSize(7.5).setTextColor(...PDF_COLORES.dim);
-        doc.text(p.formato.toUpperCase(), M + 11, y + 15.5, { align: "center" });
-      }
-      doc.setFont("helvetica", "bold").setFontSize(8.5).setTextColor(...rgb);
-      doc.text(`${f.dia.toUpperCase()} ${f.num} DE SEPTIEMBRE · ${p.formato.toUpperCase()} · ${p.mensaje.toUpperCase()}`, xTexto, y + 3.5);
-      doc.setFontSize(12).setTextColor(...PDF_COLORES.ink);
-      doc.text(titulo, xTexto, y + 9.5);
-      doc.setFont("helvetica", "normal").setFontSize(9.5).setTextColor(...PDF_COLORES.suave);
-      doc.text(copy, xTexto, y + 10 + titulo.length * 5);
+      if (img) { try { doc.addImage(img, "JPEG", M, y, 22, 29); } catch {} }
+      doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...rgb);
+      doc.text(`${f.dia} ${f.num} de septiembre  ·  ${MARCAS[p.marca].nombre}  ·  ${p.formato}`, xTexto, y + 3.5);
+      doc.setFontSize(12.5).setTextColor(...PDF_COLORES.ink);
+      doc.text(titulo, xTexto, y + 10);
+      doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...PDF_COLORES.suave);
+      doc.text(concepto, xTexto, y + 11 + titulo.length * 5.4);
       y += altoBloque;
       doc.setDrawColor(231, 225, 214).setLineWidth(0.25).line(M, y, W - M, y);
       y += 6;
