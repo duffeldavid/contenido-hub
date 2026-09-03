@@ -199,6 +199,9 @@ body.modo-cliente .bell { display: none; }
 }
 .hstat .num { font-family: var(--font-head); font-weight: 700; font-size: 19px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hstat .lbl { font-size: 12px; color: rgba(247,243,236,.7); }
+.hstat.clicable { cursor: pointer; border-radius: 12px; }
+.hstat.clicable:hover .num { color: #8FD9A0; }
+.aprob-filtros { margin-bottom: 18px; flex-wrap: wrap; }
 
 /* ═══════════ LÁMINA DE VIDRIO ═══════════ */
 .sheet {

@@ -204,6 +204,9 @@ body.modo-cliente .bell { display: none; }
 }
 .hstat .num { font-family: var(--font-head); font-weight: 700; font-size: 19px; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .hstat .lbl { font-size: 12px; color: rgba(247,243,236,.7); }
+.hstat.clicable { cursor: pointer; border-radius: 12px; }
+.hstat.clicable:hover .num { color: #8FD9A0; }
+.aprob-filtros { margin-bottom: 18px; flex-wrap: wrap; }
 
 /* ═══════════ LÁMINA DE VIDRIO ═══════════ */
 .sheet {
@@ -1598,9 +1601,15 @@ function renderHero() {
   const aprobadas = piezas.filter(p => aprobDe(p).v === "Aprobado").length;
   document.getElementById("heroStats").innerHTML = `
     <div class="hstat"><span class="ico">📅</span><div><div class="num">${pub}/${piezas.length}</div><div class="lbl">publicadas</div></div></div>
-    <div class="hstat"><span class="ico">✅</span><div><div class="num">${aprobadas}/${piezas.length}</div><div class="lbl">aprobadas por mercadeo</div></div></div>
+    <div class="hstat clicable" id="statAprobadas" role="button" title="Ver los contenidos aprobados"><span class="ico">✅</span><div><div class="num">${aprobadas}/${piezas.length}</div><div class="lbl">aprobadas por Mercadeo GM</div></div></div>
     <div class="hstat"><span class="ico">🎥</span><div><div class="num">${porGrabar}</div><div class="lbl">por grabar</div></div></div>
     <div class="hstat"><span class="ico">📦</span><div><div class="num">${listas}</div><div class="lbl">listas o programadas</div></div></div>`;
+  document.getElementById("statAprobadas").onclick = () => {
+    aprobFiltro = "Aprobado";
+    renderAprobacion();
+    activarVista("aprobacion");
+    document.getElementById("view-aprobacion").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 }
 
 // ---------- Vista: Calendario ----------
@@ -1799,10 +1808,13 @@ function renderFeed() {
 }
 
 // ---------- Vista: Aprobación ----------
+let aprobFiltro = "todas"; // "todas" | "Aprobado" | "Ajustar" | "Pendiente"
 function renderAprobacion() {
   const el = document.getElementById("view-aprobacion");
-  const piezas = piezasVisibles();
-  const aprobadas = piezas.filter(p => aprobDe(p).v === "Aprobado").length;
+  const todas = piezasVisibles();
+  const aprobadas = todas.filter(p => aprobDe(p).v === "Aprobado").length;
+  const conAjustes = todas.filter(p => aprobDe(p).v === "Ajustar").length;
+  const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => aprobDe(p).v === aprobFiltro);
   let html = `
     <p class="view-note">${MODO_CLIENTE
       ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
@@ -1810,10 +1822,17 @@ function renderAprobacion() {
     <div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">📲 ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
-      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">📄 Exportar PDF para cliente (${piezas.filter(p => store.pdf[p.id] !== false).length})</button>`}
+      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">📄 Exportar PDF para cliente (${todas.filter(p => store.pdf[p.id] !== false).length})</button>`}
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">🔗 Copiar link para cliente</button>`}
-      <span class="aprob-saved" id="aprobSaved">${aprobadas}/${piezas.length} aprobadas</span>
-    </div>`;
+      <span class="aprob-saved" id="aprobSaved">${aprobadas}/${todas.length} aprobadas</span>
+    </div>
+    <div class="cal-toggle aprob-filtros">
+      <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">Todas (${todas.length})</button>
+      <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">✅ Aprobadas (${aprobadas})</button>
+      <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">✏️ Con ajustes (${conAjustes})</button>
+      <button data-f="Pendiente" class="${aprobFiltro === "Pendiente" ? "active" : ""}">⏳ Pendientes (${todas.length - aprobadas - conAjustes})</button>
+    </div>
+    ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`;
   for (const p of piezas) {
     const { dia, num } = fmtFecha(fechaDe(p));
     const a = aprobDe(p);
@@ -1869,7 +1888,7 @@ function renderAprobacion() {
       if (pdfCb.checked) delete store.pdf[id]; else store.pdf[id] = false;
       save();
       const btn = el.querySelector("#btnPdf");
-      if (btn) btn.textContent = `📄 Exportar PDF para cliente (${piezas.filter(x => store.pdf[x.id] !== false).length})`;
+      if (btn) btn.textContent = `📄 Exportar PDF para cliente (${todas.filter(x => store.pdf[x.id] !== false).length})`;
     };
   });
   const btnPdf = el.querySelector("#btnPdf");
@@ -1895,9 +1914,12 @@ function renderAprobacion() {
   };
   // El botón de WhatsApp es un enlace real (el visor bloquea window.open);
   // el mensaje se arma justo antes de seguir el enlace.
+  el.querySelectorAll(".aprob-filtros button").forEach(b => {
+    b.onclick = () => { aprobFiltro = b.dataset.f; renderAprobacion(); };
+  });
   el.querySelector("#btnWhatsApp").addEventListener("click", function () {
-    const pendientes = piezas.filter(p => aprobDe(p).v === "Pendiente");
-    const revisadas = piezas.filter(p => aprobDe(p).v !== "Pendiente");
+    const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
+    const revisadas = todas.filter(p => aprobDe(p).v !== "Pendiente");
     const marcaTxt = marcaActiva === "todas" ? "Café Forestal + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
     const L = [`*Contenidos ${MES.titulo} · ${marcaTxt}*`];
 
