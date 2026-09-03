@@ -145,6 +145,12 @@ body.modo-cliente .bell { display: none; }
   font-family: var(--font-head); font-weight: 700; font-size: 14px;
   padding: 10px 12px 8px; border-bottom: 1px solid var(--line-soft);
 }
+.noti-aviso {
+  display: block; margin: 8px; padding: 11px 13px;
+  background: #F3EADA; border-radius: 12px;
+  font-size: 12.5px; line-height: 1.45; color: var(--ink); text-decoration: none;
+}
+.noti-aviso:hover { background: #EDE1C8; }
 .noti-item {
   display: flex; gap: 10px; width: 100%; text-align: left;
   border: 0; background: transparent; cursor: pointer;
@@ -796,7 +802,7 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 
   <!-- Generador de PDF (aprobación para cliente) -->
 
-<script id="hub-state" type="application/json">{"estados":{"f-0904":"Idea"},"checks":{},"aprob":{},"portadas":{},"fechas":{"f-0909":"2026-09-04","f-0904":"2026-09-09","f-0930":"2026-09-21"},"ediciones":{},"orden":{},"pdf":{},"updatedAt":1788409836338}</script>
+<script id="hub-state" type="application/json">{"estados": {"f-0904": "Idea"}, "checks": {}, "aprob": {"m-0904": {"v": "Aprobado", "c": "Este contenido ya se realizó el mes pasado, probemos con una idea similar", "por": "Mercadeo GM"}, "f-0911": {"v": "Aprobado", "c": "Me gusta, probemos sacar un carrusel", "por": "Mercadeo GM"}, "m-0907": {"v": "Aprobado", "c": "", "por": "Mercadeo GM"}}, "portadas": {}, "fechas": {"f-0909": "2026-09-04", "f-0904": "2026-09-09", "f-0930": "2026-09-21"}, "ediciones": {}, "orden": {}, "pdf": {}, "updatedAt": 1788413986056, "notis": [{"nid": "real-m-0907-1788413327", "piezaId": "m-0907", "v": "Aprobado", "c": "", "autor": "Mercadeo GM", "ts": 1788413327000, "leida": false}, {"nid": "real-f-0911-1788413208", "piezaId": "f-0911", "v": "Aprobado", "c": "Me gusta, probemos sacar un carrusel", "autor": "Mercadeo GM", "ts": 1788413208000, "leida": false}, {"nid": "real-m-0904-1788413132", "piezaId": "m-0904", "v": "Aprobado", "c": "Este contenido ya se realizó el mes pasado, probemos con una idea similar", "autor": "Mercadeo GM", "ts": 1788413132000, "leida": false}]}</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 window.__PRISTINE = "<!doctype html>\n" + document.documentElement.outerHTML;
@@ -1404,8 +1410,12 @@ function renderCampanita() {
   document.getElementById("bellBtn").classList.toggle("con-nuevas", sinLeer > 0);
   const panel = document.getElementById("notiPanel");
   if (panel.hidden) return;
+  // En el visor de claude.ai las conexiones externas están bloqueadas:
+  // las respuestas en vivo entran por el enlace público de la plataforma.
+  const enArtifact = !!(window.claude && typeof window.claude.use === "function");
   panel.innerHTML = `
     <div class="noti-head">Notificaciones</div>
+    ${enArtifact ? `<a class="noti-aviso" href="${ENLACE_PUBLICO}" target="_blank" rel="noopener">⚡ Aquí (claude.ai) las respuestas no entran en vivo.<br><b>Abre el enlace público</b> para verlas llegar al instante →</a>` : ""}
     ${store.notis.length ? store.notis.map(n => {
       const p = PIEZAS.find(x => x.id === n.piezaId);
       const icono = n.v === "Aprobado" ? "✅" : n.v === "Ajustar" ? "✏️" : "⏳";
@@ -1448,16 +1458,19 @@ if (bellBtn) {
   });
 }
 
-function iniciarTiempoReal() {
-  if (MODO_CLIENTE) return;
-  // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
-  fetch(NTFY_DATOS + "/json?poll=1&since=96h")
+function ponerseAlDia(avisar) {
+  return fetch(NTFY_DATOS + "/json?poll=1&since=96h")
     .then(r => r.text())
     .then(t => {
       let alguno = false;
       t.split("\n").forEach(l => { if (l.trim() && aplicarEventoCliente(l, false)) alguno = true; });
-      if (alguno) { save(); renderAll(); toastVivo("📥 Respuestas del cliente sincronizadas"); }
+      if (alguno) { save(); renderAll(); if (avisar) toastVivo("📥 Respuestas de Mercadeo GM sincronizadas"); }
     }).catch(() => {});
+}
+function iniciarTiempoReal() {
+  if (MODO_CLIENTE) return;
+  // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
+  ponerseAlDia(true);
   // Escuchar en vivo
   try {
     const es = new EventSource(NTFY_DATOS + "/sse");
@@ -1465,6 +1478,9 @@ function iniciarTiempoReal() {
       if (aplicarEventoCliente(e.data, true)) { save(); renderAll(); }
     };
   } catch {}
+  // Redes de seguridad: re-sincronizar cada minuto y al volver a la pestaña
+  setInterval(() => ponerseAlDia(false), 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) ponerseAlDia(false); });
 }
 
 function estadoDe(p) { return store.estados[p.id] || p.estado; }

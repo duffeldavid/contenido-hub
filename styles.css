@@ -140,6 +140,12 @@ body.modo-cliente .bell { display: none; }
   font-family: var(--font-head); font-weight: 700; font-size: 14px;
   padding: 10px 12px 8px; border-bottom: 1px solid var(--line-soft);
 }
+.noti-aviso {
+  display: block; margin: 8px; padding: 11px 13px;
+  background: #F3EADA; border-radius: 12px;
+  font-size: 12.5px; line-height: 1.45; color: var(--ink); text-decoration: none;
+}
+.noti-aviso:hover { background: #EDE1C8; }
 .noti-item {
   display: flex; gap: 10px; width: 100%; text-align: left;
   border: 0; background: transparent; cursor: pointer;

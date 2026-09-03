@@ -136,8 +136,12 @@ function renderCampanita() {
   document.getElementById("bellBtn").classList.toggle("con-nuevas", sinLeer > 0);
   const panel = document.getElementById("notiPanel");
   if (panel.hidden) return;
+  // En el visor de claude.ai las conexiones externas están bloqueadas:
+  // las respuestas en vivo entran por el enlace público de la plataforma.
+  const enArtifact = !!(window.claude && typeof window.claude.use === "function");
   panel.innerHTML = `
     <div class="noti-head">Notificaciones</div>
+    ${enArtifact ? `<a class="noti-aviso" href="${ENLACE_PUBLICO}" target="_blank" rel="noopener">⚡ Aquí (claude.ai) las respuestas no entran en vivo.<br><b>Abre el enlace público</b> para verlas llegar al instante →</a>` : ""}
     ${store.notis.length ? store.notis.map(n => {
       const p = PIEZAS.find(x => x.id === n.piezaId);
       const icono = n.v === "Aprobado" ? "✅" : n.v === "Ajustar" ? "✏️" : "⏳";
@@ -180,16 +184,19 @@ if (bellBtn) {
   });
 }
 
-function iniciarTiempoReal() {
-  if (MODO_CLIENTE) return;
-  // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
-  fetch(NTFY_DATOS + "/json?poll=1&since=96h")
+function ponerseAlDia(avisar) {
+  return fetch(NTFY_DATOS + "/json?poll=1&since=96h")
     .then(r => r.text())
     .then(t => {
       let alguno = false;
       t.split("\n").forEach(l => { if (l.trim() && aplicarEventoCliente(l, false)) alguno = true; });
-      if (alguno) { save(); renderAll(); toastVivo("📥 Respuestas del cliente sincronizadas"); }
+      if (alguno) { save(); renderAll(); if (avisar) toastVivo("📥 Respuestas de Mercadeo GM sincronizadas"); }
     }).catch(() => {});
+}
+function iniciarTiempoReal() {
+  if (MODO_CLIENTE) return;
+  // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
+  ponerseAlDia(true);
   // Escuchar en vivo
   try {
     const es = new EventSource(NTFY_DATOS + "/sse");
@@ -197,6 +204,9 @@ function iniciarTiempoReal() {
       if (aplicarEventoCliente(e.data, true)) { save(); renderAll(); }
     };
   } catch {}
+  // Redes de seguridad: re-sincronizar cada minuto y al volver a la pestaña
+  setInterval(() => ponerseAlDia(false), 60000);
+  document.addEventListener("visibilitychange", () => { if (!document.hidden) ponerseAlDia(false); });
 }
 
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
