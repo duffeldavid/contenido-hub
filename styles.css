@@ -180,14 +180,19 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .view.active { display: block; animation: fadeIn .25s ease; }
 @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
-.view-note { color: var(--dim); font-size: 13.5px; margin: 0 0 22px; max-width: 72ch; }
-.view-note b { color: var(--ink); }
+/* Texto que se apoya directamente sobre el vidrio: blanco con sombra */
+.view-note {
+  color: rgba(255,255,255,.92); font-size: 13.5px; margin: 0 0 22px; max-width: 72ch;
+  text-shadow: 0 1px 10px rgba(18,12,9,.55);
+}
+.view-note b { color: #fff; }
 
 /* ═══════════ CALENDARIO ═══════════ */
 .cal-week { margin-bottom: 30px; }
 .cal-week-label {
   font-family: var(--font-head); font-size: 12px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .14em; color: var(--faint);
+  text-transform: uppercase; letter-spacing: .14em; color: rgba(255,255,255,.88);
+  text-shadow: 0 1px 10px rgba(18,12,9,.55);
   margin-bottom: 12px;
 }
 .cal-days { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
@@ -195,9 +200,9 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 
 .cal-day { display: flex; flex-direction: column; gap: 10px; }
 .cal-day-head { display: flex; align-items: baseline; gap: 8px; }
-.cal-day-name { font-family: var(--font-head); font-weight: 600; font-size: 14.5px; }
-.cal-day-date { color: var(--faint); font-size: 13px; }
-.cal-day-head.today .cal-day-name { color: var(--accent); }
+.cal-day-name { font-family: var(--font-head); font-weight: 600; font-size: 14.5px; color: #fff; text-shadow: 0 1px 10px rgba(18,12,9,.55); }
+.cal-day-date { color: rgba(255,255,255,.88); font-size: 13px; text-shadow: 0 1px 10px rgba(18,12,9,.55); }
+.cal-day-head.today .cal-day-name { color: #fff; }
 .today-chip {
   font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase;
   background: var(--accent); color: #fff; border-radius: 999px; padding: 2px 9px;

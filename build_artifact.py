@@ -15,6 +15,9 @@ app = (ROOT / "app.js").read_text()
 
 body = re.search(r"<body[^>]*>\s*([\s\S]*?)\s*<script src=", index).group(1)
 
+# Enlaces de fuentes tomados de index.html (una sola fuente de verdad)
+fuentes = "\n".join(re.findall(r'<link[^>]*fonts\.(?:googleapis|gstatic)\.com[^>]*>', index))
+
 # Capa de sincronización: guarda el avance dentro de la propia página
 # (artifact.publish). Solo corre en claude.ai; en local no hace nada.
 SYNC = r"""
@@ -60,9 +63,7 @@ SYNC = r"""
 """
 
 artifact = f"""<title>Contenido Hub</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+{fuentes}
 <style>
 {styles}
 </style>
