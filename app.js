@@ -762,6 +762,20 @@ const drawer = document.getElementById("drawer");
 const backdrop = document.getElementById("drawerBackdrop");
 let piezaAbierta = null;
 
+// El panel se centra frente al último clic: siempre queda ante tus ojos,
+// funcione la página con scroll propio o dentro del visor de claude.ai.
+let ultimoClickY = 0;
+document.addEventListener("pointerdown", e => { ultimoClickY = e.pageY; }, { passive: true, capture: true });
+
+function posicionarDrawer() {
+  const alto = Math.min(720, Math.max(360, Math.round(window.innerHeight * 0.78)));
+  const centro = ultimoClickY || (window.scrollY + window.innerHeight / 2);
+  const maxTop = Math.max(12, document.documentElement.scrollHeight - alto - 16);
+  let top = centro - alto / 2;
+  top = Math.max(window.scrollY + 12, Math.min(top, maxTop));
+  drawer.style.top = Math.round(top) + "px";
+}
+
 function openDrawer(id) {
   const p = PIEZAS.find(x => x.id === id);
   if (!p) return;
@@ -851,6 +865,7 @@ function openDrawer(id) {
       <a class="notion-link" href="${p.notion}" target="_blank" rel="noopener">Abrir en Notion →</a>
     </section>`;
 
+  if (!drawer.classList.contains("open")) posicionarDrawer(); // al refrescar (cambiar estado) se queda donde está
   drawer.classList.add("open");
   backdrop.classList.add("open");
 

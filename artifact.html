@@ -504,17 +504,17 @@ select.edit-input { cursor: pointer; }
   opacity: 0; pointer-events: none; transition: opacity .22s; z-index: 90;
 }
 .drawer-backdrop.open { opacity: 1; pointer-events: auto; }
-/* Tarjeta flotante centrada: abrir, bajar y leer */
+/* Tarjeta flotante que se centra frente a donde hiciste clic */
 .drawer {
-  position: fixed; inset: 0; margin: auto;
-  width: min(620px, 94vw); height: min(86vh, 860px);
+  position: absolute; left: 50%; top: 0;
+  width: min(620px, 94vw); max-height: min(78vh, 720px);
   background: #FFFDFA; border: 1px solid var(--line); border-radius: 24px;
-  opacity: 0; transform: scale(.96) translateY(10px); pointer-events: none;
+  opacity: 0; transform: translateX(-50%) scale(.96) translateY(10px); pointer-events: none;
   transition: opacity .22s ease, transform .22s ease;
   z-index: 100; overflow-y: auto; padding: 28px;
   box-shadow: 0 40px 120px -30px rgba(18,12,9,.65);
 }
-.drawer.open { opacity: 1; transform: none; pointer-events: auto; }
+.drawer.open { opacity: 1; transform: translateX(-50%); pointer-events: auto; }
 .drawer .close-btn {
   position: sticky; top: 0; float: right; margin: -6px -6px 0 0;
   background: var(--bg); border: 1px solid var(--line); color: var(--dim);
@@ -682,10 +682,6 @@ body.modo-cliente .sheet { padding-top: 18px; }
     <section id="view-referentes" class="view active"></section>
   </main>
 
-  <!-- Panel de detalle -->
-  <div class="drawer-backdrop" id="drawerBackdrop"></div>
-  <aside class="drawer" id="drawer"></aside>
-
   <footer class="footer">
     <span>Hecho para David · datos sincronizados desde Notion</span>
     <span class="footer-actions">
@@ -694,6 +690,10 @@ body.modo-cliente .sheet { padding-top: 18px; }
     </span>
   </footer>
   </div><!-- /sheet -->
+
+  <!-- Panel de detalle (fuera de la lámina: se posiciona respecto a la página) -->
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer"></aside>
 
   <!-- Generador de PDF (aprobación para cliente) -->
 
@@ -1931,6 +1931,20 @@ const drawer = document.getElementById("drawer");
 const backdrop = document.getElementById("drawerBackdrop");
 let piezaAbierta = null;
 
+// El panel se centra frente al último clic: siempre queda ante tus ojos,
+// funcione la página con scroll propio o dentro del visor de claude.ai.
+let ultimoClickY = 0;
+document.addEventListener("pointerdown", e => { ultimoClickY = e.pageY; }, { passive: true, capture: true });
+
+function posicionarDrawer() {
+  const alto = Math.min(720, Math.max(360, Math.round(window.innerHeight * 0.78)));
+  const centro = ultimoClickY || (window.scrollY + window.innerHeight / 2);
+  const maxTop = Math.max(12, document.documentElement.scrollHeight - alto - 16);
+  let top = centro - alto / 2;
+  top = Math.max(window.scrollY + 12, Math.min(top, maxTop));
+  drawer.style.top = Math.round(top) + "px";
+}
+
 function openDrawer(id) {
   const p = PIEZAS.find(x => x.id === id);
   if (!p) return;
@@ -2020,6 +2034,7 @@ function openDrawer(id) {
       <a class="notion-link" href="${p.notion}" target="_blank" rel="noopener">Abrir en Notion →</a>
     </section>`;
 
+  if (!drawer.classList.contains("open")) posicionarDrawer(); // al refrescar (cambiar estado) se queda donde está
   drawer.classList.add("open");
   backdrop.classList.add("open");
 
