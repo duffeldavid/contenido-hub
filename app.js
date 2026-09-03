@@ -23,13 +23,14 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {} };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {} };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
     estados: s.estados || {}, checks: s.checks || {},
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
+    orden: s.orden || {},
     updatedAt: s.updatedAt || 0,
   };
 }
@@ -43,6 +44,8 @@ function checksDe(p) { return store.checks[p.id] || []; }
 function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
 function portadaDe(p) { return store.portadas[p.id] || null; }
 function fechaDe(p) { return store.fechas[p.id] || p.fecha; }
+function ordenDe(p) { return store.orden[p.id] ?? PIEZAS.findIndex(x => x.id === p.id); }
+function porOrden(a, b) { return ordenDe(a) - ordenDe(b); }
 function tituloDe(p) { return (store.ediciones[p.id] || {}).titulo || p.titulo; }
 function copyDe(p) { return (store.ediciones[p.id] || {}).copy || p.copy; }
 function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
@@ -181,7 +184,7 @@ function renderCalendario() {
     for (const f of semanas[wk]) {
       const { dia, num } = fmtFecha(f);
       const esHoy = f === hoy;
-      const grupo = porFecha[f] || [];
+      const grupo = (porFecha[f] || []).sort(porOrden);
       html += `
         <div class="cal-day" data-fecha="${f}">
           <div class="cal-day-head ${esHoy ? "today" : ""}">
@@ -217,15 +220,26 @@ function activarDnD(root) {
     day.addEventListener("drop", e => {
       e.preventDefault();
       const id = e.dataTransfer.getData("text/plain");
-      moverPieza(id, day.dataset.fecha);
+      // posición dentro del día: encima o debajo de las piezas existentes
+      const cards = [...day.querySelectorAll(".piece")].filter(c => c.dataset.id !== id);
+      let idx = cards.length;
+      for (let i = 0; i < cards.length; i++) {
+        const r = cards[i].getBoundingClientRect();
+        if (e.clientY < r.top + r.height / 2) { idx = i; break; }
+      }
+      moverPieza(id, day.dataset.fecha, idx);
     });
   });
 }
-function moverPieza(id, fecha) {
+function moverPieza(id, fecha, idx) {
   const p = PIEZAS.find(x => x.id === id);
-  if (!p || !fecha || fechaDe(p) === fecha) return;
+  if (!p || !fecha) return;
   if (fecha === p.fecha) delete store.fechas[id];
   else store.fechas[id] = fecha;
+  // reordenar las piezas de ese día con la movida en la posición soltada
+  const delDia = PIEZAS.filter(x => x.id !== id && fechaDe(x) === fecha).sort(porOrden);
+  delDia.splice(idx === undefined ? delDia.length : idx, 0, p);
+  delDia.forEach((x, i) => { store.orden[x.id] = i; });
   save();
   renderAll();
 }
@@ -276,7 +290,7 @@ function renderFeed() {
   let html = `<p class="view-note">Así se vería el feed de cada cuenta con las piezas del mes. Toca una casilla para abrir la pieza y <b>subir su portada</b> — la imagen se comprime y se guarda sola.</p><div class="feed-wrap">`;
   for (const mk of marcas) {
     const m = MARCAS[mk];
-    const piezas = PIEZAS.filter(p => p.marca === mk).sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)));
+    const piezas = PIEZAS.filter(p => p.marca === mk).sort((a, b) => fechaDe(b).localeCompare(fechaDe(a)) || porOrden(a, b));
     html += `
       <div class="phone">
         <div class="phone-head">
@@ -676,7 +690,7 @@ document.getElementById("main").addEventListener("click", e => {
 });
 
 // ---------- Navegación ----------
-let vistaActiva = "calendario";
+let vistaActiva = "referentes";
 function activarVista(v) {
   vistaActiva = v;
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
