@@ -5,6 +5,11 @@
 // también embebido en la página para sincronizar dispositivos.
 // ============================================================
 
+// Enlace público de la plataforma (GitHub Pages) — el que se comparte a clientes
+const ENLACE_PUBLICO = "https://duffeldavid.github.io/contenido-hub/";
+// ¿La página se abrió como formulario de aprobación para cliente?
+const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
+
 const ESTADOS = ["Idea", "Por grabar", "En edición", "Listo", "Programado", "Publicado"];
 const ESTADO_CLASS = {
   "Idea": "st-Idea", "Por grabar": "st-PorGrabar", "En edición": "st-EnEdicion",
@@ -158,6 +163,23 @@ function renderHero() {
 }
 
 // ---------- Vista: Calendario ----------
+let calModo = "semanas"; // "semanas" | "dias" (columnas Lunes · Miércoles · Viernes)
+
+function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
+  const { dia, num } = fmtFecha(f);
+  const esHoy = f === hoy;
+  const grupo = (porFecha[f] || []).sort(porOrden);
+  return `
+    <div class="cal-day" data-fecha="${f}">
+      <div class="cal-day-head ${esHoy ? "today" : ""}">
+        ${conDia ? `<span class="cal-day-name">${dia}</span>` : ""}
+        <span class="cal-day-date">${num} de septiembre</span>
+        ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
+      </div>
+      ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
+    </div>`;
+}
+
 function renderCalendario() {
   const el = document.getElementById("view-calendario");
   const piezas = piezasVisibles();
@@ -166,38 +188,51 @@ function renderCalendario() {
   const porFecha = {};
   piezas.forEach(p => (porFecha[fechaDe(p)] = porFecha[fechaDe(p)] || []).push(p));
 
-  // Los espacios del calendario son SIEMPRE todos los L-M-V del mes,
-  // aunque queden vacíos al arrastrar piezas a otra fecha.
-  const semanas = {};
-  FECHAS_MES.forEach(f => {
-    const { date } = fmtFecha(f);
-    const monday = new Date(date);
-    monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
-    const wk = monday.toISOString().slice(0, 10);
-    (semanas[wk] = semanas[wk] || []).push(f);
-  });
+  let html = `
+    <p class="view-note">Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).</p>
+    <div class="cal-toggle">
+      <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Por semanas</button>
+      <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">Lunes · Miércoles · Viernes</button>
+    </div>`;
 
-  let html = `<p class="view-note">Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).</p>`;
-  let wkNum = 1;
-  for (const wk of Object.keys(semanas).sort()) {
-    html += `<div class="cal-week"><div class="cal-week-label">Semana ${wkNum++}</div><div class="cal-days">`;
-    for (const f of semanas[wk]) {
-      const { dia, num } = fmtFecha(f);
-      const esHoy = f === hoy;
-      const grupo = (porFecha[f] || []).sort(porOrden);
+  if (calModo === "dias") {
+    // Tres columnas: todas las fechas de cada día de publicación
+    const porDia = { "Lunes": [], "Miércoles": [], "Viernes": [] };
+    FECHAS_MES.forEach(f => {
+      const { dia } = fmtFecha(f);
+      (porDia[dia] = porDia[dia] || []).push(f);
+    });
+    html += `<div class="cal-cols">`;
+    for (const [dia, fechas] of Object.entries(porDia)) {
       html += `
-        <div class="cal-day" data-fecha="${f}">
-          <div class="cal-day-head ${esHoy ? "today" : ""}">
-            <span class="cal-day-name">${dia}</span>
-            <span class="cal-day-date">${num} de septiembre</span>
-            ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
-          </div>
-          ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
+        <div class="cal-col">
+          <div class="cal-col-head">${dia}</div>
+          ${fechas.map(f => bloqueDia(f, porFecha, hoy, { conDia: false })).join("")}
         </div>`;
     }
-    html += `</div></div>`;
+    html += `</div>`;
+  } else {
+    // Los espacios del calendario son SIEMPRE todos los L-M-V del mes,
+    // aunque queden vacíos al arrastrar piezas a otra fecha.
+    const semanas = {};
+    FECHAS_MES.forEach(f => {
+      const { date } = fmtFecha(f);
+      const monday = new Date(date);
+      monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
+      const wk = monday.toISOString().slice(0, 10);
+      (semanas[wk] = semanas[wk] || []).push(f);
+    });
+    let wkNum = 1;
+    for (const wk of Object.keys(semanas).sort()) {
+      html += `<div class="cal-week"><div class="cal-week-label">Semana ${wkNum++}</div><div class="cal-days">`;
+      html += semanas[wk].map(f => bloqueDia(f, porFecha, hoy)).join("");
+      html += `</div></div>`;
+    }
   }
   el.innerHTML = html;
+  el.querySelectorAll(".cal-toggle button").forEach(b => {
+    b.onclick = () => { calModo = b.dataset.m; renderCalendario(); };
+  });
   activarDnD(el);
 }
 
@@ -328,20 +363,25 @@ function renderAprobacion() {
   let html = `
     <p class="view-note">Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.</p>
     <div class="aprob-toolbar">
-      <button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>
-      <button class="btn-ghost" id="btnWhatsApp">📲 Enviar por WhatsApp para aprobación</button>
+      ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
+      <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">📲 ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
+      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">🔗 Copiar link para cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${piezas.length} aprobadas</span>
     </div>`;
   for (const p of piezas) {
     const { dia, num } = fmtFecha(fechaDe(p));
     const a = aprobDe(p);
+    const img = portadaDe(p);
     html += `
       <div class="aprob-row" data-id="${p.id}">
         <div class="aprob-info">
-          <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
-          <h4>${esc(tituloDe(p))}</h4>
-          <div class="copy">${esc(copyDe(p))}</div>
-          <button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>
+          <div class="aprob-thumb" style="--brand-tint:${brandTint(p)}">${img ? `<img src="${img}" alt="">` : `${FORMATO_ICONO[p.formato] || "🎬"}`}</div>
+          <div>
+            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
+            <h4>${esc(tituloDe(p))}</h4>
+            <div class="copy">${esc(copyDe(p))}</div>
+            ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
+          </div>
         </div>
         <div class="aprob-controls">
           <div class="aprob-pills">
@@ -368,13 +408,26 @@ function renderAprobacion() {
   });
   el.querySelectorAll("[data-open]").forEach(b => { b.onclick = () => openDrawer(b.dataset.open); });
   const btn = el.querySelector("#btnGuardarRevision");
-  btn.onclick = () => {
+  if (btn) btn.onclick = () => {
     save();
     if (window.hubFlush) window.hubFlush();
     btn.textContent = "Revisión guardada ✓";
     setTimeout(() => { btn.textContent = "Guardar revisión"; }, 2500);
   };
-  el.querySelector("#btnWhatsApp").onclick = () => {
+  const btnLink = el.querySelector("#btnLinkCliente");
+  if (btnLink) btnLink.onclick = async () => {
+    const url = ENLACE_PUBLICO + "?modo=cliente";
+    try {
+      await navigator.clipboard.writeText(url);
+      btnLink.textContent = "🔗 Link copiado ✓";
+      setTimeout(() => { btnLink.textContent = "🔗 Copiar link para cliente"; }, 2500);
+    } catch {
+      prompt("Copia el link para tu cliente:", url);
+    }
+  };
+  // El botón de WhatsApp es un enlace real (el visor bloquea window.open);
+  // el mensaje se arma justo antes de seguir el enlace.
+  el.querySelector("#btnWhatsApp").addEventListener("click", function () {
     const pendientes = piezas.filter(p => aprobDe(p).v === "Pendiente");
     const revisadas = piezas.filter(p => aprobDe(p).v !== "Pendiente");
     const marcaTxt = marcaActiva === "todas" ? "Forestal Café + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
@@ -398,12 +451,14 @@ function renderAprobacion() {
         L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)}${a.c ? ` — 💬 ${a.c}` : ""}`);
       }
     }
-    L.push("", `👀 Para verlo visual (portadas, feed y calendario): ${location.origin === "null" || location.protocol === "file:" ? "abre Contenido Hub" : location.href.split("#")[0].split("?")[0]}`);
-    window.open("https://wa.me/?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
-  };
+    L.push("", `👀 Revísalo y aprueba aquí (se abre en cualquier celular): ${ENLACE_PUBLICO}?modo=cliente`);
+    this.href = "https://wa.me/?text=" + encodeURIComponent(L.join("\n"));
+    // sin preventDefault: el enlace navega con el mensaje ya armado
+  });
 }
 
 // ---------- Vista: Referentes ----------
+let railTimers = [];
 function refRail(items, tipo) {
   const cards = tipo === "cuenta"
     ? items.map(r => `
@@ -458,7 +513,7 @@ function renderReferentes() {
     <p class="view-note">Escribe lo que quieras buscar y ábrelo directo en Pinterest, o toca cualquier imagen del mosaico para explorar esa idea.</p>
     <form class="searchbar" id="pinForm">
       <input type="search" id="pinQuery" class="edit-input" placeholder="Busca referencias… ej: specialty coffee reel, parrilla ASMR, butcher shop">
-      <button type="submit" class="btn-primary">Buscar en Pinterest</button>
+      <a class="btn-primary" id="pinGo" href="https://www.pinterest.com/" target="_blank" rel="noopener">Buscar en Pinterest</a>
     </form>
     <div class="masonry">
       ${R.mosaico.map(m => `
@@ -474,12 +529,35 @@ function renderReferentes() {
     w.querySelector(".prev").onclick = () => rail.scrollBy({ left: -320, behavior: "smooth" });
     w.querySelector(".next").onclick = () => rail.scrollBy({ left: 320, behavior: "smooth" });
   });
-  // buscador de Pinterest
-  el.querySelector("#pinForm").onsubmit = e => {
-    e.preventDefault();
-    const q = el.querySelector("#pinQuery").value.trim();
-    if (q) window.open("https://www.pinterest.com/search/pins/?q=" + encodeURIComponent(q), "_blank", "noopener");
-  };
+  // buscador de Pinterest — enlace real (el visor bloquea window.open)
+  const pinGo = el.querySelector("#pinGo");
+  const pinQuery = el.querySelector("#pinQuery");
+  function pinUrl() {
+    const q = pinQuery.value.trim();
+    return q ? "https://www.pinterest.com/search/pins/?q=" + encodeURIComponent(q) : "https://www.pinterest.com/";
+  }
+  pinQuery.addEventListener("input", () => { pinGo.href = pinUrl(); });
+  pinGo.addEventListener("click", function () { this.href = pinUrl(); });
+  el.querySelector("#pinForm").onsubmit = e => { e.preventDefault(); pinGo.href = pinUrl(); pinGo.click(); };
+
+  // los carruseles de cuentas se deslizan solos, suave, hasta que los tocas
+  railTimers.forEach(clearInterval);
+  railTimers = [];
+  if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    el.querySelectorAll(".rail-wrap").forEach((w, wi) => {
+      if (!w.querySelector(".ref-slide")) return; // solo los de fotos
+      const rail = w.querySelector(".ref-rail");
+      let pausado = false;
+      const pausa = () => { pausado = true; };
+      ["pointerenter", "pointerdown", "touchstart", "wheel"].forEach(ev => rail.addEventListener(ev, pausa, { passive: true }));
+      railTimers.push(setInterval(() => {
+        if (pausado || !document.getElementById("view-referentes").classList.contains("active")) return;
+        const fin = rail.scrollWidth - rail.clientWidth - 8;
+        if (rail.scrollLeft >= fin) rail.scrollTo({ left: 0, behavior: "smooth" });
+        else rail.scrollBy({ left: 240, behavior: "smooth" });
+      }, 3800 + wi * 600));
+    });
+  }
 }
 
 // ---------- Portadas (subir imagen) ----------
@@ -775,5 +853,12 @@ function renderAll() {
   renderReferentes();
 }
 document.body.dataset.marca = marcaActiva;
-restoreUI();
-renderAll();
+if (MODO_CLIENTE) {
+  // Formulario de aprobación para cliente: solo la vista Aprobación
+  document.body.classList.add("modo-cliente");
+  renderAll();
+  activarVista("aprobacion");
+} else {
+  restoreUI();
+  renderAll();
+}

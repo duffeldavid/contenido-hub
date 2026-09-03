@@ -140,10 +140,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* ═══════════ LÁMINA DE VIDRIO ═══════════ */
 .sheet {
   position: relative; z-index: 1;
-  /* vidrio negro difuminado, efecto multiplicar: oscurece la foto detrás */
-  background: rgba(12,9,7,.45);
-  backdrop-filter: blur(20px) brightness(.55) saturate(1.15);
-  -webkit-backdrop-filter: blur(20px) brightness(.55) saturate(1.15);
+  /* vidrio oscuro difuminado (multiplicar suave): legible pero no tan negro */
+  background: rgba(24,18,14,.32);
+  backdrop-filter: blur(20px) brightness(.74) saturate(1.15);
+  -webkit-backdrop-filter: blur(20px) brightness(.74) saturate(1.15);
   min-height: 70vh;
   /* el vidrio aparece en fundido: la página se siente una sola */
   mask-image: linear-gradient(to bottom, transparent 0, #000 90px);
@@ -156,22 +156,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 /* ═══════════ TABS ═══════════ */
 .tabs {
   position: sticky; top: 0; z-index: 50;
-  background: linear-gradient(to bottom, rgba(12,9,7,.88) 55%, rgba(12,9,7,0));
-  display: flex; gap: 4px;
+  background: linear-gradient(to bottom, rgba(20,15,12,.82) 55%, rgba(20,15,12,0));
+  display: flex; gap: 6px;
   padding: 12px 24px 6px;
   overflow-x: auto;
   justify-content: center;
 }
 .tabs button {
-  border: 0; background: transparent; color: rgba(255,255,255,.68);
-  font-family: var(--font-head); font-size: 16.5px; font-weight: 600;
-  padding: 13px 18px; cursor: pointer; white-space: nowrap;
-  border-bottom: 2.5px solid transparent;
-  text-shadow: 0 1px 8px rgba(0,0,0,.5);
-  transition: color .18s, border-color .18s;
+  border: 0; background: transparent; color: #fff;
+  font-family: var(--font-head); font-size: 19px; font-weight: 700;
+  padding: 14px 20px; cursor: pointer; white-space: nowrap;
+  border-bottom: 3px solid transparent;
+  text-shadow: 0 1px 10px rgba(0,0,0,.55);
+  opacity: .78;
+  transition: opacity .18s, border-color .18s, transform .18s;
 }
-.tabs button:hover { color: #fff; }
-.tabs button.active { color: #fff; border-bottom-color: #E9C46A; }
+.tabs button:hover { opacity: 1; transform: translateY(-1px); }
+.tabs button.active { opacity: 1; border-bottom-color: #E9C46A; }
 
 /* ═══════════ MAIN ═══════════ */
 main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
@@ -187,6 +188,27 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .view-note b { color: #fff; }
 
 /* ═══════════ CALENDARIO ═══════════ */
+.cal-toggle {
+  display: inline-flex; gap: 3px; margin-bottom: 22px;
+  background: rgba(255,255,255,.12); border-radius: 999px; padding: 4px;
+}
+.cal-toggle button {
+  border: 0; background: transparent; color: rgba(255,255,255,.8);
+  font-family: var(--font-head); font-size: 13.5px; font-weight: 600;
+  padding: 8px 18px; border-radius: 999px; cursor: pointer;
+  transition: all .18s;
+}
+.cal-toggle button.active { background: #F7F3EC; color: #211C16; }
+
+.cal-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+@media (max-width: 860px) { .cal-cols { grid-template-columns: 1fr; } }
+.cal-col-head {
+  font-family: var(--font-head); font-size: 19px; font-weight: 700;
+  color: #fff; text-shadow: 0 1px 10px rgba(18,12,9,.55);
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 2px solid rgba(255,255,255,.25);
+}
+.cal-col .cal-day { margin-bottom: 16px; }
 .cal-week { margin-bottom: 30px; }
 .cal-week-label {
   font-family: var(--font-head); font-size: 12px; font-weight: 600;
@@ -334,6 +356,13 @@ select.edit-input { cursor: pointer; }
   display: grid; grid-template-columns: 1fr 250px; gap: 18px;
 }
 @media (max-width: 780px) { .aprob-row { grid-template-columns: 1fr; } }
+.aprob-info { display: flex; gap: 14px; }
+.aprob-thumb {
+  width: 78px; aspect-ratio: 3 / 4; border-radius: 12px; overflow: hidden; flex: none;
+  background: var(--brand-tint, var(--bg)); border: 1px solid var(--line-soft);
+  display: grid; place-items: center; font-size: 22px;
+}
+.aprob-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .aprob-info .fecha { font-size: 12px; font-weight: 600; color: var(--faint); text-transform: uppercase; letter-spacing: .08em; }
 .aprob-info h4 { font-family: var(--font-head); font-size: 15.5px; font-weight: 600; margin: 4px 0 6px; }
 .aprob-info .copy { font-size: 13px; color: var(--dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
@@ -521,6 +550,30 @@ select.edit-input { cursor: pointer; }
 /* dentro del panel blanco, los enlaces vuelven a tinta */
 .drawer .link-btn { color: var(--dim); }
 .drawer .link-btn:hover { color: var(--ink); }
+
+/* ═══════════ MODO CLIENTE (formulario de aprobación) ═══════════ */
+body.modo-cliente .tabs,
+body.modo-cliente .brand-switch,
+body.modo-cliente .footer-actions,
+body.modo-cliente .sync-badge { display: none; }
+body.modo-cliente .sheet { padding-top: 18px; }
+
+/* ═══════════ MICRO-ANIMACIONES ═══════════ */
+.hstat, .tactic-card, .aprob-row, .ref-card, .phone { transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }
+.hstat:hover { transform: translateY(-2px); }
+.tactic-card:hover { transform: translateY(-3px); background: rgba(255,255,255,.16); }
+.aprob-row:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
+.ref-slide { transition: transform .25s ease, box-shadow .25s ease; }
+.ref-slide:hover { transform: translateY(-4px); box-shadow: 0 6px 8px rgba(0,0,0,.15), 0 28px 60px -20px rgba(0,0,0,.5); }
+.mas-item { transition: transform .25s ease; }
+.mas-item:hover { transform: translateY(-3px); }
+.cell img { transition: transform .3s ease; }
+.cell:hover img { transform: scale(1.05); }
+.rail-btn { transition: transform .18s ease, box-shadow .18s ease; }
+.rail-btn:hover { transform: translateY(-50%) scale(1.1); }
+@media (prefers-reduced-motion: reduce) {
+  .hstat:hover, .tactic-card:hover, .aprob-row:hover, .ref-slide:hover, .mas-item:hover { transform: none; }
+}
 
 /* ═══════════ MÓVIL ═══════════ */
 @media (max-width: 640px) {
