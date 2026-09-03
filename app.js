@@ -13,13 +13,25 @@ const DIAS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "
 const LS_KEY = "contenidoHub." + MES.clave;
 
 // ---------- Estado persistente ----------
+// El avance vive en localStorage y, en la versión Artifact (claude.ai),
+// también embebido en la página (bloque #hub-state) para sincronizar
+// entre dispositivos. Al cargar gana el más reciente (updatedAt).
 let store = load();
 function load() {
-  try { return JSON.parse(localStorage.getItem(LS_KEY)) || { estados: {}, checks: {} }; }
-  catch { return { estados: {}, checks: {} }; }
+  let ls = null, emb = null;
+  try { ls = JSON.parse(localStorage.getItem(LS_KEY)); } catch {}
+  const el = document.getElementById("hub-state");
+  if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
+  const candidatos = [ls, emb].filter(x => x && typeof x === "object");
+  if (!candidatos.length) return { estados: {}, checks: {} };
+  candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  const s = candidatos[0];
+  return { estados: s.estados || {}, checks: s.checks || {}, updatedAt: s.updatedAt || 0 };
 }
 function save() {
+  store.updatedAt = Date.now();
   try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch {}
+  if (window.hubSync) window.hubSync();
 }
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
 function checksDe(p) { return store.checks[p.id] || []; }
@@ -317,15 +329,24 @@ document.getElementById("tabs").addEventListener("click", e => {
 });
 
 // ---------- Export / reset ----------
-document.getElementById("btnExport").onclick = () => {
+document.getElementById("btnExport").onclick = async () => {
   const data = PIEZAS.map(p => ({
     marca: MARCAS[p.marca].nombre, fecha: p.fecha, pieza: p.titulo,
     estado: estadoDe(p), checklist: p.checklist.map((c, i) => ({ tarea: c, hecha: checksDe(p).includes(i) })),
   }));
-  const blob = new Blob([JSON.stringify({ mes: MES.titulo, exportado: new Date().toISOString(), piezas: data }, null, 2)], { type: "application/json" });
+  const payload = JSON.stringify({ mes: MES.titulo, exportado: new Date().toISOString(), piezas: data }, null, 2);
+  const filename = `contenido-hub-${MES.clave}.json`;
+  // En claude.ai las descargas pasan por la capacidad "downloads"
+  if (window.claude && typeof window.claude.use === "function") {
+    try {
+      const dl = await window.claude.use("downloads");
+      if (dl) { await dl.save({ filename, data: payload }); return; }
+    } catch { return; } // el visor puede rechazar la descarga; no hay fallback posible ahí
+  }
+  const blob = new Blob([payload], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `contenido-hub-${MES.clave}.json`;
+  a.download = filename;
   a.click();
 };
 document.getElementById("btnReset").onclick = () => {

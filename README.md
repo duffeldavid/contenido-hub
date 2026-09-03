@@ -6,7 +6,11 @@ Cadencia: **lunes, miércoles y viernes** (3 publicaciones por semana por marca)
 
 ## Cómo usarla
 
-Abre `index.html` en el navegador (doble clic). No necesita servidor ni instalación.
+**Desde cualquier dispositivo (celular incluido):** https://claude.ai/code/artifact/245bee3d-3862-44f0-a329-70c43d454a9a — privado, solo con tu cuenta de Claude. Ahí el avance (estados y checklists) se guarda dentro de la propia página, así se sincroniza entre tu compu y tu celular. Para compartirlo con alguien del equipo en modo lectura, usa el menú de compartir del artifact con permiso de "ver": podrán consultarlo pero sus cambios no se guardan.
+
+**En local:** abre `index.html` en el navegador (doble clic). No necesita servidor ni instalación. En local el avance vive en el navegador (localStorage).
+
+Tras cambiar `data.js`, `referentes.js`, `app.js` o `styles.css`, regenera la versión de claude.ai con `python3 build_artifact.py` y pide a Claude republicar `artifact.html` sobre la misma URL.
 
 - **Calendario** — las fechas del mes con sus piezas. Toca una pieza para ver copy, checklist, equipo y referencias.
 - **Pipeline** — el flujo de producción (Idea → Por grabar → En edición → Listo → Programado → Publicado). Cambia el estado desde el panel de cada pieza.
