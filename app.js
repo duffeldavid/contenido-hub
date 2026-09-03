@@ -15,7 +15,7 @@ const NTFY_CANAL = "https://ntfy.sh/contenido-hub-david-x8k3n2vq";
 const NTFY_DATOS = "https://ntfy.sh/contenido-hub-datos-x8k3n2vq";
 // Acceso del equipo al link de aprobación (protección básica en el navegador)
 const CLAVE_ACCESO = "Mercadeo123";
-const AUTOR_CLIENTE = "Mercadeo";
+const AUTOR_CLIENTE = "Mercadeo GM";
 // ¿La página se abrió como formulario de aprobación para cliente?
 const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
 
@@ -963,8 +963,8 @@ function openDrawer(id) {
     <div class="tag-row">
       <span class="chip">${esc(p.mensaje)}</span>
       <span class="chip">${esc(p.tono)}</span>
-      ${a.v === "Aprobado" ? `<span class="chip aprobado">✓ Aprobado por mercadeo</span>` : ""}
-      ${a.v === "Ajustar" ? `<span class="chip ajustar">Mercadeo pide ajustes</span>` : ""}
+      ${a.v === "Aprobado" ? `<span class="chip aprobado">✓ Aprobado${a.por ? ` por ${esc(a.por)}` : ""}</span>` : ""}
+      ${a.v === "Ajustar" ? `<span class="chip ajustar">${a.por ? esc(a.por) : "Mercadeo GM"} pide ajustes</span>` : ""}
     </div>
 
     <section>
@@ -1273,7 +1273,7 @@ function pedirClaveAcceso() {
   velo.innerHTML = `
     <div class="candado-caja">
       <div class="logo" style="justify-content:center"><span class="logo-dot"></span><span class="logo-text">Contenido<b>Hub</b></span></div>
-      <p class="candado-txt">Acceso del equipo · escribe la clave para revisar y aprobar los contenidos</p>
+      <p class="candado-txt">Acceso <b>Mercadeo GM</b> · escribe la clave para revisar y aprobar los contenidos del mes</p>
       <input type="password" id="claveInput" class="edit-input" placeholder="Clave de acceso" autocomplete="off">
       <button class="btn-primary" id="claveBtn">Entrar</button>
       <p class="candado-error" id="claveError" hidden>Clave incorrecta, inténtalo de nuevo.</p>
