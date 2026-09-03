@@ -45,12 +45,12 @@
   <!-- Lámina de vidrio esmerilado con todo el contenido -->
   <div class="sheet">
   <nav class="tabs" id="tabs">
-    <button data-view="referentes" class="active">Referentes</button>
-    <button data-view="calendario">Calendario</button>
-    <button data-view="pipeline">Pipeline</button>
-    <button data-view="rodaje">Plan de rodaje</button>
-    <button data-view="feed">Feed</button>
-    <button data-view="aprobacion">Aprobación</button>
+    <button data-view="referentes" class="active"><span>Referentes</span></button>
+    <button data-view="calendario"><span>Calendario</span></button>
+    <button data-view="pipeline"><span>Pipeline</span></button>
+    <button data-view="rodaje"><span>Plan de rodaje</span></button>
+    <button data-view="feed"><span>Feed</span></button>
+    <button data-view="aprobacion"><span>Aprobación</span></button>
   </nav>
 
   <main id="main">
@@ -74,6 +74,9 @@
     </span>
   </footer>
   </div><!-- /sheet -->
+
+  <!-- Documento imprimible: PDF de aprobación para cliente -->
+  <div id="printDoc" aria-hidden="true"></div>
 
   <script src="data.js"></script>
   <script src="referentes.js"></script>

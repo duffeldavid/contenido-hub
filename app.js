@@ -28,14 +28,14 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {} };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {} };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
     estados: s.estados || {}, checks: s.checks || {},
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
-    orden: s.orden || {},
+    orden: s.orden || {}, pdf: s.pdf || {},
     updatedAt: s.updatedAt || 0,
   };
 }
@@ -365,6 +365,7 @@ function renderAprobacion() {
     <div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">📲 ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
+      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">📄 Exportar PDF para cliente (${piezas.filter(p => store.pdf[p.id] !== false).length})</button>`}
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">🔗 Copiar link para cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${piezas.length} aprobadas</span>
     </div>`;
@@ -388,6 +389,11 @@ function renderAprobacion() {
             ${APROB.map(v => `<button data-v="${v}" class="${a.v === v ? "sel" : ""}">${v === "Aprobado" ? "✓ " : ""}${v}</button>`).join("")}
           </div>
           <textarea class="aprob-comment" placeholder="Comentario para David (opcional)…">${esc(a.c || "")}</textarea>
+          ${MODO_CLIENTE ? "" : `
+          <label class="pdf-check">
+            <input type="checkbox" data-pdf ${store.pdf[p.id] !== false ? "checked" : ""}>
+            <span>Incluir en el PDF para cliente</span>
+          </label>`}
         </div>
       </div>`;
   }
@@ -405,7 +411,16 @@ function renderAprobacion() {
     const ta = row.querySelector(".aprob-comment");
     ta.oninput = () => { store.aprob[id] = { ...aprobDe({ id }), c: ta.value }; };
     ta.onchange = () => save();
+    const pdfCb = row.querySelector("[data-pdf]");
+    if (pdfCb) pdfCb.onchange = () => {
+      if (pdfCb.checked) delete store.pdf[id]; else store.pdf[id] = false;
+      save();
+      const btn = el.querySelector("#btnPdf");
+      if (btn) btn.textContent = `📄 Exportar PDF para cliente (${piezas.filter(x => store.pdf[x.id] !== false).length})`;
+    };
   });
+  const btnPdf = el.querySelector("#btnPdf");
+  if (btnPdf) btnPdf.onclick = exportarPdf;
   el.querySelectorAll("[data-open]").forEach(b => { b.onclick = () => openDrawer(b.dataset.open); });
   const btn = el.querySelector("#btnGuardarRevision");
   if (btn) btn.onclick = () => {
@@ -458,7 +473,7 @@ function renderAprobacion() {
 }
 
 // ---------- Vista: Referentes ----------
-let railTimers = [];
+let railAnim = null;
 function refRail(items, tipo) {
   const cards = tipo === "cuenta"
     ? items.map(r => `
@@ -540,24 +555,101 @@ function renderReferentes() {
   pinGo.addEventListener("click", function () { this.href = pinUrl(); });
   el.querySelector("#pinForm").onsubmit = e => { e.preventDefault(); pinGo.href = pinUrl(); pinGo.click(); };
 
-  // los carruseles de cuentas se deslizan solos, suave, hasta que los tocas
-  railTimers.forEach(clearInterval);
-  railTimers = [];
+  // Deriva continua tipo luxury: los rieles de fotos se deslizan solos en
+  // bucle, lento y fluido; se pausan al interactuar y retoman a los segundos.
+  if (railAnim) cancelAnimationFrame(railAnim);
+  railAnim = null;
   if (!matchMedia("(prefers-reduced-motion: reduce)").matches) {
-    el.querySelectorAll(".rail-wrap").forEach((w, wi) => {
-      if (!w.querySelector(".ref-slide")) return; // solo los de fotos
+    const rieles = [];
+    el.querySelectorAll(".rail-wrap").forEach(w => {
       const rail = w.querySelector(".ref-rail");
-      let pausado = false;
-      const pausa = () => { pausado = true; };
-      ["pointerenter", "pointerdown", "touchstart", "wheel"].forEach(ev => rail.addEventListener(ev, pausa, { passive: true }));
-      railTimers.push(setInterval(() => {
-        if (pausado || !document.getElementById("view-referentes").classList.contains("active")) return;
-        const fin = rail.scrollWidth - rail.clientWidth - 8;
-        if (rail.scrollLeft >= fin) rail.scrollTo({ left: 0, behavior: "smooth" });
-        else rail.scrollBy({ left: 240, behavior: "smooth" });
-      }, 3800 + wi * 600));
+      if (!rail.querySelector(".ref-slide")) return; // solo los de fotos
+      rail.classList.add("auto");
+      rail.innerHTML += rail.innerHTML; // duplicado para el bucle infinito sin saltos
+      const s = { rail, pos: 0, hover: false, hasta: 0 };
+      rail.addEventListener("pointerenter", () => { s.hover = true; });
+      rail.addEventListener("pointerleave", () => { s.hover = false; s.pos = rail.scrollLeft; });
+      ["pointerdown", "touchstart", "wheel"].forEach(ev =>
+        rail.addEventListener(ev, () => { s.hasta = performance.now() + 4000; s.pos = rail.scrollLeft; }, { passive: true }));
+      w.querySelectorAll(".rail-btn").forEach(b =>
+        b.addEventListener("click", () => { s.hasta = performance.now() + 4000; setTimeout(() => { s.pos = rail.scrollLeft; }, 450); }));
+      rieles.push(s);
     });
+    if (rieles.length) {
+      const tick = now => {
+        if (document.getElementById("view-referentes").classList.contains("active")) {
+          for (const s of rieles) {
+            if (s.hover || now < s.hasta) continue;
+            s.pos += 0.4; // ~24px por segundo: lento, fluido
+            const mitad = s.rail.scrollWidth / 2;
+            if (s.pos >= mitad) s.pos -= mitad;
+            s.rail.scrollLeft = s.pos;
+          }
+        }
+        railAnim = requestAnimationFrame(tick);
+      };
+      railAnim = requestAnimationFrame(tick);
+    }
   }
+}
+
+// ---------- PDF de aprobación para cliente ----------
+function renderPrintDoc() {
+  const piezas = piezasVisibles().filter(p => store.pdf[p.id] !== false);
+  const marcas = [...new Set(piezas.map(p => p.marca))];
+  const hoy = new Date();
+  const fechaDoc = `${hoy.getDate()} de ${["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"][hoy.getMonth()]} de ${hoy.getFullYear()}`;
+
+  let html = `
+    <div class="pd-header">
+      <div class="pd-eyebrow">Propuesta de contenidos · ${esc(MES.titulo)}</div>
+      <h1>${marcas.map(m => MARCAS[m].nombre).join(" · ")}</h1>
+      <div class="pd-meta">${piezas.length} piezas · Publicación ${MES.cadencia.toLowerCase()} · Preparado por David · ${fechaDoc}</div>
+      <p class="pd-intro">Revisa cada pieza y responde con tu aprobación o los ajustes que quieras. Cada contenido incluye su fecha de publicación, formato y concepto.</p>
+    </div>`;
+
+  for (const mk of marcas) {
+    const m = MARCAS[mk];
+    const grupo = piezas.filter(p => p.marca === mk);
+    html += `
+      <div class="pd-marca" style="--pd-color:${m.colorFuerte}">
+        <h2><span class="pd-dot"></span>${m.nombre} <span class="pd-handle">${m.handle}</span></h2>
+        ${grupo.map(p => {
+          const f = fmtFecha(fechaDe(p));
+          const img = portadaDe(p);
+          return `
+            <div class="pd-piece">
+              <div class="pd-thumb">${img ? `<img src="${img}" alt="">` : `<span>${FORMATO_ICONO[p.formato] || "🎬"}</span>`}</div>
+              <div class="pd-body">
+                <div class="pd-fecha">${f.dia} ${f.num} de septiembre · ${p.formato} · ${esc(p.mensaje)} · ${esc(p.tono)}</div>
+                <h3>${esc(tituloDe(p))}</h3>
+                <p>${esc(copyDe(p))}</p>
+              </div>
+            </div>`;
+        }).join("")}
+      </div>`;
+  }
+
+  html += `
+    <div class="pd-footer">
+      <p class="pd-cta">¿Todo listo? Responde por WhatsApp: <b>"Aprobado para que los realices"</b> — o indícanos los ajustes pieza por pieza.</p>
+      <div class="pd-firma">
+        <span>Aprobado por: ________________________</span>
+        <span>Fecha: ______________</span>
+      </div>
+    </div>`;
+  document.getElementById("printDoc").innerHTML = html;
+}
+
+function exportarPdf() {
+  renderPrintDoc();
+  document.body.classList.add("imprimiendo");
+  try {
+    window.print(); // el diálogo permite "Guardar como PDF"
+  } catch {
+    alert("Tu navegador bloqueó la impresión aquí. Abre la plataforma en el navegador (index.html o el enlace público) y vuelve a intentarlo.");
+  }
+  setTimeout(() => document.body.classList.remove("imprimiendo"), 500);
 }
 
 // ---------- Portadas (subir imagen) ----------
