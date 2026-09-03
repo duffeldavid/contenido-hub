@@ -83,11 +83,10 @@ window.__PRISTINE = "<!doctype html>\\n" + document.documentElement.outerHTML;
 # Fotos del héroe embebidas como data URI (el visor de claude.ai
 # bloquea imágenes externas y no sirve archivos locales aparte)
 import base64
-for nombre in ("bg-forestal.jpg", "bg-tostadora.jpg", "bg-manzanares.jpg"):
-    ruta = ROOT / "assets" / nombre
-    if ruta.exists():
-        b64 = base64.b64encode(ruta.read_bytes()).decode()
-        artifact = artifact.replace(f"assets/{nombre}", f"data:image/jpeg;base64,{b64}")
+for ruta in sorted((ROOT / "assets").rglob("*.jpg")):
+    rel = ruta.relative_to(ROOT).as_posix()
+    b64 = base64.b64encode(ruta.read_bytes()).decode()
+    artifact = artifact.replace(rel, f"data:image/jpeg;base64,{b64}")
 
 (ROOT / "artifact.html").write_text(artifact)
 print(f"artifact.html generado ({len(artifact):,} bytes)")

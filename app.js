@@ -190,7 +190,6 @@ function renderCalendario() {
             ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
           </div>
           ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
-          <div class="drop-hint">Suelta aquí</div>
         </div>`;
     }
     html += `</div></div>`;
@@ -206,11 +205,9 @@ function activarDnD(root) {
       e.dataTransfer.setData("text/plain", card.dataset.id);
       e.dataTransfer.effectAllowed = "move";
       card.classList.add("dragging");
-      root.classList.add("drag-activa");
     });
     card.addEventListener("dragend", () => {
       card.classList.remove("dragging");
-      root.classList.remove("drag-activa");
       root.querySelectorAll(".cal-day.drag-over").forEach(d => d.classList.remove("drag-over"));
     });
   });
@@ -318,7 +315,7 @@ function renderAprobacion() {
     <p class="view-note">Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.</p>
     <div class="aprob-toolbar">
       <button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>
-      <button class="btn-ghost" id="btnWhatsApp">📲 Enviar revisión por WhatsApp</button>
+      <button class="btn-ghost" id="btnWhatsApp">📲 Enviar por WhatsApp para aprobación</button>
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${piezas.length} aprobadas</span>
     </div>`;
   for (const p of piezas) {
@@ -364,63 +361,111 @@ function renderAprobacion() {
     setTimeout(() => { btn.textContent = "Guardar revisión"; }, 2500);
   };
   el.querySelector("#btnWhatsApp").onclick = () => {
-    const lineas = [`*Revisión de contenidos · ${MES.titulo}*`];
-    for (const p of piezas) {
-      const a = aprobDe(p);
-      if (a.v === "Pendiente" && !a.c) continue;
-      const marca = MARCAS[p.marca].nombre;
-      const icono = a.v === "Aprobado" ? "✅" : a.v === "Ajustar" ? "✏️" : "⏳";
-      lineas.push(`${icono} ${fechaDe(p).slice(8)}/09 · ${marca} · ${tituloDe(p)} — *${a.v}*${a.c ? `\n   💬 ${a.c}` : ""}`);
+    const pendientes = piezas.filter(p => aprobDe(p).v === "Pendiente");
+    const revisadas = piezas.filter(p => aprobDe(p).v !== "Pendiente");
+    const marcaTxt = marcaActiva === "todas" ? "Forestal Café + Carnes Manzanares" : MARCAS[marcaActiva].nombre;
+    const L = [`*Contenidos ${MES.titulo} · ${marcaTxt}*`];
+
+    if (pendientes.length) {
+      L.push("", `📋 *${pendientes.length} piezas para tu aprobación*`, `_Responde con el número + "ok", o el ajuste que quieras:_`);
+      pendientes.forEach((p, i) => {
+        const f = fmtFecha(fechaDe(p));
+        const concepto = (copyDe(p).split(". ")[0] + ".").slice(0, 150);
+        L.push("",
+          `*${i + 1}️⃣  ${tituloDe(p)}*`,
+          `${f.dia} ${f.num}/09 · ${MARCAS[p.marca].nombre} · ${p.formato} ${FORMATO_ICONO[p.formato] || ""}`,
+          `💡 ${concepto}`);
+      });
     }
-    if (lineas.length === 1) lineas.push("(Sin piezas revisadas todavía)");
-    const texto = lineas.join("\n");
-    if (navigator.share) { navigator.share({ text: texto }).catch(() => {}); return; }
-    window.open("https://wa.me/?text=" + encodeURIComponent(texto), "_blank", "noopener");
+    if (revisadas.length) {
+      L.push("", `— — —`, `*Ya revisadas (${revisadas.length}):*`);
+      for (const p of revisadas) {
+        const a = aprobDe(p);
+        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)}${a.c ? ` — 💬 ${a.c}` : ""}`);
+      }
+    }
+    L.push("", `👀 Para verlo visual (portadas, feed y calendario): ${location.origin === "null" || location.protocol === "file:" ? "abre Contenido Hub" : location.href.split("#")[0].split("?")[0]}`);
+    window.open("https://wa.me/?text=" + encodeURIComponent(L.join("\n")), "_blank", "noopener");
   };
 }
 
 // ---------- Vista: Referentes ----------
+function refRail(items, tipo) {
+  const cards = tipo === "cuenta"
+    ? items.map(r => `
+        <a class="ref-slide" href="${r.url}" target="_blank" rel="noopener">
+          <img src="${r.img}" alt="${esc(r.handle)}" loading="lazy">
+          <span class="ref-grad"></span>
+          <span class="ref-slide-body">
+            <span class="ref-cat">Instagram</span>
+            <span class="ref-handle">${esc(r.handle)}</span>
+            <span class="ref-why">${esc(r.why)}</span>
+            <span class="ref-cta">Ver cuenta ↗</span>
+          </span>
+        </a>`).join("")
+    : items.map((t, i) => `
+        <div class="tactic-card">
+          <span class="tactic-num">${String(i + 1).padStart(2, "0")}</span>
+          <b>${esc(t.t)}</b>
+          <p>${esc(t.d)}</p>
+        </div>`).join("");
+  return `
+    <div class="rail-wrap">
+      <button class="rail-btn prev" aria-label="Anterior">‹</button>
+      <div class="ref-rail">${cards}</div>
+      <button class="rail-btn next" aria-label="Siguiente">›</button>
+    </div>`;
+}
+
 function renderReferentes() {
   const el = document.getElementById("view-referentes");
   const R = REFERENTES;
   el.innerHTML = `
-    <p class="view-note">Cómo lo hacen las grandes cuentas — investigación real, contenido filmado (no IA). El norte: <a href="${R.norte.url}" target="_blank" rel="noopener" style="color:var(--accent);font-weight:600">${R.norte.handle}</a>.</p>
+    <p class="view-note">Referencias muy visuales: desliza, mira la estética y toca para abrir cada cuenta. El norte: <a href="${R.norte.url}" target="_blank" rel="noopener" style="color:#E9C46A;font-weight:600">${R.norte.handle}</a>.</p>
 
     <div class="norte">
       <h3>El norte: ${R.norte.handle}</h3>
       <p class="desc">${esc(R.norte.resumen)}</p>
-      ${R.norte.lecciones.map(l => `<div class="leccion">→ ${esc(l)}</div>`).join("")}
+      <div class="norte-lecciones">
+        ${R.norte.lecciones.map(l => `<div class="leccion">→ ${esc(l)}</div>`).join("")}
+      </div>
     </div>
 
     <div class="ref-section-title">☕ Café de especialidad</div>
-    <div class="ref-grid">
-      ${R.cafe.map(r => `
-        <a class="ref-card" href="${r.url}" target="_blank" rel="noopener">
-          <div class="cat">Instagram</div>
-          <div class="handle">${esc(r.handle)}</div>
-          <div class="why">${esc(r.why)}</div>
-        </a>`).join("")}
-    </div>
+    ${refRail(R.cafe, "cuenta")}
 
     <div class="ref-section-title">🥩 Carne premium</div>
-    <div class="ref-grid">
-      ${R.carne.map(r => `
-        <a class="ref-card" href="${r.url}" target="_blank" rel="noopener">
-          <div class="cat">Instagram</div>
-          <div class="handle">${esc(r.handle)}</div>
-          <div class="why">${esc(r.why)}</div>
+    ${refRail(R.carne, "cuenta")}
+
+    <div class="ref-section-title">⚡ Tácticas 2025-2026 — desliza →</div>
+    ${refRail(R.tacticas, "tactica")}
+
+    <div class="ref-section-title">📌 Inspiración visual</div>
+    <p class="view-note">Escribe lo que quieras buscar y ábrelo directo en Pinterest, o toca cualquier imagen del mosaico para explorar esa idea.</p>
+    <form class="searchbar" id="pinForm">
+      <input type="search" id="pinQuery" class="edit-input" placeholder="Busca referencias… ej: specialty coffee reel, parrilla ASMR, butcher shop">
+      <button type="submit" class="btn-primary">Buscar en Pinterest</button>
+    </form>
+    <div class="masonry">
+      ${R.mosaico.map(m => `
+        <a class="mas-item" href="https://www.pinterest.com/search/pins/?q=${encodeURIComponent(m.q)}" target="_blank" rel="noopener">
+          <img src="${m.img}" alt="${esc(m.q)}" loading="lazy">
+          <span class="mas-label">📌 ${esc(m.q)}</span>
         </a>`).join("")}
-    </div>
-
-    <div class="ref-section-title">⚡ Tácticas 2025-2026</div>
-    ${R.tacticas.map(t => `<div class="tactic"><b>${esc(t.t)}</b><p>${esc(t.d)}</p></div>`).join("")}
-
-    <div class="ref-section-title">🔍 Búsquedas de referencia (Pinterest / TikTok)</div>
-    <div class="search-chips">
-      ${R.busquedas.map(q => `
-        <a href="https://www.pinterest.com/search/pins/?q=${encodeURIComponent(q)}" target="_blank" rel="noopener">📌 ${esc(q)}</a>
-        <a href="https://www.tiktok.com/search?q=${encodeURIComponent(q)}" target="_blank" rel="noopener">🎵 ${esc(q)}</a>`).join("")}
     </div>`;
+
+  // rieles con flechas
+  el.querySelectorAll(".rail-wrap").forEach(w => {
+    const rail = w.querySelector(".ref-rail");
+    w.querySelector(".prev").onclick = () => rail.scrollBy({ left: -320, behavior: "smooth" });
+    w.querySelector(".next").onclick = () => rail.scrollBy({ left: 320, behavior: "smooth" });
+  });
+  // buscador de Pinterest
+  el.querySelector("#pinForm").onsubmit = e => {
+    e.preventDefault();
+    const q = el.querySelector("#pinQuery").value.trim();
+    if (q) window.open("https://www.pinterest.com/search/pins/?q=" + encodeURIComponent(q), "_blank", "noopener");
+  };
 }
 
 // ---------- Portadas (subir imagen) ----------
