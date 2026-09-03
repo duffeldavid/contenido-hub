@@ -582,10 +582,10 @@ select.edit-input { cursor: pointer; }
 
 /* ═══════════ MODO CLIENTE (formulario de aprobación) ═══════════ */
 body.modo-cliente .tabs,
-body.modo-cliente .brand-switch,
 body.modo-cliente .footer-actions,
 body.modo-cliente .sync-badge { display: none; }
 body.modo-cliente .sheet { padding-top: 18px; }
+body.modo-cliente .aprob-row { cursor: pointer; }
 
 /* ═══════════ MICRO-ANIMACIONES ═══════════ */
 .hstat, .tactic-card, .aprob-row, .ref-card, .phone { transition: transform .2s ease, box-shadow .2s ease, background .2s ease; }

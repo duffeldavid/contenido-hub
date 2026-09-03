@@ -363,7 +363,9 @@ function renderAprobacion() {
   const piezas = piezasVisibles();
   const aprobadas = piezas.filter(p => aprobDe(p).v === "Aprobado").length;
   let html = `
-    <p class="view-note">Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.</p>
+    <p class="view-note">${MODO_CLIENTE
+      ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
+      : `Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.`}</p>
     <div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">📲 ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
@@ -403,6 +405,11 @@ function renderAprobacion() {
 
   el.querySelectorAll(".aprob-row").forEach(row => {
     const id = row.dataset.id;
+    // Toda la fila abre la tarjeta de la pieza (salvo los controles)
+    row.addEventListener("click", e => {
+      if (e.target.closest("button, textarea, a, input, label")) return;
+      openDrawer(id);
+    });
     row.querySelectorAll(".aprob-pills button").forEach(b => {
       b.onclick = () => {
         store.aprob[id] = { ...aprobDe({ id }), v: b.dataset.v };
@@ -777,6 +784,7 @@ function posicionarDrawer() {
 }
 
 function openDrawer(id) {
+  if (MODO_CLIENTE) return openDrawerCliente(id);
   const p = PIEZAS.find(x => x.id === id);
   if (!p) return;
   piezaAbierta = p;
@@ -922,6 +930,76 @@ function openDrawer(id) {
     };
   });
 }
+// Tarjeta simple para el cliente: concepto, formato y referencias — cero jerga
+function openDrawerCliente(id) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p) return;
+  piezaAbierta = p;
+  const m = MARCAS[p.marca];
+  const { dia, num } = fmtFecha(fechaDe(p));
+  const a = aprobDe(p);
+  const img = portadaDe(p);
+  const FORMATO_DESC = {
+    "Reel": "Video corto vertical",
+    "Foto": "Fotografía para el feed",
+    "Carrusel": "Publicación de varias imágenes deslizables",
+    "Pieza gráfica": "Diseño gráfico para el feed",
+    "Historia": "Historia de 24 horas",
+  };
+
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${brandTint(p)}">${m.nombre} · ${m.handle}</span>
+    <h2>${esc(tituloDe(p))}</h2>
+    <div class="sub">Se publica el ${dia.toLowerCase()} ${num} de septiembre</div>
+    <div class="tag-row">
+      <span class="chip">${FORMATO_ICONO[p.formato] || "🎬"} ${p.formato} · ${FORMATO_DESC[p.formato] || ""}</span>
+    </div>
+
+    ${img ? `
+    <section>
+      <h4>Así se verá en el feed</h4>
+      <div class="portada-prev" style="width:150px"><img src="${img}" alt="Portada"></div>
+    </section>` : ""}
+
+    <section>
+      <h4>De qué trata</h4>
+      <div class="copy-text">${esc(conceptoDe(p))}</div>
+    </section>
+
+    <section>
+      <h4>Referencias del estilo (toca para ver ejemplos)</h4>
+      <div class="ref-links">
+        ${p.refs.map(r => `<a href="${r.url}" target="_blank" rel="noopener">↗ ${esc(r.label)}</a>`).join("")}
+      </div>
+    </section>
+
+    <section>
+      <h4>Tu aprobación</h4>
+      <div class="aprob-pills">
+        ${APROB.map(v => `<button data-aprob="${v}" class="${a.v === v ? "sel" : ""}" data-v="${v}">${v === "Aprobado" ? "✓ " : ""}${v}</button>`).join("")}
+      </div>
+      <textarea class="aprob-comment" id="drawerComment" placeholder="Comentario o ajuste (opcional)…" style="margin-top:10px">${esc(a.c || "")}</textarea>
+    </section>`;
+
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  drawer.querySelectorAll("[data-aprob]").forEach(b => {
+    b.onclick = () => {
+      store.aprob[p.id] = { ...aprobDe(p), v: b.dataset.aprob };
+      save();
+      openDrawerCliente(p.id);
+      renderAll();
+    };
+  });
+  const ta = drawer.querySelector("#drawerComment");
+  ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
+  ta.onchange = () => save();
+}
+
 function closeDrawer() {
   drawer.classList.remove("open");
   backdrop.classList.remove("open");
