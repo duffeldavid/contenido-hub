@@ -110,7 +110,7 @@ function aplicarEventoCliente(linea, enVivo) {
     // Registrar en el buzón de notificaciones de la plataforma
     store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", autor, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
     store.notis = store.notis.slice(0, 60);
-    if (enVivo) {
+    if (enVivo && !MODO_CLIENTE) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
       toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
@@ -194,9 +194,9 @@ function ponerseAlDia(avisar) {
     }).catch(() => {});
 }
 function iniciarTiempoReal() {
-  if (MODO_CLIENTE) return;
-  // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
-  ponerseAlDia(true);
+  // Corre en ambos lados (plataforma y link del cliente) para que los
+  // dos vean exactamente el mismo estado de aprobaciones.
+  ponerseAlDia(!MODO_CLIENTE);
   // Escuchar en vivo
   try {
     const es = new EventSource(NTFY_DATOS + "/sse");
@@ -532,6 +532,43 @@ function renderFeed() {
 
 // ---------- Vista: Aprobación ----------
 let aprobFiltro = "todas"; // "todas" | "Aprobado" | "Ajustar" | "Pendiente"
+// En el link de Mercadeo GM el comentario se fija con "Enviar" y solo
+// se cambia con "Editar" — evita borrados accidentales.
+const comentarioEditando = {};
+function bloqueComentario(p) {
+  const a = aprobDe(p);
+  if (!MODO_CLIENTE) {
+    return `<textarea class="aprob-comment" placeholder="Comentario para David (opcional)…">${esc(a.c || "")}</textarea>`;
+  }
+  if (a.c && !comentarioEditando[p.id]) {
+    return `
+      <div class="coment-fijo">💬 ${esc(a.c)}</div>
+      <button class="btn-ghost btn-coment" data-editar="${p.id}">✏️ Editar comentario</button>`;
+  }
+  return `
+    <textarea class="aprob-comment" placeholder="Escribe tu comentario o ajuste…">${esc(a.c || "")}</textarea>
+    <button class="btn-primary btn-coment" data-enviar="${p.id}">Enviar comentario</button>`;
+}
+function conectarComentario(cont, p, refrescar) {
+  const ta = cont.querySelector(".aprob-comment");
+  if (!MODO_CLIENTE) {
+    if (!ta) return;
+    ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
+    ta.onchange = () => save();
+    return;
+  }
+  const btnEnviar = cont.querySelector(`[data-enviar="${p.id}"]`);
+  if (btnEnviar) btnEnviar.onclick = () => {
+    store.aprob[p.id] = { ...aprobDe(p), c: ta.value.trim() };
+    comentarioEditando[p.id] = false;
+    save();
+    notiComentario(p, ta.value);
+    emitirDato(p);
+    refrescar();
+  };
+  const btnEditar = cont.querySelector(`[data-editar="${p.id}"]`);
+  if (btnEditar) btnEditar.onclick = () => { comentarioEditando[p.id] = true; refrescar(); };
+}
 function renderAprobacion() {
   const el = document.getElementById("view-aprobacion");
   const todas = piezasVisibles();
@@ -575,7 +612,7 @@ function renderAprobacion() {
           <div class="aprob-pills">
             ${APROB.map(v => `<button data-v="${v}" class="${a.v === v ? "sel" : ""}">${v === "Aprobado" ? "✓ " : ""}${v}</button>`).join("")}
           </div>
-          <textarea class="aprob-comment" placeholder="Comentario para David (opcional)…">${esc(a.c || "")}</textarea>
+          ${bloqueComentario(p)}
           ${MODO_CLIENTE ? "" : `
           <label class="pdf-check">
             <input type="checkbox" data-pdf ${store.pdf[p.id] !== false ? "checked" : ""}>
@@ -603,9 +640,7 @@ function renderAprobacion() {
         renderAll({ keep: "aprobacion" });
       };
     });
-    const ta = row.querySelector(".aprob-comment");
-    ta.oninput = () => { store.aprob[id] = { ...aprobDe({ id }), c: ta.value }; };
-    ta.onchange = () => { save(); const pieza = PIEZAS.find(x => x.id === id); notiComentario(pieza, ta.value); emitirDato(pieza); };
+    conectarComentario(row, PIEZAS.find(x => x.id === id), () => renderAprobacion());
     const pdfCb = row.querySelector("[data-pdf]");
     if (pdfCb) pdfCb.onchange = () => {
       if (pdfCb.checked) delete store.pdf[id]; else store.pdf[id] = false;
@@ -1169,7 +1204,7 @@ function openDrawerCliente(id) {
       <div class="aprob-pills">
         ${APROB.map(v => `<button data-aprob="${v}" class="${a.v === v ? "sel" : ""}" data-v="${v}">${v === "Aprobado" ? "✓ " : ""}${v}</button>`).join("")}
       </div>
-      <textarea class="aprob-comment" id="drawerComment" placeholder="Comentario o ajuste (opcional)…" style="margin-top:10px">${esc(a.c || "")}</textarea>
+      <div style="margin-top:10px; display:flex; flex-direction:column; gap:8px">${bloqueComentario(p)}</div>
     </section>`;
 
   if (!drawer.classList.contains("open")) posicionarDrawer();
@@ -1187,9 +1222,7 @@ function openDrawerCliente(id) {
       renderAll();
     };
   });
-  const ta = drawer.querySelector("#drawerComment");
-  ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
-  ta.onchange = () => { save(); notiComentario(p, ta.value); emitirDato(p); };
+  conectarComentario(drawer, p, () => { openDrawerCliente(p.id); renderAll(); });
 }
 
 function closeDrawer() {
@@ -1330,6 +1363,7 @@ if (MODO_CLIENTE) {
   renderAll();
   activarVista("aprobacion");
   pedirClaveAcceso();
+  iniciarTiempoReal();
 } else {
   restoreUI();
   renderAll();

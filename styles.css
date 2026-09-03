@@ -468,6 +468,12 @@ select.edit-input { cursor: pointer; }
   font-family: var(--font-body); font-size: 13px; color: var(--ink); background: var(--bg);
 }
 .aprob-comment::placeholder { color: var(--faint); }
+.coment-fijo {
+  background: var(--bg); border: 1px solid var(--line-soft); border-radius: 12px;
+  padding: 10px 13px; font-size: 13px; color: var(--ink); font-style: italic;
+  line-height: 1.45;
+}
+.btn-coment { align-self: flex-start; }
 
 /* ═══════════ REFERENTES ═══════════ */
 .ref-section-title {
