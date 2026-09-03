@@ -99,6 +99,51 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .brand-switch button:hover { color: #fff; }
 .brand-switch button.active { background: #F7F3EC; color: #211C16; font-weight: 600; }
 
+/* Campanita de notificaciones */
+.bell {
+  position: relative; border: 0; cursor: pointer;
+  background: rgba(0,0,0,.18); border-radius: 50%;
+  width: 38px; height: 38px; font-size: 16px; line-height: 1;
+  display: grid; place-items: center; flex: none;
+  transition: transform .15s, background .15s;
+}
+.bell:hover { transform: scale(1.08); background: rgba(0,0,0,.3); }
+.bell-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  background: #E2453A; color: #fff; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+  box-shadow: 0 0 0 2px rgba(20,15,12,.6);
+}
+body.modo-cliente .bell { display: none; }
+.noti-panel {
+  position: fixed; top: 72px; right: 16px; z-index: 300;
+  width: min(380px, 92vw); max-height: min(60vh, 480px); overflow-y: auto;
+  background: #FFFDFA; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 30px 90px -20px rgba(18,12,9,.6);
+  padding: 8px;
+}
+.noti-head {
+  font-family: var(--font-head); font-weight: 700; font-size: 14px;
+  padding: 10px 12px 8px; border-bottom: 1px solid var(--line-soft);
+}
+.noti-item {
+  display: flex; gap: 10px; width: 100%; text-align: left;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 11px 12px; border-radius: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background .15s;
+}
+.noti-item:hover { background: var(--bg); }
+.noti-item.nueva { background: #F3EADA; }
+.noti-ico { font-size: 16px; flex: none; margin-top: 1px; }
+.noti-cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.noti-txt { font-size: 13px; line-height: 1.35; }
+.noti-com { font-size: 12.5px; color: var(--dim); font-style: italic; }
+.noti-tiempo { font-size: 11px; color: var(--faint); }
+.noti-vacio { padding: 22px 14px; font-size: 13px; color: var(--dim); text-align: center; line-height: 1.5; }
+
 .nav-right { display: flex; align-items: center; gap: 10px; }
 .month-pill {
   font-size: 12.5px; font-weight: 500; color: rgba(247,243,236,.9);

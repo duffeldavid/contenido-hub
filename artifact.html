@@ -104,6 +104,51 @@ button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visib
 .brand-switch button:hover { color: #fff; }
 .brand-switch button.active { background: #F7F3EC; color: #211C16; font-weight: 600; }
 
+/* Campanita de notificaciones */
+.bell {
+  position: relative; border: 0; cursor: pointer;
+  background: rgba(0,0,0,.18); border-radius: 50%;
+  width: 38px; height: 38px; font-size: 16px; line-height: 1;
+  display: grid; place-items: center; flex: none;
+  transition: transform .15s, background .15s;
+}
+.bell:hover { transform: scale(1.08); background: rgba(0,0,0,.3); }
+.bell-badge {
+  position: absolute; top: -3px; right: -3px;
+  min-width: 17px; height: 17px; padding: 0 4px;
+  background: #E2453A; color: #fff; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; line-height: 17px; text-align: center;
+  box-shadow: 0 0 0 2px rgba(20,15,12,.6);
+}
+body.modo-cliente .bell { display: none; }
+.noti-panel {
+  position: fixed; top: 72px; right: 16px; z-index: 300;
+  width: min(380px, 92vw); max-height: min(60vh, 480px); overflow-y: auto;
+  background: #FFFDFA; color: var(--ink);
+  border: 1px solid var(--line); border-radius: 18px;
+  box-shadow: 0 30px 90px -20px rgba(18,12,9,.6);
+  padding: 8px;
+}
+.noti-head {
+  font-family: var(--font-head); font-weight: 700; font-size: 14px;
+  padding: 10px 12px 8px; border-bottom: 1px solid var(--line-soft);
+}
+.noti-item {
+  display: flex; gap: 10px; width: 100%; text-align: left;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 11px 12px; border-radius: 12px;
+  border-bottom: 1px solid var(--line-soft);
+  transition: background .15s;
+}
+.noti-item:hover { background: var(--bg); }
+.noti-item.nueva { background: #F3EADA; }
+.noti-ico { font-size: 16px; flex: none; margin-top: 1px; }
+.noti-cuerpo { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.noti-txt { font-size: 13px; line-height: 1.35; }
+.noti-com { font-size: 12.5px; color: var(--dim); font-style: italic; }
+.noti-tiempo { font-size: 11px; color: var(--faint); }
+.noti-vacio { padding: 22px 14px; font-size: 13px; color: var(--dim); text-align: center; line-height: 1.5; }
+
 .nav-right { display: flex; align-items: center; gap: 10px; }
 .month-pill {
   font-size: 12.5px; font-weight: 500; color: rgba(247,243,236,.9);
@@ -662,10 +707,14 @@ body.modo-cliente .aprob-row { cursor: pointer; }
         <button data-brand="forestal">Forestal</button>
         <button data-brand="manzanares">Manzanares</button>
       </div>
+      <button class="bell" id="bellBtn" aria-label="Notificaciones">
+        🔔<span class="bell-badge" id="bellBadge" hidden></span>
+      </button>
       <div class="nav-right">
         <span class="sync-badge" id="syncBadge" hidden></span>
         <span class="month-pill" id="monthPill"></span>
       </div>
+      <div class="noti-panel" id="notiPanel" hidden></div>
     </header>
 
     <div class="hero-content">
@@ -1218,7 +1267,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {} };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, notis: [] };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -1226,6 +1275,7 @@ function load() {
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
     orden: s.orden || {}, pdf: s.pdf || {},
+    notis: s.notis || [],
     updatedAt: s.updatedAt || 0,
   };
 }
@@ -1282,9 +1332,13 @@ function aplicarEventoCliente(linea, enVivo) {
   try {
     const m = JSON.parse(linea);
     if (m.event !== "message") return false;
+    if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado
     const d = JSON.parse(m.message);
     if (d.tipo !== "aprob" || !d.id || !PIEZAS.some(p => p.id === d.id)) return false;
     store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "" };
+    // Registrar en el buzón de notificaciones de la plataforma
+    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
+    store.notis = store.notis.slice(0, 60);
     if (enVivo) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
@@ -1293,6 +1347,66 @@ function aplicarEventoCliente(linea, enVivo) {
     return true;
   } catch { return false; }
 }
+// ---------- Buzón de notificaciones (campanita) ----------
+function tiempoRelativo(ts) {
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return "hace un momento";
+  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.floor(s / 3600)} h`;
+  const d = new Date(ts);
+  return `${d.getDate()}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function renderCampanita() {
+  const badge = document.getElementById("bellBadge");
+  if (!badge) return;
+  const sinLeer = store.notis.filter(n => !n.leida).length;
+  badge.hidden = sinLeer === 0;
+  badge.textContent = sinLeer > 9 ? "9+" : sinLeer;
+  const panel = document.getElementById("notiPanel");
+  if (panel.hidden) return;
+  panel.innerHTML = `
+    <div class="noti-head">Notificaciones</div>
+    ${store.notis.length ? store.notis.map(n => {
+      const p = PIEZAS.find(x => x.id === n.piezaId);
+      const icono = n.v === "Aprobado" ? "✅" : n.v === "Ajustar" ? "✏️" : "⏳";
+      return `
+        <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
+          <span class="noti-ico">${icono}</span>
+          <span class="noti-cuerpo">
+            <span class="noti-txt"><b>${n.v === "Aprobado" ? "Aprobado" : n.v === "Ajustar" ? "Pide ajustes" : "Revisado"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
+            ${n.c ? `<span class="noti-com">💬 "${esc(n.c.slice(0, 120))}"</span>` : ""}
+            <span class="noti-tiempo">${tiempoRelativo(n.ts)}</span>
+          </span>
+        </button>`;
+    }).join("") : `<div class="noti-vacio">Sin notificaciones aún.<br>Aquí verás cada aprobación y comentario de tus clientes.</div>`}`;
+  panel.querySelectorAll(".noti-item").forEach(b => {
+    b.onclick = () => { cerrarCampanita(); openDrawer(b.dataset.pieza); };
+  });
+}
+function abrirCampanita() {
+  const panel = document.getElementById("notiPanel");
+  panel.hidden = false;
+  renderCampanita();
+  // al abrir el buzón, todo queda leído
+  if (store.notis.some(n => !n.leida)) {
+    store.notis.forEach(n => { n.leida = true; });
+    save();
+    document.getElementById("bellBadge").hidden = true;
+  }
+}
+function cerrarCampanita() { document.getElementById("notiPanel").hidden = true; }
+const bellBtn = document.getElementById("bellBtn");
+if (bellBtn) {
+  bellBtn.onclick = e => {
+    e.stopPropagation();
+    const panel = document.getElementById("notiPanel");
+    panel.hidden ? abrirCampanita() : cerrarCampanita();
+  };
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#notiPanel, #bellBtn")) cerrarCampanita();
+  });
+}
+
 function iniciarTiempoReal() {
   if (MODO_CLIENTE) return;
   // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
@@ -2367,6 +2481,7 @@ document.getElementById("btnReset").onclick = () => {
 
 // ---------- Init ----------
 function renderAll() {
+  renderCampanita();
   renderHero();
   renderCalendario();
   renderPipeline();

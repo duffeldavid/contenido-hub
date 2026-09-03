@@ -34,7 +34,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {} };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, notis: [] };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -42,6 +42,7 @@ function load() {
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
     orden: s.orden || {}, pdf: s.pdf || {},
+    notis: s.notis || [],
     updatedAt: s.updatedAt || 0,
   };
 }
@@ -98,9 +99,13 @@ function aplicarEventoCliente(linea, enVivo) {
   try {
     const m = JSON.parse(linea);
     if (m.event !== "message") return false;
+    if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado
     const d = JSON.parse(m.message);
     if (d.tipo !== "aprob" || !d.id || !PIEZAS.some(p => p.id === d.id)) return false;
     store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "" };
+    // Registrar en el buzón de notificaciones de la plataforma
+    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
+    store.notis = store.notis.slice(0, 60);
     if (enVivo) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
@@ -109,6 +114,66 @@ function aplicarEventoCliente(linea, enVivo) {
     return true;
   } catch { return false; }
 }
+// ---------- Buzón de notificaciones (campanita) ----------
+function tiempoRelativo(ts) {
+  const s = Math.max(0, (Date.now() - ts) / 1000);
+  if (s < 60) return "hace un momento";
+  if (s < 3600) return `hace ${Math.floor(s / 60)} min`;
+  if (s < 86400) return `hace ${Math.floor(s / 3600)} h`;
+  const d = new Date(ts);
+  return `${d.getDate()}/${String(d.getMonth() + 1).padStart(2, "0")} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+function renderCampanita() {
+  const badge = document.getElementById("bellBadge");
+  if (!badge) return;
+  const sinLeer = store.notis.filter(n => !n.leida).length;
+  badge.hidden = sinLeer === 0;
+  badge.textContent = sinLeer > 9 ? "9+" : sinLeer;
+  const panel = document.getElementById("notiPanel");
+  if (panel.hidden) return;
+  panel.innerHTML = `
+    <div class="noti-head">Notificaciones</div>
+    ${store.notis.length ? store.notis.map(n => {
+      const p = PIEZAS.find(x => x.id === n.piezaId);
+      const icono = n.v === "Aprobado" ? "✅" : n.v === "Ajustar" ? "✏️" : "⏳";
+      return `
+        <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
+          <span class="noti-ico">${icono}</span>
+          <span class="noti-cuerpo">
+            <span class="noti-txt"><b>${n.v === "Aprobado" ? "Aprobado" : n.v === "Ajustar" ? "Pide ajustes" : "Revisado"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
+            ${n.c ? `<span class="noti-com">💬 "${esc(n.c.slice(0, 120))}"</span>` : ""}
+            <span class="noti-tiempo">${tiempoRelativo(n.ts)}</span>
+          </span>
+        </button>`;
+    }).join("") : `<div class="noti-vacio">Sin notificaciones aún.<br>Aquí verás cada aprobación y comentario de tus clientes.</div>`}`;
+  panel.querySelectorAll(".noti-item").forEach(b => {
+    b.onclick = () => { cerrarCampanita(); openDrawer(b.dataset.pieza); };
+  });
+}
+function abrirCampanita() {
+  const panel = document.getElementById("notiPanel");
+  panel.hidden = false;
+  renderCampanita();
+  // al abrir el buzón, todo queda leído
+  if (store.notis.some(n => !n.leida)) {
+    store.notis.forEach(n => { n.leida = true; });
+    save();
+    document.getElementById("bellBadge").hidden = true;
+  }
+}
+function cerrarCampanita() { document.getElementById("notiPanel").hidden = true; }
+const bellBtn = document.getElementById("bellBtn");
+if (bellBtn) {
+  bellBtn.onclick = e => {
+    e.stopPropagation();
+    const panel = document.getElementById("notiPanel");
+    panel.hidden ? abrirCampanita() : cerrarCampanita();
+  };
+  document.addEventListener("click", e => {
+    if (!e.target.closest("#notiPanel, #bellBtn")) cerrarCampanita();
+  });
+}
+
 function iniciarTiempoReal() {
   if (MODO_CLIENTE) return;
   // Ponerse al día con lo que llegó mientras la plataforma estaba cerrada
@@ -1183,6 +1248,7 @@ document.getElementById("btnReset").onclick = () => {
 
 // ---------- Init ----------
 function renderAll() {
+  renderCampanita();
   renderHero();
   renderCalendario();
   renderPipeline();
