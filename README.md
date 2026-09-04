@@ -46,8 +46,17 @@ Ambos lados comparten un canal de eventos (ntfy.sh):
 - **Mercadeo GM → David**: aprobaciones y comentarios (`tipo: "aprob"`), con push al celular por el canal de notificaciones.
 - **David → Mercadeo GM**: ediciones de título/copy (`edicion`), fechas (`fecha`) y estados (`estado`).
 - Cada lado escucha por SSE + se re-sincroniza cada 60s y al volver a la pestaña.
-- **Regla de oro**: para que las ediciones lleguen en vivo al cliente, David edita desde el **enlace público o local** (el visor de claude.ai bloquea conexiones salientes). Las portadas subidas no viajan por el canal (límite de 4KB): el cliente ve las fotos de referencia.
+- **Regla de oro**: para que las ediciones lleguen en vivo al cliente, David edita desde el **enlace público o local** (el visor de claude.ai bloquea conexiones salientes). Las portadas subidas no viajan por el canal (límite de 4KB): para eso está **Guardar cambios**.
 - Claves de acceso: plataforma `Duffel21` · link del cliente `Mercadeo123` (constantes `CLAVE_DAVID` / `CLAVE_ACCESO` en app.js).
+
+## Guardar cambios (portadas incluidas)
+
+El botón flotante **Guardar cambios** (abajo a la derecha, solo en la plataforma de David) publica el estado completo — portadas, títulos/copys editados, fechas, estados, piezas nuevas y quitadas — como `estado.json` en la rama `main` del repo, vía la API de GitHub. El modo cliente (y cualquier otro dispositivo) lo carga al abrir y también en vivo cuando llega el evento `pub` por ntfy.
+
+- La primera vez pide conectar GitHub: un token *fine-grained* limitado al repo `contenido-hub` con permiso **Contents: Read and write**. Se guarda solo en el navegador de ese dispositivo (`localStorage`, clave `hubTokenGH`) — **nunca** subirlo al repo.
+- El botón se enciende (blanco + punto rojo) cuando hay cambios sin guardar.
+- Funciona desde el enlace público o local; en el visor de claude.ai no (CSP), el botón te manda al enlace público.
+- Ojo al trabajar con git: `estado.json` se commitea desde la plataforma, así que hacer `git pull` antes de trabajar en esta carpeta.
 
 ## Equipos
 

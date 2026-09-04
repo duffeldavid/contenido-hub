@@ -16,6 +16,12 @@ const NTFY_DATOS = "https://ntfy.sh/contenido-hub-datos-x8k3n2vq";
 // Acceso del equipo al link de aprobación (protección básica en el navegador)
 const CLAVE_ACCESO = "Mercadeo123";
 const AUTOR_CLIENTE = "Mercadeo GM";
+// Guardar cambios: el estado de David (portadas incluidas) se publica como
+// estado.json en el repo vía la API de GitHub y el modo cliente lo carga al
+// abrir. Las portadas no caben por ntfy (límite 4KB), por aquí sí viajan.
+const GH_ESTADO_API = "https://api.github.com/repos/duffeldavid/contenido-hub/contents/estado.json";
+const GH_TOKEN_KEY = "hubTokenGH";
+const EN_ARTIFACT = !!(window.claude && typeof window.claude.use === "function");
 // ¿La página se abrió como formulario de aprobación para cliente?
 const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
 
@@ -37,7 +43,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [] };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], pubTs: 0, pendientePub: false };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -46,6 +52,7 @@ function load() {
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
     orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {}, nuevas: s.nuevas || [],
     notis: s.notis || [],
+    pubTs: s.pubTs || 0, pendientePub: !!s.pendientePub,
     updatedAt: s.updatedAt || 0,
   };
 }
@@ -91,6 +98,7 @@ function emitirDato(p) {
 // Ediciones de contenido de David hacia el link del cliente (tiempo real)
 function emitirContenido(obj) {
   if (MODO_CLIENTE) return;
+  marcarPendiente();
   fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ ...obj, autor: "David", ts: Date.now() }) }).catch(() => {});
 }
 
@@ -136,8 +144,15 @@ function aplicarEventoCliente(linea, enVivo) {
     if (m.event !== "message") return false;
     if (m.id) { if (nidsVistos.has(m.id)) return false; nidsVistos.add(m.id); }
     const d = JSON.parse(m.message);
+    // David guardó cambios: recargar el estado publicado (portadas incluidas)
+    if (d.tipo === "pub") {
+      if (enVivo) cargarPublicado(true);
+      return false;
+    }
     // Foto completa del estado de contenidos de David (re-transmisión al abrir su plataforma)
     if (d.tipo === "snap") {
+      if (d.ts && d.ts < (store.pubTs || 0)) return false; // más viejo que lo guardado
+
       store.ediciones = d.ediciones || {};
       store.fechas = d.fechas || {};
       store.orden = d.orden || {};
@@ -270,7 +285,8 @@ function ponerseAlDia(avisar) {
 function iniciarTiempoReal() {
   // Corre en ambos lados (plataforma y link del cliente) para que los
   // dos vean exactamente el mismo estado de aprobaciones.
-  ponerseAlDia(!MODO_CLIENTE);
+  // Primero el estado guardado por David (estado.json), luego los eventos.
+  cargarPublicado(false).finally(() => ponerseAlDia(!MODO_CLIENTE));
   // Escuchar en vivo
   try {
     const es = new EventSource(NTFY_DATOS + "/sse");
@@ -288,6 +304,140 @@ function iniciarTiempoReal() {
   // Redes de seguridad: re-sincronizar cada minuto y al volver a la pestaña
   setInterval(() => ponerseAlDia(false), 60000);
   document.addEventListener("visibilitychange", () => { if (!document.hidden) ponerseAlDia(false); });
+}
+
+// ---------- Guardar cambios (publicar el estado al repo → lo ve el cliente) ----------
+// Marca que hay cambios de contenido sin publicar y enciende el botón.
+function marcarPendiente() {
+  if (MODO_CLIENTE) return;
+  store.pendientePub = true;
+  pintarGuardar();
+}
+function pintarGuardar() {
+  const b = document.getElementById("btnGuardarCambios");
+  if (!b) return;
+  b.classList.toggle("pendiente", !!store.pendientePub);
+  b.querySelector(".guardar-txt").textContent = store.pendientePub ? "Guardar cambios" : "Todo guardado";
+}
+// base64 de texto UTF-8 (btoa solo acepta latin1; se pasa por bytes en tandas)
+function b64utf8(str) {
+  const bytes = new TextEncoder().encode(str);
+  let bin = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(bin);
+}
+function estadoPublicable() {
+  return {
+    ts: Date.now(),
+    ediciones: store.ediciones, fechas: store.fechas, orden: store.orden,
+    estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
+    portadas: store.portadas,
+  };
+}
+async function publicarCambios() {
+  if (EN_ARTIFACT) {
+    // El visor de claude.ai bloquea las conexiones externas (CSP)
+    toastAccion("Aquí (claude.ai) no se puede guardar — usa el enlace público", "Abrir", () => {
+      const a = document.createElement("a");
+      a.href = ENLACE_PUBLICO; a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+    return;
+  }
+  let token = "";
+  try { token = localStorage.getItem(GH_TOKEN_KEY) || ""; } catch {}
+  if (!token) { pedirTokenGH(); return; }
+  const b = document.getElementById("btnGuardarCambios");
+  if (b) { b.disabled = true; b.querySelector(".guardar-txt").textContent = "Guardando…"; }
+  try {
+    const cab = { "Authorization": "Bearer " + token, "X-GitHub-Api-Version": "2022-11-28" };
+    // sha de la versión actual del archivo (la API lo exige para actualizar)
+    let sha = null;
+    const r0 = await fetch(GH_ESTADO_API + "?ref=main", { headers: { ...cab, "Accept": "application/vnd.github.object+json" } });
+    if (r0.status === 401 || r0.status === 403) throw { tokenMalo: true };
+    if (r0.ok) sha = (await r0.json()).sha;
+    const estado = estadoPublicable();
+    const body = { message: "Contenido Hub · cambios guardados desde la plataforma", branch: "main", content: b64utf8(JSON.stringify(estado)) };
+    if (sha) body.sha = sha;
+    const r1 = await fetch(GH_ESTADO_API, { method: "PUT", headers: { ...cab, "Accept": "application/vnd.github+json" }, body: JSON.stringify(body) });
+    if (r1.status === 401 || r1.status === 403) throw { tokenMalo: true };
+    if (!r1.ok) throw new Error("HTTP " + r1.status);
+    store.pendientePub = false;
+    store.pubTs = estado.ts;
+    save();
+    toastVivo("✅ Cambios guardados: el equipo ya ve tu versión, portadas incluidas");
+    // Avisar a las páginas del cliente que estén abiertas para que recarguen ya
+    fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "pub", ts: estado.ts, autor: "David" }) }).catch(() => {});
+  } catch (e) {
+    if (e && e.tokenMalo) {
+      try { localStorage.removeItem(GH_TOKEN_KEY); } catch {}
+      pedirTokenGH("La clave de GitHub no funcionó o ya venció. Crea una nueva y pégala aquí.");
+    } else {
+      toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
+    }
+  } finally {
+    if (b) b.disabled = false;
+    pintarGuardar();
+  }
+}
+// Pide (una sola vez por dispositivo) el token de GitHub con el que se guarda
+function pedirTokenGH(msjError) {
+  if (document.querySelector(".candado.token")) return;
+  const velo = document.createElement("div");
+  velo.className = "candado token";
+  velo.innerHTML = `
+    <div class="candado-caja token-caja">
+      <div class="logo" style="justify-content:center"><span class="logo-dot"></span><span class="logo-text">Contenido<b>Hub</b></span></div>
+      <p class="candado-txt"><b>Conecta tu GitHub para poder guardar</b> — solo la primera vez en este dispositivo.</p>
+      <ol class="token-pasos">
+        <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear token en GitHub ↗</a> (ponle nombre, ej. "Contenido Hub")</li>
+        <li>En <b>Repository access</b> elige <i>Only select repositories</i> → <b>contenido-hub</b></li>
+        <li>En <b>Permissions → Contents</b> elige <i>Read and write</i></li>
+        <li>Genera el token, cópialo y pégalo aquí:</li>
+      </ol>
+      <input type="password" id="tokenInput" class="edit-input" placeholder="github_pat_…" autocomplete="off">
+      <div class="token-acts">
+        <button class="btn-primary" id="tokenBtn">Conectar y guardar</button>
+        <button class="link-btn" id="tokenCancel">Ahora no</button>
+      </div>
+      ${msjError ? `<p class="candado-error">${esc(msjError)}</p>` : ""}
+    </div>`;
+  document.body.appendChild(velo);
+  const input = velo.querySelector("#tokenInput");
+  velo.querySelector("#tokenCancel").onclick = () => velo.remove();
+  const ok = () => {
+    const t = input.value.trim();
+    if (!t) { input.focus(); return; }
+    try { localStorage.setItem(GH_TOKEN_KEY, t); } catch {}
+    velo.remove();
+    publicarCambios();
+  };
+  velo.querySelector("#tokenBtn").onclick = ok;
+  input.addEventListener("keydown", e => { if (e.key === "Enter") ok(); });
+  if (matchMedia("(hover: hover)").matches) setTimeout(() => input.focus(), 100);
+}
+// Carga estado.json (lectura pública, sin token) y lo aplica si es más nuevo
+function cargarPublicado(avisar) {
+  return fetch(GH_ESTADO_API + "?ref=main&t=" + Date.now(), { headers: { "Accept": "application/vnd.github.raw+json" } })
+    .then(r => { if (!r.ok) throw 0; return r.json(); })
+    .then(est => {
+      if (!est || !est.ts) return;
+      if (est.ts <= (store.pubTs || 0)) return;         // ya tenemos esta versión
+      if (!MODO_CLIENTE && store.pendientePub) return;  // no pisar cambios locales sin guardar
+      store.ediciones = est.ediciones || {};
+      store.fechas = est.fechas || {};
+      store.orden = est.orden || {};
+      store.estados = Object.assign({}, store.estados, est.estados || {});
+      store.ocultas = est.ocultas || {};
+      store.nuevas = est.nuevas || [];
+      store.portadas = est.portadas || {};
+      hidratarNuevas();
+      store.pubTs = est.ts;
+      save();
+      renderAll();
+      if (avisar && MODO_CLIENTE) toastVivo("✨ David actualizó los contenidos del mes");
+    })
+    .catch(() => {});
 }
 
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
@@ -1198,6 +1348,7 @@ fileInput.onchange = async () => {
   try {
     const uri = await comprimirImagen(file);
     store.portadas[portadaTarget] = uri;
+    marcarPendiente();
     save();
     renderAll({ keep: true });
     if (piezaAbierta && piezaAbierta.id === portadaTarget) openDrawer(portadaTarget);
@@ -1354,12 +1505,12 @@ function openDrawer(id) {
   inTit.onchange = guardarEdicion;
   inCopy.onchange = guardarEdicion;
   const btnRest = drawer.querySelector("#btnRestaurar");
-  if (btnRest) btnRest.onclick = () => { delete store.ediciones[p.id]; save(); renderAll(); openDrawer(p.id); };
+  if (btnRest) btnRest.onclick = () => { delete store.ediciones[p.id]; save(); emitirContenido({ tipo: "edicion", id: p.id, e: null }); renderAll(); openDrawer(p.id); };
 
   // Cambio de fecha (alternativa táctil al arrastre)
   drawer.querySelector("#selFecha").onchange = e => { moverPieza(p.id, e.target.value); openDrawer(p.id); };
   const quitar = drawer.querySelector("#btnQuitarPortada");
-  if (quitar) quitar.onclick = () => { delete store.portadas[p.id]; save(); renderAll({ keep: true }); openDrawer(p.id); };
+  if (quitar) quitar.onclick = () => { delete store.portadas[p.id]; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
   drawer.querySelectorAll("[data-estado]").forEach(b => {
     b.onclick = () => {
       store.estados[p.id] = b.dataset.estado;
@@ -1644,7 +1795,8 @@ document.getElementById("btnExport").onclick = async () => {
 };
 document.getElementById("btnReset").onclick = () => {
   if (confirm("¿Reiniciar estados, checklists, aprobaciones, portadas, fechas y ediciones al valor original del calendario?")) {
-    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [] };
+    store = { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], pubTs: store.pubTs || 0, pendientePub: false };
+    marcarPendiente();
     save();
     renderAll({ keep: true });
   }
@@ -1713,6 +1865,15 @@ if (MODO_CLIENTE) {
     texto: "Plataforma de trabajo de <b>David</b> · acceso privado. Escribe tu clave para entrar.",
     guardado: "hubAccesoDavid",
   });
+  // Botón flotante Guardar cambios: publica portadas, textos, fechas y
+  // estados para que el equipo (modo cliente) vea exactamente tu versión.
+  const fab = document.createElement("button");
+  fab.id = "btnGuardarCambios";
+  fab.className = "guardar-fab";
+  fab.innerHTML = `<span class="guardar-ico" aria-hidden="true">☁️</span><span class="guardar-txt">Todo guardado</span><span class="guardar-punto" aria-hidden="true"></span>`;
+  fab.onclick = publicarCambios;
+  document.body.appendChild(fab);
+  pintarGuardar();
   restoreUI();
   renderAll();
   iniciarTiempoReal();

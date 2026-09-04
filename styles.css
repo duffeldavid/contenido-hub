@@ -741,6 +741,38 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 .candado-caja .btn-primary { background: var(--ink); color: #F7F3EC; }
 .candado-error { font-size: 12.5px; color: #B23A2E; font-weight: 600; }
 
+/* ═══════════ GUARDAR CAMBIOS (solo plataforma de David) ═══════════ */
+.guardar-fab {
+  position: fixed; right: 18px; bottom: 20px; z-index: 180;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 13px 19px; border-radius: 999px;
+  border: 1px solid rgba(255,255,255,.28);
+  background: rgba(20,15,12,.78);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  color: rgba(255,255,255,.82);
+  font-family: "Instrument Sans", sans-serif; font-size: 13.5px; font-weight: 600;
+  cursor: pointer; box-shadow: 0 14px 40px -10px rgba(0,0,0,.55);
+  transition: transform .18s ease, background .18s ease, color .18s ease;
+}
+.guardar-fab:hover { transform: translateY(-2px); }
+.guardar-fab:disabled { opacity: .75; cursor: wait; transform: none; }
+.guardar-punto { display: none; width: 9px; height: 9px; border-radius: 50%; background: #FF5A45; }
+.guardar-fab.pendiente { background: #fff; border-color: #fff; color: #171210; }
+.guardar-fab.pendiente .guardar-punto { display: block; animation: guardarLate 1.6s ease-in-out infinite; }
+@keyframes guardarLate {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: .55; }
+}
+.modo-cliente .guardar-fab { display: none; }
+/* Modal para conectar GitHub (una sola vez por dispositivo) */
+.token-caja { width: min(420px, 94vw); text-align: left; }
+.token-caja .logo { justify-content: flex-start; }
+.token-pasos { margin: 0; padding-left: 18px; font-size: 13px; color: var(--dim); line-height: 1.55; display: grid; gap: 7px; }
+.token-pasos a { color: var(--ink); font-weight: 600; }
+.token-acts { display: flex; align-items: center; gap: 14px; }
+.candado-caja .link-btn { color: var(--dim); }
+.candado-caja .link-btn:hover { color: var(--ink); }
+
 /* ═══════════ AVISO EN TIEMPO REAL ═══════════ */
 .toast-live {
   position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%) translateY(20px);
@@ -756,6 +788,8 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 
 /* ═══════════ MÓVIL ═══════════ */
 @media (max-width: 640px) {
+  .guardar-fab { right: 12px; bottom: 14px; padding: 12px 16px; font-size: 13px; }
+  .toast-live { bottom: 74px; }
   .hero { padding: 12px 14px 0; border-radius: 0 0 20px 20px; }
   .navbar { padding: 8px 10px; gap: 8px; justify-content: center; }
   .nav-right { display: none; }
