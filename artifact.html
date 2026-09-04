@@ -769,14 +769,6 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   50% { transform: scale(1.4); opacity: .55; }
 }
 .modo-cliente .guardar-fab { display: none; }
-/* Modal para conectar GitHub (una sola vez por dispositivo) */
-.token-caja { width: min(420px, 94vw); text-align: left; }
-.token-caja .logo { justify-content: flex-start; }
-.token-pasos { margin: 0; padding-left: 18px; font-size: 13px; color: var(--dim); line-height: 1.55; display: grid; gap: 7px; }
-.token-pasos a { color: var(--ink); font-weight: 600; }
-.token-acts { display: flex; align-items: center; gap: 14px; }
-.candado-caja .link-btn { color: var(--dim); }
-.candado-caja .link-btn:hover { color: var(--ink); }
 
 /* ═══════════ AVISO EN TIEMPO REAL ═══════════ */
 .toast-live {
@@ -1425,11 +1417,12 @@ const NTFY_DATOS = "https://ntfy.sh/contenido-hub-datos-x8k3n2vq";
 // Acceso del equipo al link de aprobación (protección básica en el navegador)
 const CLAVE_ACCESO = "Mercadeo123";
 const AUTOR_CLIENTE = "Mercadeo GM";
-// Guardar cambios: el estado de David (portadas incluidas) se publica como
-// estado.json en el repo vía la API de GitHub y el modo cliente lo carga al
-// abrir. Las portadas no caben por ntfy (límite 4KB), por aquí sí viajan.
+// Guardar cambios (sin configurar nada, igual en compu y celular): el estado
+// completo de David — portadas incluidas — se envía como ADJUNTO por el mismo
+// canal ntfy (los adjuntos admiten ~2MB; los mensajes normales solo 4KB).
+// El cliente lo recibe al instante y, además, el Mac de David lo archiva en
+// estado.json del repo (scripts/archivar_estado.py) para que quede permanente.
 const GH_ESTADO_API = "https://api.github.com/repos/duffeldavid/contenido-hub/contents/estado.json";
-const GH_TOKEN_KEY = "hubTokenGH";
 const EN_ARTIFACT = !!(window.claude && typeof window.claude.use === "function");
 // ¿La página se abrió como formulario de aprobación para cliente?
 const MODO_CLIENTE = new URLSearchParams(location.search).get("modo") === "cliente";
@@ -1552,12 +1545,21 @@ function aplicarEventoCliente(linea, enVivo) {
     const m = JSON.parse(linea);
     if (m.event !== "message") return false;
     if (m.id) { if (nidsVistos.has(m.id)) return false; nidsVistos.add(m.id); }
-    const d = JSON.parse(m.message);
-    // David guardó cambios: recargar el estado publicado (portadas incluidas)
-    if (d.tipo === "pub") {
-      if (enVivo) cargarPublicado(true);
-      return false;
+    // Estado completo guardado por David (adjunto: es lo único que admite portadas)
+    if (m.attachment) {
+      if (/^estado-hub/.test(m.attachment.name || "")) {
+        const tsMsg = (m.time || 0) * 1000;
+        const vigente = !m.attachment.expires || Date.now() / 1000 < m.attachment.expires;
+        if (vigente && tsMsg > (store.pubTs || 0) && (MODO_CLIENTE || !store.pendientePub)) {
+          fetch(m.attachment.url)
+            .then(r => (r.ok ? r.json() : null))
+            .then(est => { if (est) aplicarEstado(est, enVivo); })
+            .catch(() => {});
+        }
+      }
+      return false; // aplicarEstado guarda y re-renderiza por su cuenta
     }
+    const d = JSON.parse(m.message);
     // Foto completa del estado de contenidos de David (re-transmisión al abrir su plataforma)
     if (d.tipo === "snap") {
       if (d.ts && d.ts < (store.pubTs || 0)) return false; // más viejo que lo guardado
@@ -1728,20 +1730,35 @@ function pintarGuardar() {
   b.classList.toggle("pendiente", !!store.pendientePub);
   b.querySelector(".guardar-txt").textContent = store.pendientePub ? "Guardar cambios" : "Todo guardado";
 }
-// base64 de texto UTF-8 (btoa solo acepta latin1; se pasa por bytes en tandas)
-function b64utf8(str) {
-  const bytes = new TextEncoder().encode(str);
-  let bin = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
-  return btoa(bin);
-}
-function estadoPublicable() {
+function estadoPublicable(ts) {
   return {
-    ts: Date.now(),
+    ts: ts || Date.now(),
     ediciones: store.ediciones, fechas: store.fechas, orden: store.orden,
     estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
     portadas: store.portadas,
   };
+}
+// Envía el estado como adjunto al canal de datos (sin cuentas ni tokens)
+function enviarEstadoNtfy(cuerpo) {
+  return fetch(NTFY_DATOS, { method: "PUT", headers: { "Filename": "estado-hub.json" }, body: cuerpo })
+    .then(r => { if (!r.ok) throw 0; return r.json(); });
+}
+// Si el estado supera el límite de adjuntos (~2MB), se reencogen las portadas
+function reducirPortadas(maxH = 520, calidad = 0.66) {
+  const ids = Object.keys(store.portadas);
+  return Promise.all(ids.map(id => new Promise(res => {
+    const img = new Image();
+    img.onload = () => {
+      const f = Math.min(1, maxH / img.height);
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      store.portadas[id] = c.toDataURL("image/jpeg", calidad);
+      res();
+    };
+    img.onerror = () => res();
+    img.src = store.portadas[id];
+  }))).then(() => save());
 }
 async function publicarCambios() {
   if (EN_ARTIFACT) {
@@ -1753,100 +1770,62 @@ async function publicarCambios() {
     });
     return;
   }
-  let token = "";
-  try { token = localStorage.getItem(GH_TOKEN_KEY) || ""; } catch {}
-  if (!token) { pedirTokenGH(); return; }
   const b = document.getElementById("btnGuardarCambios");
   if (b) { b.disabled = true; b.querySelector(".guardar-txt").textContent = "Guardando…"; }
   try {
-    const cab = { "Authorization": "Bearer " + token, "X-GitHub-Api-Version": "2022-11-28" };
-    // sha de la versión actual del archivo (la API lo exige para actualizar)
-    let sha = null;
-    const r0 = await fetch(GH_ESTADO_API + "?ref=main", { headers: { ...cab, "Accept": "application/vnd.github.object+json" } });
-    if (r0.status === 401 || r0.status === 403) throw { tokenMalo: true };
-    if (r0.ok) sha = (await r0.json()).sha;
-    const estado = estadoPublicable();
-    const body = { message: "Contenido Hub · cambios guardados desde la plataforma", branch: "main", content: b64utf8(JSON.stringify(estado)) };
-    if (sha) body.sha = sha;
-    const r1 = await fetch(GH_ESTADO_API, { method: "PUT", headers: { ...cab, "Accept": "application/vnd.github+json" }, body: JSON.stringify(body) });
-    if (r1.status === 401 || r1.status === 403) throw { tokenMalo: true };
-    if (!r1.ok) throw new Error("HTTP " + r1.status);
+    let estado = estadoPublicable();
+    let cuerpo = JSON.stringify(estado);
+    if (cuerpo.length > 1900000) {
+      await reducirPortadas();
+      estado = estadoPublicable(estado.ts);
+      cuerpo = JSON.stringify(estado);
+    }
+    await enviarEstadoNtfy(cuerpo);
     store.pendientePub = false;
     store.pubTs = estado.ts;
     save();
     toastVivo("✅ Cambios guardados: el equipo ya ve tu versión, portadas incluidas");
-    // Avisar a las páginas del cliente que estén abiertas para que recarguen ya
-    fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "pub", ts: estado.ts, autor: "David" }) }).catch(() => {});
-  } catch (e) {
-    if (e && e.tokenMalo) {
-      try { localStorage.removeItem(GH_TOKEN_KEY); } catch {}
-      pedirTokenGH("La clave de GitHub no funcionó o ya venció. Crea una nueva y pégala aquí.");
-    } else {
-      toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
-    }
+  } catch {
+    toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
   } finally {
     if (b) b.disabled = false;
     pintarGuardar();
   }
 }
-// Pide (una sola vez por dispositivo) el token de GitHub con el que se guarda
-function pedirTokenGH(msjError) {
-  if (document.querySelector(".candado.token")) return;
-  const velo = document.createElement("div");
-  velo.className = "candado token";
-  velo.innerHTML = `
-    <div class="candado-caja token-caja">
-      <div class="logo" style="justify-content:center"><span class="logo-dot"></span><span class="logo-text">Contenido<b>Hub</b></span></div>
-      <p class="candado-txt"><b>Conecta tu GitHub para poder guardar</b> — solo la primera vez en este dispositivo.</p>
-      <ol class="token-pasos">
-        <li><a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">Crear token en GitHub ↗</a> (ponle nombre, ej. "Contenido Hub")</li>
-        <li>En <b>Repository access</b> elige <i>Only select repositories</i> → <b>contenido-hub</b></li>
-        <li>En <b>Permissions → Contents</b> elige <i>Read and write</i></li>
-        <li>Genera el token, cópialo y pégalo aquí:</li>
-      </ol>
-      <input type="password" id="tokenInput" class="edit-input" placeholder="github_pat_…" autocomplete="off">
-      <div class="token-acts">
-        <button class="btn-primary" id="tokenBtn">Conectar y guardar</button>
-        <button class="link-btn" id="tokenCancel">Ahora no</button>
-      </div>
-      ${msjError ? `<p class="candado-error">${esc(msjError)}</p>` : ""}
-    </div>`;
-  document.body.appendChild(velo);
-  const input = velo.querySelector("#tokenInput");
-  velo.querySelector("#tokenCancel").onclick = () => velo.remove();
-  const ok = () => {
-    const t = input.value.trim();
-    if (!t) { input.focus(); return; }
-    try { localStorage.setItem(GH_TOKEN_KEY, t); } catch {}
-    velo.remove();
-    publicarCambios();
-  };
-  velo.querySelector("#tokenBtn").onclick = ok;
-  input.addEventListener("keydown", e => { if (e.key === "Enter") ok(); });
-  if (matchMedia("(hover: hover)").matches) setTimeout(() => input.focus(), 100);
+// Aplica un estado completo recibido (adjunto ntfy o estado.json del repo)
+function aplicarEstado(est, avisar) {
+  if (!est || !est.ts) return false;
+  if (est.ts <= (store.pubTs || 0)) return false;       // ya tenemos esta versión
+  if (!MODO_CLIENTE && store.pendientePub) return false; // no pisar cambios locales sin guardar
+  store.ediciones = est.ediciones || {};
+  store.fechas = est.fechas || {};
+  store.orden = est.orden || {};
+  store.estados = Object.assign({}, store.estados, est.estados || {});
+  store.ocultas = est.ocultas || {};
+  store.nuevas = est.nuevas || [];
+  store.portadas = est.portadas || {};
+  hidratarNuevas();
+  store.pubTs = est.ts;
+  save();
+  renderAll();
+  if (avisar && MODO_CLIENTE) toastVivo("✨ David actualizó los contenidos del mes");
+  return true;
 }
-// Carga estado.json (lectura pública, sin token) y lo aplica si es más nuevo
+// Carga el estado.json archivado en el repo (lectura pública) y lo aplica si
+// es más nuevo. Después, autocuración: si lo archivado quedó atrás de lo
+// último guardado por David, se re-emite el adjunto para que el Mac lo archive.
 function cargarPublicado(avisar) {
   return fetch(GH_ESTADO_API + "?ref=main&t=" + Date.now(), { headers: { "Accept": "application/vnd.github.raw+json" } })
     .then(r => { if (!r.ok) throw 0; return r.json(); })
+    .catch(() => null)
     .then(est => {
-      if (!est || !est.ts) return;
-      if (est.ts <= (store.pubTs || 0)) return;         // ya tenemos esta versión
-      if (!MODO_CLIENTE && store.pendientePub) return;  // no pisar cambios locales sin guardar
-      store.ediciones = est.ediciones || {};
-      store.fechas = est.fechas || {};
-      store.orden = est.orden || {};
-      store.estados = Object.assign({}, store.estados, est.estados || {});
-      store.ocultas = est.ocultas || {};
-      store.nuevas = est.nuevas || [];
-      store.portadas = est.portadas || {};
-      hidratarNuevas();
-      store.pubTs = est.ts;
-      save();
-      renderAll();
-      if (avisar && MODO_CLIENTE) toastVivo("✨ David actualizó los contenidos del mes");
-    })
-    .catch(() => {});
+      if (est) aplicarEstado(est, avisar);
+      const archivadoTs = (est && est.ts) || 0;
+      if (!MODO_CLIENTE && !EN_ARTIFACT && !store.pendientePub && (store.pubTs || 0) > archivadoTs && !window.__reenviado) {
+        window.__reenviado = true;
+        enviarEstadoNtfy(JSON.stringify(estadoPublicable(store.pubTs))).catch(() => {});
+      }
+    });
 }
 
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
@@ -2765,7 +2744,7 @@ fileInput.onchange = async () => {
     alert("No se pudo procesar la imagen. Intenta con otra foto.");
   }
 };
-function comprimirImagen(file, maxH = 720) {
+function comprimirImagen(file, maxH = 640) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -2775,7 +2754,7 @@ function comprimirImagen(file, maxH = 720) {
       c.width = w; c.height = h;
       c.getContext("2d").drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(img.src);
-      resolve(c.toDataURL("image/jpeg", 0.78));
+      resolve(c.toDataURL("image/jpeg", 0.74));
     };
     img.onerror = reject;
     img.src = URL.createObjectURL(file);

@@ -49,14 +49,18 @@ Ambos lados comparten un canal de eventos (ntfy.sh):
 - **Regla de oro**: para que las ediciones lleguen en vivo al cliente, David edita desde el **enlace público o local** (el visor de claude.ai bloquea conexiones salientes). Las portadas subidas no viajan por el canal (límite de 4KB): para eso está **Guardar cambios**.
 - Claves de acceso: plataforma `Duffel21` · link del cliente `Mercadeo123` (constantes `CLAVE_DAVID` / `CLAVE_ACCESO` en app.js).
 
-## Guardar cambios (portadas incluidas)
+## Guardar cambios (portadas incluidas, sin configurar nada)
 
-El botón flotante **Guardar cambios** (abajo a la derecha, solo en la plataforma de David) publica el estado completo — portadas, títulos/copys editados, fechas, estados, piezas nuevas y quitadas — como `estado.json` en la rama `main` del repo, vía la API de GitHub. El modo cliente (y cualquier otro dispositivo) lo carga al abrir y también en vivo cuando llega el evento `pub` por ntfy.
+El botón flotante **Guardar cambios** (abajo a la derecha, solo en la plataforma de David) publica el estado completo — portadas, títulos/copys editados, fechas, estados, piezas nuevas y quitadas — y funciona igual en el computador y el celular, sin tokens ni cuentas:
 
-- La primera vez pide conectar GitHub: un token *fine-grained* limitado al repo `contenido-hub` con permiso **Contents: Read and write**. Se guarda solo en el navegador de ese dispositivo (`localStorage`, clave `hubTokenGH`) — **nunca** subirlo al repo.
-- El botón se enciende (blanco + punto rojo) cuando hay cambios sin guardar.
+1. Al tocarlo, la plataforma envía el estado como **adjunto** `estado-hub.json` por el canal ntfy de datos (los adjuntos admiten ~2MB; si el estado pesa más, las portadas se reencogen solas). El modo cliente lo recibe **al instante** (en vivo por SSE, o al abrir con el poll de 12h).
+2. En el Mac de David, `scripts/archivar_estado.py` corre cada 10 minutos (launchd `com.contenidohub.archivar`, log en `~/Library/Logs/contenidohub-archivar.log`) desde un clon propio en `~/Library/Application Support/ContenidoHub/repo`: recoge el último adjunto y lo commitea como `estado.json` en `main` (y gh-pages). Eso lo hace **permanente**: cualquier apertura futura lo carga aunque el adjunto ya haya vencido.
+3. Autocuración: si al abrir la plataforma lo archivado está atrás de lo último guardado (Mac apagado varios días), la página re-emite el adjunto sola.
+
+- El botón se enciende (blanco + punto rojo latiendo) cuando hay cambios sin guardar.
 - Funciona desde el enlace público o local; en el visor de claude.ai no (CSP), el botón te manda al enlace público.
-- Ojo al trabajar con git: `estado.json` se commitea desde la plataforma, así que hacer `git pull` antes de trabajar en esta carpeta.
+- Ojo al trabajar con git: `estado.json` se commitea desde el Mac en segundo plano, así que hacer `git pull` antes de trabajar en esta carpeta.
+- Para pausar el archivador: `launchctl bootout gui/$(id -u)/com.contenidohub.archivar`; para reactivarlo, `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.contenidohub.archivar.plist`.
 
 ## Equipos
 

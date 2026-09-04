@@ -764,14 +764,6 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   50% { transform: scale(1.4); opacity: .55; }
 }
 .modo-cliente .guardar-fab { display: none; }
-/* Modal para conectar GitHub (una sola vez por dispositivo) */
-.token-caja { width: min(420px, 94vw); text-align: left; }
-.token-caja .logo { justify-content: flex-start; }
-.token-pasos { margin: 0; padding-left: 18px; font-size: 13px; color: var(--dim); line-height: 1.55; display: grid; gap: 7px; }
-.token-pasos a { color: var(--ink); font-weight: 600; }
-.token-acts { display: flex; align-items: center; gap: 14px; }
-.candado-caja .link-btn { color: var(--dim); }
-.candado-caja .link-btn:hover { color: var(--ink); }
 
 /* ═══════════ AVISO EN TIEMPO REAL ═══════════ */
 .toast-live {
