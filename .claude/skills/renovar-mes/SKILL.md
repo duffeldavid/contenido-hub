@@ -33,3 +33,4 @@ Genera el calendario del mes que David indique (si no lo indica, el mes siguient
 - Partir siempre del último cambio aprobado; nunca rehacer de cero lo que ya funciona.
 - Sin megaproducciones: todo debe poder grabarse con A7V + Hollyland + Ulanzi 40W en 2 sesiones.
 - Referencias de contenido real (no IA), estética premium tipo Pergamino/La Cabra (café) y Victor Churchill (carnes).
+- Al renovar el mes, revisar `FESTIVOS_CO` en app.js: agregar los festivos oficiales de Colombia y celebraciones comerciales (Amor y Amistad, Día del Café, etc.) del nuevo mes/año si faltan — la vista "Organizar mes" los pinta en la cuadrícula.
