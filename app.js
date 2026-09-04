@@ -539,21 +539,17 @@ const ICOL = {
 // En el link del cliente: ícono de línea; en la plataforma de David: emoji
 const icl = n => MODO_CLIENTE ? (ICOL[n] || "") : ({ ok: "✅", ajuste: "✏️", reloj: "⏳", enviar: "📲", lista: "" }[n] || "");
 
-// Portada visual de cada pieza: la real si David la subió; si no, un
-// fundido lento entre dos fotos de referencia acordes al concepto.
+// Portada visual de cada pieza: la real si David la subió; si no, la primera
+// foto de referencia del concepto. Estática — solo reacciona al cursor
+// (zoom + oscurecido) para no desviar la atención de la foto elegida.
 function coverHtml(p, clase = "") {
   const img = portadaDe(p);
   if (img) {
-    return `<div class="cover ${clase}"><img class="f1" src="${img}" alt=""><span class="cover-tag portada">Portada</span></div>`;
+    return `<div class="cover ${clase}"><img src="${img}" alt=""><span class="cover-tag portada">Portada</span></div>`;
   }
   const fs = p.fotos || [];
   if (!fs.length) return "";
-  return `
-    <div class="cover ${clase}">
-      <img class="f1" src="${IMG(fs[0])}" alt="" loading="lazy">
-      ${fs[1] ? `<img class="f2" src="${IMG(fs[1])}" alt="" loading="lazy">` : ""}
-      <span class="cover-tag">Referencia</span>
-    </div>`;
+  return `<div class="cover ${clase}"><img src="${IMG(fs[0])}" alt="" loading="lazy"><span class="cover-tag">Referencia</span></div>`;
 }
 
 function pieceCard(p, { compact = false, drag = false } = {}) {
