@@ -370,6 +370,56 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .st-Programado { background: #8E6BC9; }
 .st-Publicado { background: #3F9459; }
 
+/* ═══════════ ORGANIZAR MES (cuadrícula completa estilo Google Calendar) ═══════════ */
+.cal-mes-wrap { overflow-x: auto; padding-bottom: 10px; }
+.cal-mes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; min-width: 720px; }
+.mes-head {
+  font-family: var(--font-head); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; text-align: center;
+  color: rgba(255,255,255,.72); padding: 2px 0 6px;
+  text-shadow: 0 1px 8px rgba(18,12,9,.5);
+}
+.cal-mes .mes-celda {
+  min-height: 104px; margin: 0; padding: 7px;
+  display: flex; flex-direction: column; gap: 5px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.13);
+  border-radius: 12px;
+}
+.mes-celda.vacia { background: transparent; border-color: transparent; }
+.mes-celda.finde { background: rgba(255,255,255,.03); }
+.mes-celda.con-festivo { background: rgba(233,196,106,.12); border-color: rgba(233,196,106,.5); }
+.mes-celda.con-celebracion { background: rgba(226,114,91,.12); border-color: rgba(226,114,91,.5); }
+.mes-celda.hoy { box-shadow: inset 0 0 0 2px #E9C46A; }
+.mes-celda-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.mes-num {
+  font-family: var(--font-head); font-weight: 700; font-size: 13.5px; color: #fff;
+  text-shadow: 0 1px 8px rgba(18,12,9,.5);
+}
+.mes-celda.hoy .mes-num {
+  background: #E9C46A; color: #211C16; border-radius: 999px;
+  min-width: 21px; height: 21px; line-height: 21px; text-align: center;
+  padding: 0 4px; text-shadow: none;
+}
+.mes-fest {
+  font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: #E9C46A; line-height: 1.25; text-align: right;
+}
+.mes-fest.celebracion { color: #F49B85; }
+/* Chip de contenido, arrastrable como un evento de Google Calendar */
+.chip-pieza {
+  background: rgba(255,255,255,.94); color: var(--ink);
+  border-left: 3px solid var(--brand-color, var(--honey));
+  border-radius: 7px; padding: 4px 8px;
+  font-size: 11px; font-weight: 600; line-height: 1.3;
+  cursor: grab; user-select: none; -webkit-user-select: none;
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,.35);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.chip-pieza:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -2px rgba(0,0,0,.45); }
+.chip-pieza.dragging { opacity: .4; cursor: grabbing; }
+.cp-txt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mes-celda.cal-day.drag-over { background: rgba(255,255,255,.26); }
+
 /* Arrastrar y soltar — sin decoración: la tarjeta se acomoda sola */
 .piece[draggable="true"] { cursor: grab; }
 .piece.dragging { opacity: .4; cursor: grabbing; }
@@ -781,6 +831,8 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 
 /* ═══════════ MÓVIL ═══════════ */
 @media (max-width: 640px) {
+  .cal-mes { min-width: 640px; gap: 4px; }
+  .cal-mes .mes-celda { min-height: 88px; }
   .guardar-fab { right: 12px; bottom: 14px; padding: 12px 16px; font-size: 13px; }
   .toast-live { bottom: 74px; }
   .hero { padding: 12px 14px 0; border-radius: 0 0 20px 20px; }

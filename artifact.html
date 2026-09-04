@@ -375,6 +375,56 @@ main { max-width: 1160px; margin: 0 auto; padding: 28px 24px 60px; }
 .st-Programado { background: #8E6BC9; }
 .st-Publicado { background: #3F9459; }
 
+/* ═══════════ ORGANIZAR MES (cuadrícula completa estilo Google Calendar) ═══════════ */
+.cal-mes-wrap { overflow-x: auto; padding-bottom: 10px; }
+.cal-mes { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; min-width: 720px; }
+.mes-head {
+  font-family: var(--font-head); font-size: 11px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .1em; text-align: center;
+  color: rgba(255,255,255,.72); padding: 2px 0 6px;
+  text-shadow: 0 1px 8px rgba(18,12,9,.5);
+}
+.cal-mes .mes-celda {
+  min-height: 104px; margin: 0; padding: 7px;
+  display: flex; flex-direction: column; gap: 5px;
+  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.13);
+  border-radius: 12px;
+}
+.mes-celda.vacia { background: transparent; border-color: transparent; }
+.mes-celda.finde { background: rgba(255,255,255,.03); }
+.mes-celda.con-festivo { background: rgba(233,196,106,.12); border-color: rgba(233,196,106,.5); }
+.mes-celda.con-celebracion { background: rgba(226,114,91,.12); border-color: rgba(226,114,91,.5); }
+.mes-celda.hoy { box-shadow: inset 0 0 0 2px #E9C46A; }
+.mes-celda-top { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; }
+.mes-num {
+  font-family: var(--font-head); font-weight: 700; font-size: 13.5px; color: #fff;
+  text-shadow: 0 1px 8px rgba(18,12,9,.5);
+}
+.mes-celda.hoy .mes-num {
+  background: #E9C46A; color: #211C16; border-radius: 999px;
+  min-width: 21px; height: 21px; line-height: 21px; text-align: center;
+  padding: 0 4px; text-shadow: none;
+}
+.mes-fest {
+  font-size: 9px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: #E9C46A; line-height: 1.25; text-align: right;
+}
+.mes-fest.celebracion { color: #F49B85; }
+/* Chip de contenido, arrastrable como un evento de Google Calendar */
+.chip-pieza {
+  background: rgba(255,255,255,.94); color: var(--ink);
+  border-left: 3px solid var(--brand-color, var(--honey));
+  border-radius: 7px; padding: 4px 8px;
+  font-size: 11px; font-weight: 600; line-height: 1.3;
+  cursor: grab; user-select: none; -webkit-user-select: none;
+  box-shadow: 0 2px 8px -2px rgba(0,0,0,.35);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.chip-pieza:hover { transform: translateY(-1px); box-shadow: 0 4px 12px -2px rgba(0,0,0,.45); }
+.chip-pieza.dragging { opacity: .4; cursor: grabbing; }
+.cp-txt { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mes-celda.cal-day.drag-over { background: rgba(255,255,255,.26); }
+
 /* Arrastrar y soltar — sin decoración: la tarjeta se acomoda sola */
 .piece[draggable="true"] { cursor: grab; }
 .piece.dragging { opacity: .4; cursor: grabbing; }
@@ -786,6 +836,8 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 
 /* ═══════════ MÓVIL ═══════════ */
 @media (max-width: 640px) {
+  .cal-mes { min-width: 640px; gap: 4px; }
+  .cal-mes .mes-celda { min-height: 88px; }
   .guardar-fab { right: 12px; bottom: 14px; padding: 12px 16px; font-size: 13px; }
   .toast-live { bottom: 74px; }
   .hero { padding: 12px 14px 0; border-radius: 0 0 20px 20px; }
@@ -1843,6 +1895,40 @@ function conceptoDe(p) { return (store.ediciones[p.id] || {}).copy || p.concepto
 function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
 // Todas las fechas L-M-V del mes (los "espacios" fijos del calendario)
 const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
+// Nombre del mes en minúscula ("Septiembre 2026" → "septiembre")
+const MES_NOMBRE = (MES.titulo.split(" ")[0] || "").toLowerCase();
+// Todos los días del mes (para organizar contenidos en cualquier fecha)
+function fechasDelMes() {
+  const [y, m] = MES.clave.split("-").map(Number);
+  const total = new Date(y, m, 0).getDate();
+  return Array.from({ length: total }, (_, i) => `${MES.clave}-${String(i + 1).padStart(2, "0")}`);
+}
+// Festivos oficiales de Colombia + celebraciones que mueven contenido
+const FESTIVOS_CO = {
+  "2026-01-01": { n: "Año Nuevo", t: "festivo" },
+  "2026-01-12": { n: "Reyes Magos", t: "festivo" },
+  "2026-03-23": { n: "San José", t: "festivo" },
+  "2026-04-02": { n: "Jueves Santo", t: "festivo" },
+  "2026-04-03": { n: "Viernes Santo", t: "festivo" },
+  "2026-05-01": { n: "Día del Trabajo", t: "festivo" },
+  "2026-05-18": { n: "Ascensión", t: "festivo" },
+  "2026-06-08": { n: "Corpus Christi", t: "festivo" },
+  "2026-06-15": { n: "Sagrado Corazón", t: "festivo" },
+  "2026-06-29": { n: "San Pedro y San Pablo", t: "festivo" },
+  "2026-07-20": { n: "Independencia", t: "festivo" },
+  "2026-08-07": { n: "Batalla de Boyacá", t: "festivo" },
+  "2026-08-17": { n: "Asunción de la Virgen", t: "festivo" },
+  "2026-10-12": { n: "Día de la Raza", t: "festivo" },
+  "2026-11-02": { n: "Todos los Santos", t: "festivo" },
+  "2026-11-16": { n: "Independencia de Cartagena", t: "festivo" },
+  "2026-12-08": { n: "Inmaculada Concepción", t: "festivo" },
+  "2026-12-25": { n: "Navidad", t: "festivo" },
+  "2026-09-19": { n: "Amor y Amistad", t: "celebracion" },
+  "2026-10-01": { n: "Día Internacional del Café", t: "celebracion" },
+  "2026-10-31": { n: "Halloween", t: "celebracion" },
+  "2026-12-07": { n: "Día de las Velitas", t: "celebracion" },
+  "2026-12-24": { n: "Nochebuena", t: "celebracion" },
+};
 
 // ---------- Piezas nuevas creadas por David ----------
 const FOTOS_DEFECTO = {
@@ -2052,16 +2138,27 @@ let calModo = "semanas"; // "semanas" | "dias" (columnas Lunes · Miércoles · 
 function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
   const { dia, num } = fmtFecha(f);
   const esHoy = f === hoy;
+  const fest = FESTIVOS_CO[f];
   const grupo = (porFecha[f] || []).sort(porOrden);
   return `
     <div class="cal-day" data-fecha="${f}">
       <div class="cal-day-head ${esHoy ? "today" : ""}">
         ${conDia ? `<span class="cal-day-name">${dia}</span>` : ""}
-        <span class="cal-day-date">${num} de septiembre</span>
+        <span class="cal-day-date">${num} de ${MES_NOMBRE}</span>
         ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
+        ${fest ? `<span class="mes-fest ${fest.t}">${esc(fest.n)}</span>` : ""}
       </div>
       ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
       ${MODO_CLIENTE ? "" : `<button class="btn-mas" data-mas="${f}" title="Agregar contenido">+</button>`}
+    </div>`;
+}
+
+// Chip compacto (estilo Google Calendar) para la vista Organizar mes
+function chipPieza(p) {
+  return `
+    <div class="chip-pieza" draggable="true" data-id="${p.id}" title="${esc(tituloDe(p))}"
+         style="--brand-color:${brandColor(p)}">
+      <span class="cp-txt">${esc(tituloDe(p))}</span>
     </div>`;
 }
 
@@ -2073,37 +2170,72 @@ function renderCalendario() {
   const porFecha = {};
   piezas.forEach(p => (porFecha[fechaDe(p)] = porFecha[fechaDe(p)] || []).push(p));
 
+  // Espacios a mostrar: los L-M-V originales + cualquier fecha a la que
+  // David haya movido un contenido desde Organizar mes.
+  const fechasConPiezas = [...new Set([...FECHAS_MES, ...Object.keys(porFecha)])].sort();
+
   let html = `
-    <p class="view-note">Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).</p>
+    <p class="view-note">${calModo === "mes"
+      ? `El mes completo, con festivos y celebraciones de Colombia. <b>Arrastra cada contenido al día real</b> en que se publicará — las demás vistas se actualizan solas (en el celular usa el selector de fecha dentro de la pieza).`
+      : `Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).`}</p>
     <div class="cal-barra">
       <div class="cal-toggle">
         <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Por semanas</button>
         <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">Lunes · Miércoles · Viernes</button>
+        <button data-m="mes" class="${calModo === "mes" ? "active" : ""}">🗓 Organizar mes</button>
       </div>
       ${!MODO_CLIENTE && Object.keys(store.ocultas).length ? `<button class="btn-restaurar" id="btnQuitados">↩ Quitados (${Object.keys(store.ocultas).length})</button>` : ""}
     </div>`;
 
-  if (calModo === "dias") {
-    // Tres columnas: todas las fechas de cada día de publicación
+  if (calModo === "mes") {
+    // Cuadrícula del mes completo (estilo Google Calendar): cada día es un
+    // destino de arrastre, con los festivos marcados.
+    const dias = fechasDelMes();
+    const [y, m] = MES.clave.split("-").map(Number);
+    const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7; // columnas desde lunes
+    html += `<div class="cal-mes-wrap"><div class="cal-mes">`;
+    ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].forEach(d => { html += `<div class="mes-head">${d}</div>`; });
+    for (let i = 0; i < offset; i++) html += `<div class="mes-celda vacia"></div>`;
+    dias.forEach(f => {
+      const fest = FESTIVOS_CO[f];
+      const grupo = (porFecha[f] || []).sort(porOrden);
+      const col = (offset + Number(f.slice(8)) - 1) % 7;
+      html += `
+        <div class="mes-celda cal-day ${f === hoy ? "hoy" : ""} ${col >= 5 ? "finde" : ""} ${fest ? "con-" + fest.t : ""}" data-fecha="${f}">
+          <div class="mes-celda-top">
+            <span class="mes-num">${Number(f.slice(8))}</span>
+            ${fest ? `<span class="mes-fest ${fest.t}">${esc(fest.n)}</span>` : ""}
+          </div>
+          ${grupo.map(chipPieza).join("")}
+        </div>`;
+    });
+    const resto = (offset + dias.length) % 7;
+    if (resto) for (let i = resto; i < 7; i++) html += `<div class="mes-celda vacia"></div>`;
+    html += `</div></div>`;
+  } else if (calModo === "dias") {
+    // Columnas por día de la semana: L-M-V fijas + los días extra que
+    // tengan contenidos movidos (jueves, sábado…)
     const porDia = { "Lunes": [], "Miércoles": [], "Viernes": [] };
-    FECHAS_MES.forEach(f => {
+    fechasConPiezas.forEach(f => {
       const { dia } = fmtFecha(f);
       (porDia[dia] = porDia[dia] || []).push(f);
     });
-    html += `<div class="cal-cols">`;
-    for (const [dia, fechas] of Object.entries(porDia)) {
+    const ordenSemana = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+    const cols = ordenSemana.filter(d => porDia[d]);
+    html += `<div class="cal-cols" style="grid-template-columns:repeat(${cols.length},1fr)">`;
+    for (const dia of cols) {
       html += `
         <div class="cal-col">
           <div class="cal-col-head">${dia}</div>
-          ${fechas.map(f => bloqueDia(f, porFecha, hoy, { conDia: false })).join("")}
+          ${porDia[dia].map(f => bloqueDia(f, porFecha, hoy, { conDia: false })).join("")}
         </div>`;
     }
     html += `</div>`;
   } else {
-    // Los espacios del calendario son SIEMPRE todos los L-M-V del mes,
-    // aunque queden vacíos al arrastrar piezas a otra fecha.
+    // Los espacios del calendario son SIEMPRE todos los L-M-V del mes
+    // (más las fechas con piezas movidas), aunque queden vacíos.
     const semanas = {};
-    FECHAS_MES.forEach(f => {
+    fechasConPiezas.forEach(f => {
       const { date } = fmtFecha(f);
       const monday = new Date(date);
       monday.setDate(date.getDate() - ((date.getDay() + 6) % 7));
@@ -2113,7 +2245,7 @@ function renderCalendario() {
     let wkNum = 1;
     for (const wk of Object.keys(semanas).sort()) {
       html += `<div class="cal-week"><div class="cal-week-label">Semana ${wkNum++}</div><div class="cal-days">`;
-      html += semanas[wk].map(f => bloqueDia(f, porFecha, hoy)).join("");
+      html += semanas[wk].sort().map(f => bloqueDia(f, porFecha, hoy)).join("");
       html += `</div></div>`;
     }
   }
@@ -2129,8 +2261,8 @@ function renderCalendario() {
 
 // ---------- Arrastrar y soltar entre fechas ----------
 function activarDnD(root) {
-  root.querySelectorAll('.piece[draggable="true"]').forEach(card => {
-    if (!MODO_CLIENTE) activarSwipeQuitar(card);
+  root.querySelectorAll('.piece[draggable="true"], .chip-pieza[draggable="true"]').forEach(card => {
+    if (!MODO_CLIENTE && card.classList.contains("piece")) activarSwipeQuitar(card);
     card.addEventListener("dragstart", e => {
       e.dataTransfer.setData("text/plain", card.dataset.id);
       e.dataTransfer.effectAllowed = "move";
@@ -2148,7 +2280,7 @@ function activarDnD(root) {
       e.preventDefault();
       const id = e.dataTransfer.getData("text/plain");
       // posición dentro del día: encima o debajo de las piezas existentes
-      const cards = [...day.querySelectorAll(".piece")].filter(c => c.dataset.id !== id);
+      const cards = [...day.querySelectorAll(".piece, .chip-pieza")].filter(c => c.dataset.id !== id);
       let idx = cards.length;
       for (let i = 0; i < cards.length; i++) {
         const r = cards[i].getBoundingClientRect();
@@ -2830,9 +2962,10 @@ function openDrawer(id) {
     <section>
       <h4>Fecha de publicación</h4>
       <select id="selFecha" class="edit-input">
-        ${FECHAS_MES.map(f => {
+        ${fechasDelMes().map(f => {
           const d = fmtFecha(f);
-          return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de septiembre</option>`;
+          const fest = FESTIVOS_CO[f];
+          return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de ${MES_NOMBRE}${fest ? ` · ${fest.n}` : ""}</option>`;
         }).join("")}
       </select>
     </section>
@@ -3106,7 +3239,7 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(
 document.getElementById("main").addEventListener("click", e => {
   const q = e.target.closest("[data-quitar]");
   if (q) { e.stopPropagation(); quitarPieza(q.dataset.quitar); return; }
-  const card = e.target.closest(".piece, .cell");
+  const card = e.target.closest(".piece, .cell, .chip-pieza");
   if (card) openDrawer(card.dataset.id);
 });
 
