@@ -44,7 +44,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], pubTs: 0, pendientePub: false };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, pubTs: 0, pendientePub: false };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -52,7 +52,7 @@ function load() {
     aprob: s.aprob || {}, portadas: s.portadas || {},
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
     orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {}, nuevas: s.nuevas || [],
-    notis: s.notis || [],
+    notis: s.notis || [], horas: s.horas || {},
     pubTs: s.pubTs || 0, pendientePub: !!s.pendientePub,
     updatedAt: s.updatedAt || 0,
   };
@@ -334,7 +334,7 @@ function estadoPublicable(ts) {
     ts: ts || Date.now(),
     ediciones: store.ediciones, fechas: store.fechas, orden: store.orden,
     estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
-    portadas: store.portadas,
+    portadas: store.portadas, horas: store.horas,
   };
 }
 // Envía el estado como adjunto al canal de datos (sin cuentas ni tokens)
@@ -403,6 +403,7 @@ function aplicarEstado(est, avisar) {
   store.ocultas = est.ocultas || {};
   store.nuevas = est.nuevas || [];
   store.portadas = est.portadas || {};
+  store.horas = est.horas || {};
   hidratarNuevas();
   store.pubTs = est.ts;
   save();
@@ -432,6 +433,7 @@ function checksDe(p) { return store.checks[p.id] || []; }
 function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
 function portadaDe(p) { return store.portadas[p.id] || null; }
 function fechaDe(p) { return store.fechas[p.id] || p.fecha; }
+function horaDe(p) { return store.horas[p.id] || "18:00"; }
 function ordenDe(p) { return store.orden[p.id] ?? PIEZAS.findIndex(x => x.id === p.id); }
 function porOrden(a, b) { return ordenDe(a) - ordenDe(b); }
 function tituloDe(p) { return (store.ediciones[p.id] || {}).titulo || p.titulo; }
@@ -604,6 +606,10 @@ function pieceCard(p, { compact = false, drag = false } = {}) {
       </div>
       <div class="piece-title">${esc(tituloDe(p))}</div>
       ${compact ? "" : `<div class="piece-meta">${p.formato} · ${esc(p.mensaje)} · ${esc(p.tono)}</div>`}
+      ${!MODO_CLIENTE && ["Listo", "Programado"].includes(est) ? `
+      <button class="btn-programar ${est === "Programado" ? "ya" : ""}" data-programar="${p.id}">
+        ${est === "Programado" ? `🕑 ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${horaDe(p)} — abrir` : "📤 Programar publicación"}
+      </button>` : ""}
     </article>`;
 }
 
@@ -723,17 +729,22 @@ function renderCalendario() {
   let html = `
     <p class="view-note">${calModo === "mes"
       ? `El mes completo, con festivos y celebraciones de Colombia. <b>Arrastra cada contenido al día real</b> en que se publicará — las demás vistas se actualizan solas (en el celular usa el selector de fecha dentro de la pieza).`
+      : calModo === "flujo"
+      ? `Tu tablero de trabajo: <b>arrastra cada contenido entre columnas</b> según avanza — de aprobado a creado, programado y publicado. Al soltar una pieza en <b>Programados</b> se abre la hoja para dejarla lista para Meta Business Suite.`
       : `Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).`}</p>
     <div class="cal-barra">
       <div class="cal-toggle">
         <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Por semanas</button>
         <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">Lunes · Miércoles · Viernes</button>
         <button data-m="mes" class="${calModo === "mes" ? "active" : ""}">🗓 Organizar mes</button>
+        ${MODO_CLIENTE ? "" : `<button data-m="flujo" class="${calModo === "flujo" ? "active" : ""}">🧩 Flujo</button>`}
       </div>
       ${!MODO_CLIENTE && Object.keys(store.ocultas).length ? `<button class="btn-restaurar" id="btnQuitados">↩ Quitados (${Object.keys(store.ocultas).length})</button>` : ""}
     </div>`;
 
-  if (calModo === "mes") {
+  if (calModo === "flujo") {
+    html += htmlFlujo(piezas);
+  } else if (calModo === "mes") {
     // Cuadrícula del mes completo (estilo Google Calendar): cada día es un
     // destino de arrastre, con los festivos marcados.
     const dias = fechasDelMes();
@@ -803,6 +814,89 @@ function renderCalendario() {
   if (bq) bq.onclick = abrirQuitados;
   el.querySelectorAll("[data-mas]").forEach(b => { b.onclick = e => { e.stopPropagation(); abrirCreador(b.dataset.mas); }; });
   activarDnD(el);
+  if (calModo === "flujo") activarDnDEstados(el);
+}
+
+// ---------- Modo Flujo: tablero de etapas con arrastre ----------
+// Columnas del flujo real de trabajo. Soltar una pieza en una columna
+// la lleva a ese estado (y en Programados abre la hoja de publicación).
+const FLUJO_COLS = [
+  { id: "crear", n: "Aprobados para crear", ico: "🎬", destino: "Por grabar", hint: "Con el visto bueno de Mercadeo — a producir", match: p => aprobDe(p).v === "Aprobado" && ["Idea", "Por grabar", "En edición"].includes(estadoDe(p)) },
+  { id: "listo", n: "Listos", ico: "✅", destino: "Listo", hint: "Editados y con portada — a un paso de salir", match: p => estadoDe(p) === "Listo" },
+  { id: "prog", n: "Programados", ico: "🕑", destino: "Programado", hint: "Con fecha y hora en Meta Business Suite", match: p => estadoDe(p) === "Programado" },
+  { id: "pub", n: "Publicados", ico: "🚀", destino: "Publicado", hint: "Ya están en el feed", match: p => estadoDe(p) === "Publicado" },
+];
+function htmlFlujo(piezas) {
+  const enCols = new Set();
+  let html = `<div class="flujo-cols">`;
+  for (const col of FLUJO_COLS) {
+    const grupo = piezas.filter(col.match).sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)) || porOrden(a, b));
+    grupo.forEach(p => enCols.add(p.id));
+    html += `
+      <div class="flujo-col" data-destino="${col.destino}">
+        <div class="flujo-col-head">
+          <span class="flujo-ico">${col.ico}</span>
+          <div><div class="flujo-nombre">${col.n}</div><div class="flujo-hint">${col.hint}</div></div>
+          <span class="count">${grupo.length}</span>
+        </div>
+        ${grupo.map(p => `
+          <div class="flujo-item" draggable="true" data-id="${p.id}" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}">
+            ${coverHtml(p, "cover-mini")}
+            <div class="flujo-item-body">
+              <span class="flujo-fecha">${fmtFecha(fechaDe(p)).dia.slice(0, 3)} ${fechaDe(p).slice(8)} · ${MARCAS[p.marca].nombre}</span>
+              <span class="flujo-titulo">${esc(tituloDe(p))}</span>
+              ${col.id === "listo" || col.id === "prog" ? `
+              <button class="btn-programar ${col.id === "prog" ? "ya" : ""}" data-programar="${p.id}">
+                ${col.id === "prog" ? `🕑 ${horaDe(p)} — abrir` : "📤 Programar"}
+              </button>` : ""}
+            </div>
+          </div>`).join("") || `<div class="pipe-empty">Arrastra piezas aquí</div>`}
+      </div>`;
+  }
+  html += `</div>`;
+  // Piezas que aún no entran al flujo (sin aprobación de Mercadeo)
+  const fuera = piezas.filter(p => !enCols.has(p.id));
+  if (fuera.length) {
+    html += `
+      <div class="flujo-espera">
+        <span class="flujo-espera-txt">⏳ ${fuera.length} contenido${fuera.length > 1 ? "s" : ""} esperando aprobación de Mercadeo — entran al flujo al ser aprobados:</span>
+        ${fuera.map(p => `<button class="chip-espera" data-abrir="${p.id}" style="--brand-color:${brandColor(p)}">${esc(tituloDe(p))}</button>`).join("")}
+      </div>`;
+  }
+  return html;
+}
+function activarDnDEstados(root) {
+  root.querySelectorAll(".flujo-item").forEach(card => {
+    card.addEventListener("dragstart", e => {
+      e.dataTransfer.setData("text/plain", card.dataset.id);
+      e.dataTransfer.effectAllowed = "move";
+      card.classList.add("dragging");
+    });
+    card.addEventListener("dragend", () => {
+      card.classList.remove("dragging");
+      root.querySelectorAll(".flujo-col.drag-over").forEach(d => d.classList.remove("drag-over"));
+    });
+  });
+  root.querySelectorAll(".flujo-col").forEach(col => {
+    col.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; col.classList.add("drag-over"); });
+    col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+    col.addEventListener("drop", e => {
+      e.preventDefault();
+      col.classList.remove("drag-over");
+      const id = e.dataTransfer.getData("text/plain");
+      moverEstado(id, col.dataset.destino);
+    });
+  });
+  root.querySelectorAll("[data-abrir]").forEach(b => { b.onclick = () => openDrawer(b.dataset.abrir); });
+}
+function moverEstado(id, destino) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p || estadoDe(p) === destino) return;
+  store.estados[id] = destino;
+  save();
+  emitirContenido({ tipo: "estado", id, v: destino });
+  renderAll();
+  if (destino === "Programado") openPublicar(id);
 }
 
 // ---------- Arrastrar y soltar entre fechas ----------
@@ -891,11 +985,11 @@ function renderPipeline() {
   const piezas = piezasVisibles();
   let html = `<p class="view-note">${MODO_CLIENTE
     ? `Así está organizada la producción: cada pieza avanza de <b>Idea</b> a <b>Publicado</b>. Toca cualquiera para ver de qué trata.`
-    : `El flujo de producción. Toca una pieza y cambia su estado desde el panel — el avance se guarda solo.`}</p><div class="pipeline">`;
+    : `El flujo de producción. <b>Arrastra una pieza a otra columna</b> para cambiar su estado, o tócala y cámbialo desde el panel — el avance se guarda solo.`}</p><div class="pipeline">`;
   for (const est of ESTADOS) {
     const grupo = piezas.filter(p => estadoDe(p) === est);
     html += `
-      <div class="pipe-col">
+      <div class="pipe-col" data-estado="${est}">
         <div class="pipe-col-head">
           <span class="dot ${ESTADO_CLASS[est]}"></span>
           <span class="name">${est}</span>
@@ -906,6 +1000,30 @@ function renderPipeline() {
   }
   html += `</div>`;
   el.innerHTML = html;
+  // David puede arrastrar piezas entre columnas para cambiarles el estado
+  if (!MODO_CLIENTE) {
+    el.querySelectorAll(".pipe-col .piece").forEach(card => {
+      card.setAttribute("draggable", "true");
+      card.addEventListener("dragstart", e => {
+        e.dataTransfer.setData("text/plain", card.dataset.id);
+        e.dataTransfer.effectAllowed = "move";
+        card.classList.add("dragging");
+      });
+      card.addEventListener("dragend", () => {
+        card.classList.remove("dragging");
+        el.querySelectorAll(".pipe-col.drag-over").forEach(d => d.classList.remove("drag-over"));
+      });
+    });
+    el.querySelectorAll(".pipe-col").forEach(col => {
+      col.addEventListener("dragover", e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; col.classList.add("drag-over"); });
+      col.addEventListener("dragleave", () => col.classList.remove("drag-over"));
+      col.addEventListener("drop", e => {
+        e.preventDefault();
+        col.classList.remove("drag-over");
+        moverEstado(e.dataTransfer.getData("text/plain"), col.dataset.estado);
+      });
+    });
+  }
 }
 
 // ---------- Vista: Rodaje ----------
@@ -1414,7 +1532,9 @@ fileInput.onchange = async () => {
     marcarPendiente();
     save();
     renderAll({ keep: true });
-    if (piezaAbierta && piezaAbierta.id === portadaTarget) openDrawer(portadaTarget);
+    if (piezaAbierta && piezaAbierta.id === portadaTarget) {
+      (drawerModo === "publicar" ? openPublicar : openDrawer)(portadaTarget);
+    }
   } catch (e) {
     alert("No se pudo procesar la imagen. Intenta con otra foto.");
   }
@@ -1440,6 +1560,7 @@ function comprimirImagen(file, maxH = 640) {
 const drawer = document.getElementById("drawer");
 const backdrop = document.getElementById("drawerBackdrop");
 let piezaAbierta = null;
+let drawerModo = "pieza"; // "pieza" | "publicar" — qué hoja reabrir tras subir portada
 
 // El panel se centra frente al último clic: siempre queda ante tus ojos,
 // funcione la página con scroll propio o dentro del visor de claude.ai.
@@ -1460,6 +1581,7 @@ function openDrawer(id) {
   const p = PIEZAS.find(x => x.id === id);
   if (!p) return;
   piezaAbierta = p;
+  drawerModo = "pieza";
   const m = MARCAS[p.marca];
   const { dia, num } = fmtFecha(fechaDe(p));
   const est = estadoDe(p);
@@ -1496,6 +1618,7 @@ function openDrawer(id) {
       <div class="estado-select">
         ${ESTADOS.map(e => `<button data-estado="${e}" class="${e === est ? "sel " + ESTADO_CLASS[e] : ""}">${e}</button>`).join("")}
       </div>
+      <button class="btn-programar" id="btnIrPublicar" style="margin-top:10px">📤 Preparar y programar en Meta</button>
     </section>
 
     <section>
@@ -1552,6 +1675,7 @@ function openDrawer(id) {
 
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
   drawer.querySelector("#btnPortada").onclick = () => pedirPortada(p.id);
+  drawer.querySelector("#btnIrPublicar").onclick = () => openPublicar(p.id);
 
   // Edición de contenido
   const inTit = drawer.querySelector("#editTitulo");
@@ -1675,6 +1799,130 @@ function openDrawerCliente(id) {
   conectarComentario(drawer, p, () => { openDrawerCliente(p.id); renderAll(); });
 }
 
+// ---------- Programar en Meta Business Suite ----------
+// Meta no deja precargar el compositor desde otra página sin conectar su API,
+// así que la hoja deja TODO listo en dos toques: copy copiado al portapapeles,
+// portada descargada y el compositor abierto con tu sesión ya iniciada.
+const META_COMPOSER = "https://business.facebook.com/latest/composer";
+const META_PLANNER = "https://business.facebook.com/latest/planner";
+function dataUriABytes(uri) {
+  const b64 = uri.split(",")[1];
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+async function descargarPortada(p) {
+  const uri = portadaDe(p) || null;
+  if (!uri) return;
+  const filename = `portada-${p.id}.jpg`;
+  if (EN_ARTIFACT) {
+    try {
+      const dl = await window.claude.use("downloads");
+      if (dl) { await dl.save({ filename, data: dataUriABytes(uri) }); return; }
+    } catch { return; }
+  }
+  const a = document.createElement("a");
+  a.href = uri; a.download = filename;
+  document.body.appendChild(a); a.click(); a.remove();
+}
+function openPublicar(id) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p || MODO_CLIENTE) return;
+  piezaAbierta = p;
+  drawerModo = "publicar";
+  const m = MARCAS[p.marca];
+  const { dia, num } = fmtFecha(fechaDe(p));
+  const img = portadaDe(p);
+  const est = estadoDe(p);
+
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${brandTint(p)}">${m.nombre} · ${m.handle}</span>
+    <h2>Programar publicación</h2>
+    <div class="sub">${esc(tituloDe(p))} · ${p.formato}</div>
+
+    <section class="pub-paso">
+      <h4><span class="paso-num">1</span> Portada</h4>
+      <div class="portada-box">
+        ${coverHtml(p, "cover-prev")}
+        <div class="portada-acts">
+          <button class="btn-ghost" id="pubPortada">${img ? "Cambiar" : "Subir portada"}</button>
+          ${img ? `<button class="btn-primary" id="pubDescargar">⬇️ Descargar para subirla a Meta</button>` : `<span class="portada-hint">Sube la portada final para poder descargarla y usarla en Meta.</span>`}
+        </div>
+      </div>
+    </section>
+
+    <section class="pub-paso">
+      <h4><span class="paso-num">2</span> Copy final</h4>
+      <textarea id="pubCopy" class="aprob-comment" style="min-height:130px">${esc(copyDe(p))}</textarea>
+      <button class="btn-primary" id="pubCopiar" style="margin-top:8px">📋 Copiar copy</button>
+    </section>
+
+    <section class="pub-paso">
+      <h4><span class="paso-num">3</span> Fecha y hora</h4>
+      <div class="pub-fecha-hora">
+        <select id="pubFecha" class="edit-input">
+          ${fechasDelMes().map(f => {
+            const d = fmtFecha(f);
+            return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de ${MES_NOMBRE}</option>`;
+          }).join("")}
+        </select>
+        <input type="time" id="pubHora" class="edit-input" value="${horaDe(p)}">
+      </div>
+    </section>
+
+    <section class="pub-paso">
+      <h4><span class="paso-num">4</span> Prográmala en Meta</h4>
+      <p class="pub-nota">Tu cuenta ya está abierta en Meta Business Suite. Con el copy copiado y la portada descargada: <b>pega, sube la imagen y elige ${dia.toLowerCase()} ${num} a las ${horaDe(p)}</b>.</p>
+      <div class="pub-meta-btns">
+        <a class="btn-meta" id="pubMeta" href="${META_COMPOSER}" target="_blank" rel="noopener">🚀 Abrir compositor de Meta</a>
+        <a class="btn-ghost" href="${META_PLANNER}" target="_blank" rel="noopener">🗓 Ver calendario de Meta</a>
+      </div>
+    </section>
+
+    <section class="pub-paso">
+      <h4><span class="paso-num">5</span> Confirma aquí</h4>
+      <div class="aprob-pills">
+        <button id="pubMarcarProg" class="${est === "Programado" ? "sel" : ""}">🕑 Quedó programada</button>
+        <button id="pubMarcarPub" class="${est === "Publicado" ? "sel" : ""}">🚀 Ya está publicada</button>
+      </div>
+    </section>`;
+
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  drawer.querySelector("#pubPortada").onclick = () => pedirPortada(p.id);
+  const bDesc = drawer.querySelector("#pubDescargar");
+  if (bDesc) bDesc.onclick = () => { descargarPortada(p); bDesc.textContent = "⬇️ Descargada ✓"; };
+  const taCopy = drawer.querySelector("#pubCopy");
+  taCopy.onchange = () => {
+    const e = { ...(store.ediciones[p.id] || {}) };
+    const c = taCopy.value.trim();
+    if (c && c !== p.copy) e.copy = c; else delete e.copy;
+    if (Object.keys(e).length) store.ediciones[p.id] = e; else delete store.ediciones[p.id];
+    save();
+    emitirContenido({ tipo: "edicion", id: p.id, e: store.ediciones[p.id] || null });
+  };
+  drawer.querySelector("#pubCopiar").onclick = async function () {
+    try {
+      await navigator.clipboard.writeText(taCopy.value.trim());
+      this.textContent = "📋 Copiado ✓ — pégalo en Meta";
+    } catch {
+      taCopy.focus(); taCopy.select();
+      this.textContent = "Selecciona y copia con ⌘C";
+    }
+  };
+  drawer.querySelector("#pubFecha").onchange = e => { moverPieza(p.id, e.target.value); openPublicar(p.id); };
+  drawer.querySelector("#pubHora").onchange = e => {
+    store.horas[p.id] = e.target.value || "18:00";
+    marcarPendiente(); save(); renderAll({ keep: true });
+  };
+  drawer.querySelector("#pubMarcarProg").onclick = () => { moverEstado(p.id, "Programado"); openPublicar(p.id); };
+  drawer.querySelector("#pubMarcarPub").onclick = () => { moverEstado(p.id, "Publicado"); closeDrawer(); toastVivo(`🚀 ${tituloDe(p)} marcada como publicada`); };
+}
+
 // ---------- Crear contenido nuevo (solo David) + ideas ----------
 function abrirCreador(fecha) {
   const { dia, num } = fmtFecha(fecha);
@@ -1783,22 +2031,77 @@ document.addEventListener("keydown", e => { if (e.key === "Escape") closeDrawer(
 
 // clic en tarjetas y casillas del feed
 document.getElementById("main").addEventListener("click", e => {
+  const pr = e.target.closest("[data-programar]");
+  if (pr) { e.stopPropagation(); openPublicar(pr.dataset.programar); return; }
   const q = e.target.closest("[data-quitar]");
   if (q) { e.stopPropagation(); quitarPieza(q.dataset.quitar); return; }
-  const card = e.target.closest(".piece, .cell, .chip-pieza");
+  const card = e.target.closest(".piece, .cell, .chip-pieza, .flujo-item");
   if (card) openDrawer(card.dataset.id);
 });
 
-// ---------- Navegación ----------
-let vistaActiva = "calendario";
-function activarVista(v) {
+// ---------- Navegación (gestos estilo iOS entre secciones) ----------
+let vistaActiva = MODO_CLIENTE ? "aprobacion" : "calendario";
+const VISTAS_ORDEN = MODO_CLIENTE
+  ? ["aprobacion", "pipeline"]
+  : ["calendario", "pipeline", "rodaje", "feed", "aprobacion", "finanzas", "proyectos", "referentes"];
+function activarVista(v, dir) {
   vistaActiva = v;
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
-  document.querySelectorAll(".view").forEach(x => x.classList.remove("active"));
+  document.querySelectorAll(".view").forEach(x => x.classList.remove("active", "entra-izq", "entra-der"));
   const el = document.getElementById("view-" + v);
-  if (el) el.classList.add("active");
+  if (el) {
+    el.classList.add("active");
+    if (dir) {
+      void el.offsetWidth; // reinicia la animación
+      el.classList.add(dir > 0 ? "entra-izq" : "entra-der");
+    }
+  }
+  // La pestaña activa siempre visible en la barra (en celular la barra se desliza)
+  const tabAct = document.querySelector(`#tabs button[data-view="${v}"]`);
+  if (tabAct && tabAct.scrollIntoView) tabAct.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
   saveUI();
 }
+// Deslizar como en iOS: un vistazo a la izquierda o derecha cambia de sección.
+function cambiarVista(dir) {
+  const i = VISTAS_ORDEN.indexOf(vistaActiva);
+  const destino = VISTAS_ORDEN[i + dir];
+  if (!destino) return;
+  activarVista(destino, dir);
+}
+// Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
+// más las tarjetas (su deslizado izquierdo ya significa "quitar").
+const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos";
+const mainEl = document.getElementById("main");
+let swX = 0, swY = 0, swOk = false;
+mainEl.addEventListener("touchstart", e => {
+  if (e.touches.length !== 1) { swOk = false; return; }
+  const t = e.touches[0];
+  swX = t.clientX; swY = t.clientY;
+  swOk = !e.target.closest(NO_SWIPE);
+}, { passive: true });
+mainEl.addEventListener("touchend", e => {
+  if (!swOk) return;
+  const t = e.changedTouches[0];
+  const dx = t.clientX - swX, dy = t.clientY - swY;
+  if (Math.abs(dx) > 72 && Math.abs(dy) < 64) cambiarVista(dx < 0 ? 1 : -1);
+}, { passive: true });
+// En la MacBook: dos dedos hacia los lados en el trackpad cambian de sección
+let wAcum = 0, wLock = 0, wTimer = null;
+window.addEventListener("wheel", e => {
+  if (Math.abs(e.deltaX) <= Math.abs(e.deltaY) * 1.2) { wAcum = 0; return; }
+  if (e.target.closest(NO_SWIPE)) return;
+  e.preventDefault(); // evita el gesto de "atrás" del navegador
+  const now = performance.now();
+  if (now < wLock) return;
+  wAcum += e.deltaX;
+  clearTimeout(wTimer);
+  wTimer = setTimeout(() => { wAcum = 0; }, 260);
+  if (Math.abs(wAcum) > 130) {
+    cambiarVista(wAcum > 0 ? 1 : -1);
+    wAcum = 0;
+    wLock = now + 650;
+  }
+}, { passive: false });
 document.getElementById("brandSwitch").addEventListener("click", e => {
   const b = e.target.closest("button");
   if (!b) return;
@@ -1866,6 +2169,422 @@ document.getElementById("btnReset").onclick = () => {
   }
 };
 
+// ════════════════════════════════════════════════════════════
+// FINANZAS — cuentas + hoja de cálculo (privado: vive SOLO en
+// este dispositivo, nunca viaja con "Guardar cambios" ni al repo)
+// ════════════════════════════════════════════════════════════
+const FIN_KEY = "contenidoHub.finanzas";
+const PRO_KEY = "contenidoHub.proyectos";
+function cargarLocal(k, def) {
+  try { const v = JSON.parse(localStorage.getItem(k)); return v && typeof v === "object" ? v : def; } catch { return def; }
+}
+let finz = cargarLocal(FIN_KEY, null) || {
+  cuentas: [
+    { id: "c1", nombre: "Café Forestal", rol: "Dirección de arte y contenido", ingreso: 0, gastos: 0 },
+    { id: "c2", nombre: "Carnes Manzanares", rol: "Dirección de arte y contenido", ingreso: 0, gastos: 0 },
+  ],
+  celdas: {},
+};
+let pros = cargarLocal(PRO_KEY, null) || { lista: [] };
+function guardarFin() { try { localStorage.setItem(FIN_KEY, JSON.stringify(finz)); } catch {} }
+function guardarPro() { try { localStorage.setItem(PRO_KEY, JSON.stringify(pros)); } catch {} }
+
+// Números al estilo colombiano: acepta "1.200.000", "1,5", "$ 850.000"
+function parseNum(v) {
+  if (typeof v === "number") return v;
+  let t = String(v).trim().replace(/[$\s]/g, "");
+  if (!t || !/^-?[\d.,]+$/.test(t)) return NaN;
+  const coma = t.lastIndexOf(","), punto = t.lastIndexOf(".");
+  if (coma > punto) t = t.replace(/\./g, "").replace(",", ".");
+  else if (punto > -1 && coma > -1) t = t.replace(/,/g, "");
+  else if ((t.match(/\./g) || []).length > 1 || /\.\d{3}$/.test(t)) t = t.replace(/\./g, "");
+  return Number(t);
+}
+const nfCO = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 0 });
+const nfCO2 = new Intl.NumberFormat("es-CO", { maximumFractionDigits: 2 });
+function fmtMoney(n) { return (n < 0 ? "-$ " : "$ ") + nfCO.format(Math.abs(Math.round(n || 0))); }
+function fmtCell(v) { return v == null ? "" : typeof v === "number" ? nfCO2.format(v) : String(v); }
+
+// --- Mini motor de fórmulas (como Excel): =B2+B3, =SUMA(A1:A6), =PROMEDIO, =MAX, =MIN ---
+const HOJA_COLS = ["A", "B", "C", "D", "E", "F"];
+const HOJA_FILAS = 14;
+function rangoRefs(a, b) {
+  const ma = a.match(/^([A-F])(\d+)$/), mb = b.match(/^([A-F])(\d+)$/);
+  if (!ma || !mb) return [];
+  const c0 = Math.min(HOJA_COLS.indexOf(ma[1]), HOJA_COLS.indexOf(mb[1]));
+  const c1 = Math.max(HOJA_COLS.indexOf(ma[1]), HOJA_COLS.indexOf(mb[1]));
+  const f0 = Math.min(+ma[2], +mb[2]), f1 = Math.max(+ma[2], +mb[2]);
+  const out = [];
+  for (let c = c0; c <= c1; c++) for (let f = f0; f <= f1; f++) out.push(HOJA_COLS[c] + f);
+  return out;
+}
+function valorCelda(ref, visitando = new Set()) {
+  ref = ref.toUpperCase();
+  const raw = finz.celdas[ref];
+  if (raw == null || String(raw).trim() === "") return null;
+  const s = String(raw).trim();
+  if (s[0] === "=") {
+    if (visitando.has(ref)) return "#CIRC";
+    visitando.add(ref);
+    const v = evalFormula(s, visitando);
+    visitando.delete(ref);
+    return v;
+  }
+  const n = parseNum(s);
+  return isNaN(n) ? s : n;
+}
+function evalFormula(f, visitando) {
+  let expr = f.slice(1).toUpperCase().replace(/\s+/g, "");
+  expr = expr.replace(/(SUMA|SUM|PROMEDIO|AVG|MAX|MIN)\(([A-F]\d{1,2}):([A-F]\d{1,2})\)/g, (m, fn, a, b) => {
+    const vals = rangoRefs(a, b).map(r => valorCelda(r, visitando)).filter(v => typeof v === "number");
+    if (!vals.length) return "(0)";
+    const suma = vals.reduce((x, y) => x + y, 0);
+    if (fn === "SUMA" || fn === "SUM") return "(" + suma + ")";
+    if (fn === "PROMEDIO" || fn === "AVG") return "(" + suma / vals.length + ")";
+    return "(" + (fn === "MAX" ? Math.max(...vals) : Math.min(...vals)) + ")";
+  });
+  let err = null;
+  expr = expr.replace(/[A-F]\d{1,2}/g, r => {
+    const v = valorCelda(r, visitando);
+    if (v === "#CIRC") { err = "#CIRC"; return "0"; }
+    return typeof v === "number" ? "(" + v + ")" : "(0)";
+  });
+  if (err) return err;
+  expr = expr.replace(/,/g, "."); // decimales escritos con coma
+  if (!/^[\d+\-*/().]*$/.test(expr)) return "#ERROR";
+  try {
+    const v = Function('"use strict";return(' + expr + ")")();
+    return typeof v === "number" && isFinite(v) ? v : "#ERROR";
+  } catch { return "#ERROR"; }
+}
+
+function renderFinanzas() {
+  const el = document.getElementById("view-finanzas");
+  if (!el || MODO_CLIENTE) return;
+  // No pisar lo que David esté escribiendo si llega una sincronización
+  if (el.contains(document.activeElement)) return;
+
+  const tIngreso = finz.cuentas.reduce((s, c) => s + (parseNum(c.ingreso) || 0), 0);
+  const tGastos = finz.cuentas.reduce((s, c) => s + (parseNum(c.gastos) || 0), 0);
+  const neto = tIngreso - tGastos;
+
+  el.innerHTML = `
+    <p class="view-note">Tus cuentas y tu dinero, con claridad total. <b>🔒 Privado:</b> esta sección vive solo en este dispositivo — no se publica al equipo ni viaja con "Guardar cambios".</p>
+
+    <div class="fin-resumen">
+      <div class="fin-card"><span class="fin-lbl">Ingreso mensual</span><span class="fin-num">${fmtMoney(tIngreso)}</span></div>
+      <div class="fin-card"><span class="fin-lbl">Gastos</span><span class="fin-num">${fmtMoney(tGastos)}</span></div>
+      <div class="fin-card destacada"><span class="fin-lbl">Neto del mes</span><span class="fin-num">${fmtMoney(neto)}</span></div>
+      <div class="fin-card"><span class="fin-lbl">Proyección anual</span><span class="fin-num">${fmtMoney(neto * 12)}</span></div>
+    </div>
+
+    <div class="fin-panel">
+      <div class="fin-panel-head"><h3>Mis cuentas</h3><button class="btn-primary" id="finAgregar">＋ Agregar cuenta</button></div>
+      <div class="fin-tabla-wrap"><table class="fin-tabla">
+        <thead><tr><th>Cuenta</th><th>Qué hago</th><th>Ingreso / mes</th><th>Gastos / mes</th><th>Neto</th><th></th></tr></thead>
+        <tbody>
+          ${finz.cuentas.map(c => {
+            const n = (parseNum(c.ingreso) || 0) - (parseNum(c.gastos) || 0);
+            return `<tr data-cta="${c.id}">
+              <td><input class="celda" data-campo="nombre" value="${esc(c.nombre)}" placeholder="Nombre de la cuenta"></td>
+              <td><input class="celda" data-campo="rol" value="${esc(c.rol || "")}" placeholder="Funciones que haces"></td>
+              <td><input class="celda num" data-campo="ingreso" inputmode="decimal" value="${c.ingreso ? nfCO.format(parseNum(c.ingreso) || 0) : ""}" placeholder="0"></td>
+              <td><input class="celda num" data-campo="gastos" inputmode="decimal" value="${c.gastos ? nfCO.format(parseNum(c.gastos) || 0) : ""}" placeholder="0"></td>
+              <td class="fin-neto ${n < 0 ? "rojo" : ""}">${fmtMoney(n)}</td>
+              <td><button class="fin-borrar" data-borrar="${c.id}" title="Eliminar cuenta">✕</button></td>
+            </tr>`;
+          }).join("")}
+        </tbody>
+        <tfoot><tr><td>Total</td><td></td><td>${fmtMoney(tIngreso)}</td><td>${fmtMoney(tGastos)}</td><td class="fin-neto ${neto < 0 ? "rojo" : ""}">${fmtMoney(neto)}</td><td></td></tr></tfoot>
+      </table></div>
+    </div>
+
+    <div class="fin-panel">
+      <div class="fin-panel-head">
+        <h3>Hoja de cálculo</h3>
+        <span class="fin-hint">Como en Excel: escribe <b>=B2+B3</b>, <b>=SUMA(C1:C6)</b>, <b>=PROMEDIO(A1:A4)</b>, <b>=MAX</b>, <b>=MIN</b>. Toca una celda para ver o editar su fórmula.</span>
+      </div>
+      <div class="hoja-wrap"><table class="hoja">
+        <thead><tr><th></th>${HOJA_COLS.map(c => `<th>${c}</th>`).join("")}</tr></thead>
+        <tbody>
+          ${Array.from({ length: HOJA_FILAS }, (_, i) => {
+            const f = i + 1;
+            return `<tr><th>${f}</th>${HOJA_COLS.map(c => {
+              const ref = c + f;
+              const v = valorCelda(ref);
+              const esFormula = String(finz.celdas[ref] || "")[0] === "=";
+              return `<td><input class="hoja-celda ${esFormula ? "formula" : ""} ${typeof v === "number" ? "num" : ""} ${v === "#ERROR" || v === "#CIRC" ? "error" : ""}"
+                data-ref="${ref}" value="${esc(fmtCell(v))}" spellcheck="false"></td>`;
+            }).join("")}</tr>`;
+          }).join("")}
+        </tbody>
+      </table></div>
+      <div class="fin-hoja-pie">
+        <button class="btn-ghost" id="finLimpiarHoja">Limpiar hoja</button>
+        <button class="btn-ghost" id="finExportar">⬇️ Respaldar finanzas (JSON)</button>
+      </div>
+    </div>`;
+
+  // Cuentas: edición en línea
+  el.querySelectorAll("tr[data-cta] .celda").forEach(inp => {
+    inp.onchange = () => {
+      const c = finz.cuentas.find(x => x.id === inp.closest("tr").dataset.cta);
+      if (!c) return;
+      const campo = inp.dataset.campo;
+      c[campo] = campo === "ingreso" || campo === "gastos" ? (parseNum(inp.value) || 0) : inp.value.trim();
+      guardarFin();
+      renderFinanzas();
+    };
+  });
+  el.querySelectorAll("[data-borrar]").forEach(b => {
+    b.onclick = () => {
+      const c = finz.cuentas.find(x => x.id === b.dataset.borrar);
+      if (!confirm(`¿Eliminar la cuenta "${c ? c.nombre : ""}"?`)) return;
+      finz.cuentas = finz.cuentas.filter(x => x.id !== b.dataset.borrar);
+      guardarFin();
+      renderFinanzas();
+    };
+  });
+  el.querySelector("#finAgregar").onclick = () => {
+    finz.cuentas.push({ id: "c" + Date.now().toString(36), nombre: "", rol: "", ingreso: 0, gastos: 0 });
+    guardarFin();
+    renderFinanzas();
+    const fila = el.querySelector("tbody tr:last-child .celda");
+    if (fila) fila.focus();
+  };
+
+  // Hoja: al enfocar se ve la fórmula cruda; al salir, el resultado
+  el.querySelectorAll(".hoja-celda").forEach(inp => {
+    inp.onfocus = () => { inp.value = finz.celdas[inp.dataset.ref] || ""; inp.select(); };
+    inp.onblur = () => {
+      const ref = inp.dataset.ref;
+      const nuevo = inp.value.trim();
+      const previo = finz.celdas[ref] || "";
+      if (nuevo === String(previo)) { inp.value = esc0(fmtCell(valorCelda(ref))); return; }
+      if (nuevo) finz.celdas[ref] = nuevo; else delete finz.celdas[ref];
+      guardarFin();
+      renderFinanzas();
+    };
+    inp.onkeydown = e => {
+      if (e.key === "Enter") { e.preventDefault(); inp.blur(); }
+      if (e.key === "Escape") { inp.value = finz.celdas[inp.dataset.ref] || ""; inp.blur(); }
+    };
+  });
+  el.querySelector("#finLimpiarHoja").onclick = () => {
+    if (confirm("¿Vaciar todas las celdas de la hoja de cálculo?")) { finz.celdas = {}; guardarFin(); renderFinanzas(); }
+  };
+  el.querySelector("#finExportar").onclick = async () => {
+    const payload = JSON.stringify({ exportado: new Date().toISOString(), finanzas: finz, proyectos: pros }, null, 2);
+    const filename = "finanzas-proyectos-respaldo.json";
+    if (EN_ARTIFACT) {
+      try { const dl = await window.claude.use("downloads"); if (dl) { await dl.save({ filename, data: payload }); return; } } catch { return; }
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
+    a.download = filename; a.click();
+  };
+}
+function esc0(s) { return s; } // los values de la hoja ya vienen formateados
+
+// ════════════════════════════════════════════════════════════
+// PROYECTOS — de la idea a la entrega en 4 semanas, sin bloqueo
+// (privado: vive solo en este dispositivo)
+// ════════════════════════════════════════════════════════════
+const PLANTILLAS_PRO = {
+  musica: { n: "Música", ico: "🎵", desc: "De la idea a la canción publicada", fases: [
+    { n: "Semana 1 · Visión y referencias", tareas: ["Definir la idea central en una frase", "Armar playlist de 5 referencias", "Elegir BPM, tonalidad y mood", "Bocetar la estructura (intro · verso · coro)"] },
+    { n: "Semana 2 · Maqueta", tareas: ["Producir el beat o la armonía base", "Grabar melodías guía", "Escribir la letra completa", "Maqueta de principio a fin (aunque sea fea)"] },
+    { n: "Semana 3 · Producción fina", tareas: ["Grabar las tomas definitivas", "Editar y afinar voces", "Sumar arreglos y transiciones", "Mezcla v1 · escucharla en 3 equipos distintos"] },
+    { n: "Semana 4 · Cierre y salida", tareas: ["Ajustes finales de mezcla", "Master", "Portada y piezas visuales", "Publicar, distribuir y compartir"] },
+  ]},
+  diseno: { n: "Diseño", ico: "🎨", desc: "Proyectos de marca y dirección de arte", fases: [
+    { n: "Semana 1 · Brief e investigación", tareas: ["Escribir el brief en una página", "Moodboard y referencias por lámina", "Benchmark de la competencia", "Definir el concepto creativo"] },
+    { n: "Semana 2 · Propuestas", tareas: ["Explorar 3 rutas visuales rápidas", "Elegir la ruta ganadora", "Desarrollar la propuesta elegida", "Contrastarla contra el brief"] },
+    { n: "Semana 3 · Desarrollo", tareas: ["Aplicar el feedback", "Desarrollar piezas y variantes", "Afinar tipografía, ritmo y color", "Preparar artes finales"] },
+    { n: "Semana 4 · Entrega", tareas: ["Exportar en todos los formatos", "Armar la presentación de entrega", "Entregar y archivar ordenado", "Retro: qué repetir y qué mejorar"] },
+  ]},
+  personal: { n: "Personal", ico: "🌱", desc: "Metas propias con método y sin presión", fases: [
+    { n: "Semana 1 · Claridad", tareas: ["Escribir la meta y el porqué", "Definir cómo se ve \"logrado\"", "Partirla en pasos pequeños", "Agendar los bloques en el calendario"] },
+    { n: "Semana 2 · Arranque", tareas: ["Completar el primer paso", "Eliminar un obstáculo del camino", "Registrar el avance", "Ajustar el plan si algo no fluye"] },
+    { n: "Semana 3 · Constancia", tareas: ["Mantener el ritmo: 3+ sesiones", "Pedir feedback o apoyo", "Celebrar un avance visible", "Revisar qué falta para cerrar"] },
+    { n: "Semana 4 · Cierre", tareas: ["Completar lo esencial", "Evaluar el resultado contra la meta", "Documentar los aprendizajes", "Elegir el siguiente proyecto"] },
+  ]},
+};
+function sumarDias(iso, n) {
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n);
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+}
+function fmtCorta(iso) {
+  const { dia, num } = fmtFecha(iso);
+  const mes = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"][Number(iso.slice(5, 7)) - 1];
+  return `${dia.toLowerCase().slice(0, 3)} ${num} ${mes}`;
+}
+function progresoDe(pr) {
+  const t = PLANTILLAS_PRO[pr.tipo];
+  let total = 0, hechas = 0;
+  t.fases.forEach((f, fi) => f.tareas.forEach((_, ti) => { total++; if (pr.hecho[fi + "-" + ti]) hechas++; }));
+  return { total, hechas, pct: total ? hechas / total : 0 };
+}
+function siguienteAccion(pr) {
+  const t = PLANTILLAS_PRO[pr.tipo];
+  for (let fi = 0; fi < t.fases.length; fi++)
+    for (let ti = 0; ti < t.fases[fi].tareas.length; ti++)
+      if (!pr.hecho[fi + "-" + ti]) return { fase: fi, texto: t.fases[fi].tareas[ti] };
+  return null;
+}
+function anillo(pct, size = 48) {
+  const r = (size - 7) / 2, c = 2 * Math.PI * r;
+  return `<svg class="anillo" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}" aria-hidden="true">
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="rgba(33,28,22,.1)" stroke-width="5"/>
+    <circle cx="${size / 2}" cy="${size / 2}" r="${r}" fill="none" stroke="var(--accent)" stroke-width="5" stroke-linecap="round"
+      stroke-dasharray="${c.toFixed(1)}" stroke-dashoffset="${(c * (1 - pct)).toFixed(1)}" transform="rotate(-90 ${size / 2} ${size / 2})" style="transition:stroke-dashoffset .4s cubic-bezier(.32,.72,.28,1)"/>
+    <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle" font-size="${size / 4.4}" font-weight="700" fill="var(--ink)">${Math.round(pct * 100)}%</text>
+  </svg>`;
+}
+function renderProyectos() {
+  const el = document.getElementById("view-proyectos");
+  if (!el || MODO_CLIENTE) return;
+  if (el.contains(document.activeElement)) return;
+
+  el.innerHTML = `
+    <p class="view-note">Cualquier proyecto — música, diseño o personal — <b>de la idea a la entrega en 4 semanas</b>. Cada plantilla trae la metodología lista: solo marca la siguiente acción y avanza. 🔒 Privado en este dispositivo.</p>
+    <div class="pro-grid">
+      <button class="pro-nueva" id="proNueva">
+        <span class="pro-nueva-mas">＋</span>
+        <span>Nuevo proyecto</span>
+        <span class="pro-nueva-sub">Elige plantilla y arranca hoy</span>
+      </button>
+      ${pros.lista.map(pr => {
+        const t = PLANTILLAS_PRO[pr.tipo];
+        const prog = progresoDe(pr);
+        const sig = siguienteAccion(pr);
+        const entrega = sumarDias(pr.inicio, 27);
+        const quedan = Math.ceil((new Date(entrega) - new Date(hoyISO())) / 86400000);
+        return `
+        <article class="pro-card ${prog.pct >= 1 ? "lograda" : ""}" data-pro="${pr.id}">
+          <div class="pro-card-top">
+            <span class="pro-ico">${t.ico}</span>
+            <div class="pro-card-tit">
+              <h4>${esc(pr.nombre)}</h4>
+              <span class="pro-tipo">${t.n}${pr.desc ? " · " + esc(pr.desc) : ""}</span>
+            </div>
+            ${anillo(prog.pct)}
+          </div>
+          ${prog.pct >= 1
+            ? `<div class="pro-sig hecho">🏆 Proyecto completado — ¡a celebrarlo!</div>`
+            : sig
+            ? `<div class="pro-sig"><span class="pro-sig-lbl">Siguiente acción</span>${esc(sig.texto)}</div>`
+            : ""}
+          <div class="pro-pie">
+            <span>${prog.hechas}/${prog.total} tareas</span>
+            <span>${quedan > 0 ? `Entrega ${fmtCorta(entrega)} · quedan ${quedan} día${quedan === 1 ? "" : "s"}` : prog.pct >= 1 ? "Cerrado" : `Entrega vencida (${fmtCorta(entrega)})`}</span>
+          </div>
+        </article>`;
+      }).join("")}
+    </div>`;
+
+  el.querySelector("#proNueva").onclick = abrirCreadorProyecto;
+  el.querySelectorAll("[data-pro]").forEach(card => { card.onclick = () => openProyecto(card.dataset.pro); });
+}
+function abrirCreadorProyecto() {
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <h2>Nuevo proyecto</h2>
+    <div class="sub">Arranca hoy · entrega en 4 semanas</div>
+    <section>
+      <h4>Tipo de proyecto</h4>
+      <div class="pro-tipos" id="proTipos">
+        ${Object.entries(PLANTILLAS_PRO).map(([k, t], i) => `
+          <button data-tipo="${k}" class="${i === 1 ? "sel" : ""}">
+            <span class="pro-ico">${t.ico}</span><b>${t.n}</b><span>${t.desc}</span>
+          </button>`).join("")}
+      </div>
+    </section>
+    <section>
+      <h4>Nombre</h4>
+      <input id="proNombre" class="edit-input" placeholder="Ej: EP de 3 canciones, Marca Enzo & Ríos…">
+      <textarea id="proDesc" class="aprob-comment" style="margin-top:8px;min-height:70px" placeholder="En una frase: ¿qué quieres lograr? (opcional)"></textarea>
+    </section>
+    <button class="btn-primary" id="proCrear" style="width:100%">Crear proyecto</button>`;
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  let tipo = "diseno";
+  drawer.querySelectorAll("#proTipos button").forEach(b => {
+    b.onclick = () => { tipo = b.dataset.tipo; drawer.querySelectorAll("#proTipos button").forEach(x => x.classList.toggle("sel", x === b)); };
+  });
+  drawer.querySelector("#proCrear").onclick = () => {
+    const nombre = drawer.querySelector("#proNombre").value.trim();
+    if (!nombre) { drawer.querySelector("#proNombre").focus(); return; }
+    const pr = { id: "p" + Date.now().toString(36), nombre, tipo, desc: drawer.querySelector("#proDesc").value.trim(), inicio: hoyISO(), hecho: {}, notas: "" };
+    pros.lista.unshift(pr);
+    guardarPro();
+    closeDrawer();
+    renderProyectos();
+    openProyecto(pr.id);
+  };
+}
+function openProyecto(id) {
+  const pr = pros.lista.find(x => x.id === id);
+  if (!pr) return;
+  const t = PLANTILLAS_PRO[pr.tipo];
+  const prog = progresoDe(pr);
+  const sig = siguienteAccion(pr);
+  const semanaHoy = Math.min(3, Math.max(0, Math.floor((new Date(hoyISO()) - new Date(pr.inicio)) / (7 * 86400000))));
+
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <div class="pro-drawer-top">
+      <span class="pro-ico grande">${t.ico}</span>
+      <div style="flex:1">
+        <h2 style="margin:0">${esc(pr.nombre)}</h2>
+        <div class="sub" style="margin:2px 0 0">${t.n} · inició ${fmtCorta(pr.inicio)} · entrega ${fmtCorta(sumarDias(pr.inicio, 27))}</div>
+      </div>
+      ${anillo(prog.pct, 56)}
+    </div>
+    ${sig ? `<div class="pro-sig" style="margin-top:14px"><span class="pro-sig-lbl">Siguiente acción</span>${esc(sig.texto)}</div>` : `<div class="pro-sig hecho" style="margin-top:14px">🏆 Todas las tareas completadas</div>`}
+    ${t.fases.map((f, fi) => {
+      const hechasFase = f.tareas.filter((_, ti) => pr.hecho[fi + "-" + ti]).length;
+      return `
+      <section class="pro-fase ${fi === semanaHoy ? "actual" : ""}">
+        <h4>${esc(f.n)} ${fi === semanaHoy ? `<span class="chip-semana">Esta semana</span>` : ""} <span class="pro-fase-n">${hechasFase}/${f.tareas.length}</span></h4>
+        ${f.tareas.map((tarea, ti) => `
+          <label class="check-item">
+            <input type="checkbox" data-tarea="${fi}-${ti}" ${pr.hecho[fi + "-" + ti] ? "checked" : ""}>
+            <span>${esc(tarea)}</span>
+          </label>`).join("")}
+      </section>`;
+    }).join("")}
+    <section>
+      <h4>Notas del proyecto</h4>
+      <textarea id="proNotas" class="aprob-comment" style="min-height:90px" placeholder="Ideas, enlaces, decisiones…">${esc(pr.notas || "")}</textarea>
+    </section>
+    <button class="link-btn" id="proEliminar" style="color:#B23A2E">Eliminar proyecto</button>`;
+
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  drawer.querySelectorAll("[data-tarea]").forEach(cb => {
+    cb.onchange = () => {
+      if (cb.checked) pr.hecho[cb.dataset.tarea] = true; else delete pr.hecho[cb.dataset.tarea];
+      guardarPro();
+      openProyecto(id);
+      renderProyectos();
+    };
+  });
+  drawer.querySelector("#proNotas").onchange = e => { pr.notas = e.target.value; guardarPro(); };
+  drawer.querySelector("#proEliminar").onclick = () => {
+    if (!confirm(`¿Eliminar "${pr.nombre}" y todo su avance?`)) return;
+    pros.lista = pros.lista.filter(x => x.id !== id);
+    guardarPro();
+    closeDrawer();
+    renderProyectos();
+  };
+}
+
 // ---------- Init ----------
 function renderAll() {
   renderCampanita();
@@ -1875,6 +2594,8 @@ function renderAll() {
   renderRodaje();
   renderFeed();
   renderAprobacion();
+  renderFinanzas();
+  renderProyectos();
   renderReferentes();
 }
 // ---------- Candados de acceso (protección básica del navegador) ----------
