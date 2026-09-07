@@ -2865,6 +2865,31 @@ function moverHistoria(k, nuevaFecha) {
   marcarPendiente(); save();
   return k2;
 }
+// Renombrar una historia conservando su ícono, programación y estado.
+// (Si venía del plan semanal, solo cambia ESE día: el plan queda intacto.)
+function renombrarHistoria(k, nuevoResto) {
+  const h = historiasStore();
+  const { iso, mk, txt } = partesClave(k);
+  const t = tipoHistoria(txt);
+  const prefijo = t.resto === txt ? "" : txt.slice(0, txt.length - t.resto.length);
+  const nuevoTxt = prefijo + nuevoResto;
+  if (nuevoTxt === txt) return k;
+  const k2 = histKey(iso, mk, nuevoTxt);
+  const key = iso + "|" + mk;
+  if ((h.extras[key] || []).includes(txt)) {
+    h.extras[key] = h.extras[key].map(x => (x === txt ? nuevoTxt : x));
+  } else {
+    h.quitadas[k] = true;
+    (h.extras[key] = h.extras[key] || []).push(nuevoTxt);
+  }
+  delete h.quitadas[k2];
+  if (h.prog[k]) { h.prog[k2] = h.prog[k]; delete h.prog[k]; }
+  if (h.hechas[k]) { h.hechas[k2] = true; delete h.hechas[k]; }
+  if (videoURLs[k]) { videoURLs[k2] = videoURLs[k]; delete videoURLs[k]; }
+  marcarPendiente(); save();
+  return k2;
+}
+
 // Quitar una historia de un día (del plan o extra)
 function quitarHistoria(k) {
   const h = historiasStore();
@@ -3233,7 +3258,7 @@ function openHistoria(iso, mk, txt, medioVista) {
     <div class="pro-drawer-top">
       <span class="hist-badge hist-badge-grande" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
       <div style="flex:1;min-width:0">
-        <h2 style="margin:0">${esc(t.resto)}</h2>
+        <input id="histTitulo" class="hist-titulo-input" value="${esc(t.resto)}" spellcheck="false" autocomplete="off" title="Toca para editar el título">
         <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : lista ? ` · programada, sale a las ${(pr && pr.hora) || "12:00"}` : ""}</div>
       </div>
     </div>
@@ -3303,6 +3328,17 @@ function openHistoria(iso, mk, txt, medioVista) {
   drawer.querySelectorAll("#histMedio button").forEach(b => {
     b.onclick = () => openHistoria(iso, mk, txt, b.dataset.medio);
   });
+  // Título editable: renombra conservando ícono, programación y estado
+  const inTit = drawer.querySelector("#histTitulo");
+  inTit.onchange = () => {
+    const nuevo = inTit.value.trim();
+    if (!nuevo || nuevo === t.resto) { inTit.value = t.resto; return; }
+    const k2 = renombrarHistoria(k, nuevo);
+    renderHistorias();
+    abrirHistoriaClave(k2, medio);
+    toastVivo("Título actualizado");
+  };
+  inTit.onkeydown = e => { if (e.key === "Enter") inTit.blur(); if (e.key === "Escape") { inTit.value = t.resto; inTit.blur(); } };
   const bImg = drawer.querySelector("#histSubirImg");
   if (bImg) bImg.onclick = () => { progDe(k); pedirImgHistoria(k); };
   const bQI = drawer.querySelector("#histQuitarImg");

@@ -1354,6 +1354,17 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 .hist-quitar-prog:hover { background: rgba(178,58,46,.3); border-color: #F2B4AA; }
 .hist-fecha-hora { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .hist-fecha-hora > div { display: flex; flex-direction: column; gap: 4px; }
+/* Título de la historia editable en la hoja */
+.hist-titulo-input {
+  width: 100%; background: transparent; border: 0; padding: 0 0 2px;
+  font-family: var(--font-head); font-size: 20px; font-weight: 700;
+  color: #fff; line-height: 1.25;
+  border-bottom: 1.5px dashed rgba(255,255,255,.22);
+  border-radius: 0; cursor: text;
+  transition: border-color .15s;
+}
+.hist-titulo-input:hover { border-bottom-color: rgba(255,255,255,.45); }
+.hist-titulo-input:focus { outline: none; border-bottom: 1.5px solid #E9C46A; }
 .hist-guardar { width: 100%; margin-top: 12px; }
 .hist-guardar:disabled { opacity: .55; cursor: default; transform: none; box-shadow: none; }
 .hist-acciones { display: flex; gap: 18px; margin-top: 10px; }
@@ -4910,6 +4921,31 @@ function moverHistoria(k, nuevaFecha) {
   marcarPendiente(); save();
   return k2;
 }
+// Renombrar una historia conservando su ícono, programación y estado.
+// (Si venía del plan semanal, solo cambia ESE día: el plan queda intacto.)
+function renombrarHistoria(k, nuevoResto) {
+  const h = historiasStore();
+  const { iso, mk, txt } = partesClave(k);
+  const t = tipoHistoria(txt);
+  const prefijo = t.resto === txt ? "" : txt.slice(0, txt.length - t.resto.length);
+  const nuevoTxt = prefijo + nuevoResto;
+  if (nuevoTxt === txt) return k;
+  const k2 = histKey(iso, mk, nuevoTxt);
+  const key = iso + "|" + mk;
+  if ((h.extras[key] || []).includes(txt)) {
+    h.extras[key] = h.extras[key].map(x => (x === txt ? nuevoTxt : x));
+  } else {
+    h.quitadas[k] = true;
+    (h.extras[key] = h.extras[key] || []).push(nuevoTxt);
+  }
+  delete h.quitadas[k2];
+  if (h.prog[k]) { h.prog[k2] = h.prog[k]; delete h.prog[k]; }
+  if (h.hechas[k]) { h.hechas[k2] = true; delete h.hechas[k]; }
+  if (videoURLs[k]) { videoURLs[k2] = videoURLs[k]; delete videoURLs[k]; }
+  marcarPendiente(); save();
+  return k2;
+}
+
 // Quitar una historia de un día (del plan o extra)
 function quitarHistoria(k) {
   const h = historiasStore();
@@ -5278,7 +5314,7 @@ function openHistoria(iso, mk, txt, medioVista) {
     <div class="pro-drawer-top">
       <span class="hist-badge hist-badge-grande" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
       <div style="flex:1;min-width:0">
-        <h2 style="margin:0">${esc(t.resto)}</h2>
+        <input id="histTitulo" class="hist-titulo-input" value="${esc(t.resto)}" spellcheck="false" autocomplete="off" title="Toca para editar el título">
         <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : lista ? ` · programada, sale a las ${(pr && pr.hora) || "12:00"}` : ""}</div>
       </div>
     </div>
@@ -5348,6 +5384,17 @@ function openHistoria(iso, mk, txt, medioVista) {
   drawer.querySelectorAll("#histMedio button").forEach(b => {
     b.onclick = () => openHistoria(iso, mk, txt, b.dataset.medio);
   });
+  // Título editable: renombra conservando ícono, programación y estado
+  const inTit = drawer.querySelector("#histTitulo");
+  inTit.onchange = () => {
+    const nuevo = inTit.value.trim();
+    if (!nuevo || nuevo === t.resto) { inTit.value = t.resto; return; }
+    const k2 = renombrarHistoria(k, nuevo);
+    renderHistorias();
+    abrirHistoriaClave(k2, medio);
+    toastVivo("Título actualizado");
+  };
+  inTit.onkeydown = e => { if (e.key === "Enter") inTit.blur(); if (e.key === "Escape") { inTit.value = t.resto; inTit.blur(); } };
   const bImg = drawer.querySelector("#histSubirImg");
   if (bImg) bImg.onclick = () => { progDe(k); pedirImgHistoria(k); };
   const bQI = drawer.querySelector("#histQuitarImg");
