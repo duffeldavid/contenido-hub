@@ -1366,6 +1366,43 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 .hist-titulo-input:hover { border-bottom-color: rgba(255,255,255,.45); }
 .hist-titulo-input:focus { outline: none; border-bottom: 1.5px solid #E9C46A; }
+/* Selector de fecha y hora grande dentro de la hoja de historia */
+.hist-fecha-hora .edit-input { font-size: 15px; padding: 12px 14px; }
+.fecha-btn { text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fecha-btn::first-letter, .calp-mes::first-letter { text-transform: uppercase; }
+/* Calendario propio: grande, limpio, con la selección en dorado */
+.calp {
+  margin: 10px 0 4px; padding: 16px; border-radius: 18px;
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.14);
+}
+.calp-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.calp-mes {
+  font-family: var(--font-head); font-weight: 700; font-size: 17px;
+  color: #fff; letter-spacing: .01em;
+}
+.calp-nav {
+  width: 36px; height: 36px; border-radius: 50%; border: 0; cursor: pointer;
+  background: rgba(255,255,255,.12); color: #fff; font-size: 19px; line-height: 1;
+  transition: background .15s;
+}
+.calp-nav:hover { background: rgba(255,255,255,.24); }
+.calp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.calp-dow {
+  text-align: center; font-size: 10.5px; font-weight: 700; letter-spacing: .1em;
+  color: rgba(255,255,255,.42); padding: 2px 0 8px;
+}
+.calp-dia {
+  aspect-ratio: 1; border: 0; border-radius: 50%; cursor: pointer;
+  background: transparent; color: #fff;
+  font-family: var(--font-body); font-size: 15.5px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background .15s, transform .12s;
+}
+.calp-dia:hover { background: rgba(255,255,255,.14); }
+.calp-dia:active { transform: scale(.92); }
+.calp-dia.hoy { box-shadow: inset 0 0 0 1.5px rgba(233,196,106,.65); }
+.calp-dia.sel { background: #E9C46A; color: #211C16; font-weight: 800; box-shadow: none; }
+
 /* Botón que abre la cámara de historias de Instagram (deep link, celular) */
 .hist-abrir-ig {
   display: inline-flex; align-items: center; justify-content: center; gap: 8px;

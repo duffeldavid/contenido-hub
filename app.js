@@ -3334,12 +3334,7 @@ function openHistoria(iso, mk, txt, medioVista) {
         </div>
         <div class="hist-prog-campos">
           <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
-          <div class="hist-fecha-hora">
-            <div><label class="hist-lbl">Día</label>
-            <input type="date" id="histFecha" class="edit-input" value="${iso}"></div>
-            <div><label class="hist-lbl">Hora del aviso</label>
-            <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}"></div>
-          </div>
+          ${campoFechaHora(pr, iso, "Hora del aviso")}
           <button class="hist-abrir-ig" id="histAbrirIG">${ICOL.musica} ${pr && pr.img ? "Enviar a Instagram con la imagen" : "Abrir Instagram ahora"}</button>
           <p class="hist-abrir-hint">${pr && pr.img
             ? "En el celular: elige Instagram → Historias y la imagen llega lista, solo agrégale la música."
@@ -3495,15 +3490,21 @@ function openHistoria(iso, mk, txt, medioVista) {
     marcarPendiente(); save(); renderHistorias();
     openHistoria(iso, mk, txt, medio);
   };
-  // Cambiar el día: la historia se mueve y el carrusel se reacomoda solo
-  const inFecha = drawer.querySelector("#histFecha");
-  if (inFecha) inFecha.onchange = () => {
-    const k2 = moverHistoria(k, inFecha.value);
-    renderHistorias();
-    if (k2 !== k) {
-      const { num: n2 } = fmtFecha(inFecha.value);
-      toastVivo(`Historia movida al ${n2}`);
-      abrirHistoriaClave(k2, medio);
+  // Cambiar el día con el calendario propio: la historia se mueve sola
+  const bFecha = drawer.querySelector("#histFechaBtn");
+  const panelCal = drawer.querySelector("#histCalPanel");
+  if (bFecha && panelCal) bFecha.onclick = () => {
+    panelCal.hidden = !panelCal.hidden;
+    if (!panelCal.hidden) {
+      delete panelCal.dataset.mes;
+      pintarCalPanel(panelCal, iso, nuevoIso => {
+        if (nuevoIso === iso) { panelCal.hidden = true; return; }
+        const k2 = moverHistoria(k, nuevoIso);
+        renderHistorias();
+        const { num: n2 } = fmtFecha(nuevoIso);
+        toastVivo(`Historia movida al ${n2}`);
+        abrirHistoriaClave(k2, medio);
+      });
     }
   };
   const bQD = drawer.querySelector("#histQuitarDia");
@@ -3532,18 +3533,58 @@ function openHistoria(iso, mk, txt, medioVista) {
     openHistoria(iso, mk, txt, medio);
   };
 }
-function campoHoraRedes(pr, iso) {
+function campoFechaHora(pr, iso, labelHora = "Hora") {
+  const fecha = new Date(iso + "T12:00:00")
+    .toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "short" });
   return `
     <div class="hist-fecha-hora">
       <div><label class="hist-lbl">Día</label>
-      <input type="date" id="histFecha" class="edit-input" value="${iso}"></div>
-      <div><label class="hist-lbl">Hora</label>
+      <button type="button" class="edit-input fecha-btn" id="histFechaBtn">${fecha}</button></div>
+      <div><label class="hist-lbl">${labelHora}</label>
       <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}"></div>
     </div>
+    <div class="calp" id="histCalPanel" hidden></div>`;
+}
+function campoHoraRedes(pr, iso) {
+  return `
+    ${campoFechaHora(pr, iso)}
     <label class="hist-lbl">Dónde</label>
     <div class="aprob-pills pub-redes" id="histRed">
       ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${((pr && pr.red) || "ambas") === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
     </div>`;
+}
+// Calendario propio: grande, oscuro y elegante (el nativo del navegador
+// es diminuto y no se puede estilizar)
+function pintarCalPanel(panel, isoSel, onPick) {
+  if (!panel.dataset.mes) panel.dataset.mes = isoSel.slice(0, 7);
+  const [a, mes] = panel.dataset.mes.split("-").map(Number);
+  const hoyIso = isoDe(new Date());
+  const primero = new Date(a, mes - 1, 1);
+  const diasMes = new Date(a, mes, 0).getDate();
+  const inicio = (primero.getDay() + 6) % 7; // semana desde lunes
+  const titulo = primero.toLocaleDateString("es-CO", { month: "long", year: "numeric" });
+  let celdas = "";
+  for (let i = 0; i < inicio; i++) celdas += `<span></span>`;
+  for (let d = 1; d <= diasMes; d++) {
+    const isoD = `${a}-${String(mes).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    celdas += `<button type="button" class="calp-dia ${isoD === isoSel ? "sel" : ""} ${isoD === hoyIso ? "hoy" : ""}" data-iso="${isoD}">${d}</button>`;
+  }
+  panel.innerHTML = `
+    <div class="calp-head">
+      <button type="button" class="calp-nav" data-nav="-1" aria-label="Mes anterior">‹</button>
+      <span class="calp-mes">${titulo}</span>
+      <button type="button" class="calp-nav" data-nav="1" aria-label="Mes siguiente">›</button>
+    </div>
+    <div class="calp-grid">
+      ${["L", "M", "M", "J", "V", "S", "D"].map(l => `<span class="calp-dow">${l}</span>`).join("")}
+      ${celdas}
+    </div>`;
+  panel.querySelectorAll(".calp-nav").forEach(b => b.onclick = () => {
+    const f = new Date(a, mes - 1 + Number(b.dataset.nav), 1);
+    panel.dataset.mes = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, "0")}`;
+    pintarCalPanel(panel, isoSel, onPick);
+  });
+  panel.querySelectorAll(".calp-dia").forEach(b => b.onclick = () => onPick(b.dataset.iso));
 }
 
 // Hoja para agregar una historia extra a un día (con ideas tocables)
