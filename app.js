@@ -3057,7 +3057,9 @@ function renderHistorias() {
                                <span class="hs-ph-txt">${esc(t.resto)}</span>
                                <span class="hs-ph-formato">1080 × 1920</span>
                              </div>`}
-                        ${pr && pr.auto ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "Sale sola a esta hora" : "Falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
+                        ${pr && pr.musica
+                          ? `<span class="hs-hora hs-musica" title="Con música: a esta hora te llega el aviso para subirla desde la app">${ICOL.musica} ${pr.hora || "12:00"}</span>`
+                          : pr && pr.auto ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "Sale sola a esta hora" : "Falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
                         <button class="hist-quitar hs-quitar" data-quitar-hist="${esc(k)}" title="Quitar de este día" aria-label="Quitar de este día">✕</button>
                         <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
                       </div>
@@ -3250,8 +3252,8 @@ function openHistoria(iso, mk, txt, medioVista) {
   const hecha = !!h.hechas[k];
   const { dia, num } = fmtFecha(iso);
   const m = MARCAS[mk];
-  const medio = medioVista || (pr && pr.video ? "video" : "imagen");
-  const lista = pr && (pr.img || pr.video);
+  const medio = medioVista || (pr && pr.musica ? "musica" : pr && pr.video ? "video" : "imagen");
+  const lista = pr && (pr.musica || pr.img || pr.video);
 
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
@@ -3259,7 +3261,7 @@ function openHistoria(iso, mk, txt, medioVista) {
       <span class="hist-badge hist-badge-grande" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
       <div style="flex:1;min-width:0">
         <input id="histTitulo" class="hist-titulo-input" value="${esc(t.resto)}" spellcheck="false" autocomplete="off" title="Toca para editar el título">
-        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : lista ? ` · programada, sale a las ${(pr && pr.hora) || "12:00"}` : ""}</div>
+        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : pr && pr.musica ? ` · con música, la subes tú a las ${pr.hora || "12:00"}` : lista ? ` · programada, sale a las ${(pr && pr.hora) || "12:00"}` : ""}</div>
       </div>
     </div>
 
@@ -3269,6 +3271,7 @@ function openHistoria(iso, mk, txt, medioVista) {
         <div class="aprob-pills pub-redes hist-medio" id="histMedio">
           <button data-medio="imagen" class="${medio === "imagen" ? "sel" : ""}">Imagen</button>
           <button data-medio="video" class="${medio === "video" ? "sel" : ""}">Video</button>
+          <button data-medio="musica" class="${medio === "musica" ? "sel" : ""}">Con música</button>
         </div>
         ${pr ? `<button class="hist-quitar-prog" id="histQuitarProg">Quitar programación</button>` : ""}
       </div>
@@ -3283,6 +3286,24 @@ function openHistoria(iso, mk, txt, medioVista) {
           <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
           ${pr && pr.img ? `<button class="btn-ghost" id="histQuitarImg">Quitar imagen</button>` : ""}
           ${campoHoraRedes(pr, iso)}
+        </div>
+      </div>`
+      : medio === "musica" ? `
+      <p class="pub-nota">El <b>sticker de música solo existe en la app de Instagram</b>, así que esta historia no sale sola: a la hora elegida te llega un aviso al celular que <b>abre directo la cámara de historias</b> para subirla en segundos.</p>
+      <div class="hist-prog-grid">
+        <div class="hist-img-prev ${pr && pr.img ? "" : "vacia"}">
+          ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
+        </div>
+        <div class="hist-prog-campos">
+          <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen (referencia)"}</button>
+          <div class="hist-fecha-hora">
+            <div><label class="hist-lbl">Día</label>
+            <input type="date" id="histFecha" class="edit-input" value="${iso}"></div>
+            <div><label class="hist-lbl">Hora del aviso</label>
+            <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}"></div>
+          </div>
+          <button class="hist-abrir-ig" id="histAbrirIG">${ICOL.musica} Abrir Instagram ahora</button>
+          <p class="hist-abrir-hint">Desde el celular abre la cámara de historias de Instagram.</p>
         </div>
       </div>`
       : `
@@ -3303,8 +3324,12 @@ function openHistoria(iso, mk, txt, medioVista) {
       </div>`}
 
       <p class="${lista ? "hist-estado-ok" : "pub-aviso"}" style="margin-top:12px">
-        ${lista
+        ${pr && pr.musica
+          ? `Lista: el ${dia.toLowerCase()} ${num} a las ${pr.hora || "12:00"} te llega el aviso al celular para subirla con su música.`
+          : lista
           ? `Lista: sale sola el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"}.`
+          : medio === "musica"
+          ? `Elige día y hora y quedará el recordatorio.`
           : `Sube la imagen o elige el video y quedará programada.`}
       </p>
       <button class="btn-primary hist-guardar" id="histGuardar" ${store.pendientePub ? "" : "disabled"}>${store.pendientePub ? "Guardar cambios" : "Todo guardado"}</button>
@@ -3326,8 +3351,27 @@ function openHistoria(iso, mk, txt, medioVista) {
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
 
   drawer.querySelectorAll("#histMedio button").forEach(b => {
-    b.onclick = () => openHistoria(iso, mk, txt, b.dataset.medio);
+    b.onclick = () => {
+      const md = b.dataset.medio;
+      // "Con música" es publicación manual: se marca en la programación para
+      // que el trabajador avise en vez de publicar; volver a Imagen/Video la quita.
+      if (md === "musica") {
+        const p = progDe(k);
+        if (!p.musica) { p.musica = true; marcarPendiente(); save(); renderHistorias(); }
+      } else if (h.prog[k] && h.prog[k].musica) {
+        delete h.prog[k].musica;
+        marcarPendiente(); save(); renderHistorias();
+      }
+      openHistoria(iso, mk, txt, md);
+    };
   });
+  const bIG = drawer.querySelector("#histAbrirIG");
+  if (bIG) bIG.onclick = () => {
+    location.href = "instagram://story-camera";
+    setTimeout(() => {
+      if (!document.hidden) toastVivo("Este botón funciona en el celular: ahí abre la cámara de historias");
+    }, 1200);
+  };
   // Título editable: renombra conservando ícono, programación y estado
   const inTit = drawer.querySelector("#histTitulo");
   inTit.onchange = () => {

@@ -1255,6 +1255,12 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   box-shadow: 0 2px 8px -2px rgba(0,0,0,.4);
 }
 .hs-hora.falta { background: #C98F2D; }
+/* Historia con música: se sube a mano desde la app, el chip lo recuerda */
+.hs-musica {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: linear-gradient(120deg, #7A3FD4, #C13584);
+}
+.hs-musica .icl { width: 11px; height: 11px; vertical-align: 0; }
 .hist-badge {
   width: 29px; height: 29px; border-radius: 9px; flex: none;
   background: var(--tb, var(--bg));
@@ -1360,6 +1366,19 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 .hist-titulo-input:hover { border-bottom-color: rgba(255,255,255,.45); }
 .hist-titulo-input:focus { outline: none; border-bottom: 1.5px solid #E9C46A; }
+/* Botón que abre la cámara de historias de Instagram (deep link, celular) */
+.hist-abrir-ig {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; border: 0; cursor: pointer;
+  padding: 12px 18px; border-radius: 999px;
+  font-family: var(--font-body); font-size: 13.5px; font-weight: 700;
+  background: linear-gradient(105deg, #7A3FD4, #C13584 55%, #E0745C);
+  color: #fff; box-shadow: 0 6px 18px -6px rgba(163,66,160,.65);
+  transition: transform .15s, filter .15s;
+}
+.hist-abrir-ig:hover { transform: translateY(-1px); filter: brightness(1.06); }
+.hist-abrir-ig .icl { width: 16px; height: 16px; vertical-align: 0; }
+.hist-abrir-hint { font-size: 11.5px; color: var(--faint); margin-top: 6px; }
 .hist-guardar { width: 100%; margin-top: 12px; }
 .hist-guardar:disabled { opacity: .55; cursor: default; transform: none; box-shadow: none; }
 .hist-acciones { display: flex; gap: 18px; margin-top: 10px; }
@@ -1467,6 +1486,7 @@ button.hist-play:hover { transform: translate(-50%, -50%) scale(1.1); background
 .drawer .hist-estado-ok { background: rgba(63,148,89,.24); color: #A9E4B6; }
 .drawer .hist-estado-ok b { color: #CDEfd4; }
 .drawer .hist-lbl { color: rgba(255,255,255,.5); }
+.drawer .hist-abrir-hint { color: rgba(255,255,255,.55); }
 .drawer .hist-img-prev { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); color: rgba(255,255,255,.5); }
 .drawer .hist-video-nombre { color: rgba(255,255,255,.7); }
 .drawer .hist-idea { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.2); color: #fff; }

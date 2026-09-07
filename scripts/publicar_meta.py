@@ -97,11 +97,12 @@ def api(metodo, path, token, **params):
         return None, str(e)
 
 
-def avisar(titulo, cuerpo, tags="robot"):
+def avisar(titulo, cuerpo, tags="robot", click=None):
     try:
-        req = urllib.request.Request(
-            NTFY_AVISOS, data=cuerpo.encode(),
-            headers={"Title": titulo.encode("ascii", "ignore").decode() or "Contenido Hub", "Tags": tags})
+        headers = {"Title": titulo.encode("ascii", "ignore").decode() or "Contenido Hub", "Tags": tags}
+        if click:
+            headers["Click"] = click  # tocar la notificación abre esta URL/app
+        req = urllib.request.Request(NTFY_AVISOS, data=cuerpo.encode(), headers=headers)
         urllib.request.urlopen(req, timeout=15)
     except Exception:
         pass
@@ -353,7 +354,9 @@ def procesar_historias(config, estado, ledger, ahora):
     salen a la hora exacta, o al despertar el Mac)."""
     cola = (estado.get("historias") or {}).get("prog") or {}
     for k, entrada in cola.items():
-        if not entrada.get("auto") or not (entrada.get("img") or entrada.get("video")):
+        if entrada.get("musica"):
+            pass  # con música se publica a mano: solo se avisa, no necesita medio
+        elif not entrada.get("auto") or not (entrada.get("img") or entrada.get("video")):
             continue
         fecha, resto = k[:10], k[11:]
         if "|" not in resto:
@@ -376,6 +379,16 @@ def procesar_historias(config, estado, ledger, ahora):
             continue
         redes = {"ig": ["ig"], "fb": ["fb"], "ambas": ["ig", "fb"]}.get(entrada.get("red", "ambas"), ["ig", "fb"])
         titulo = (texto.split(" ", 1)[-1] if " " in texto else texto)[:70]
+        if entrada.get("musica"):
+            # El sticker de música solo existe en la app de Instagram: en vez de
+            # publicar, se manda un aviso que al tocarlo abre la cámara de historias.
+            reg["avisado"] = True
+            avisar("🎵 Hora de la historia con música",
+                   f"«{titulo}» ({marca}): toca este aviso y se abre la cámara de "
+                   "historias de Instagram. Elige la foto y ponle su música.",
+                   "musical_note", click="instagram://story-camera")
+            log(f"historia con música: aviso enviado ({titulo})")
+            continue
         es_video = bool(entrada.get("video"))
 
         # Medio a publicar: video desde la carpeta del Mac, o imagen del estado
