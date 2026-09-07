@@ -94,3 +94,14 @@ artifact = artifact.replace("{img_map}", json.dumps(mapa), 1)
 
 (ROOT / "artifact.html").write_text(artifact)
 print(f"artifact.html generado ({len(artifact):,} bytes)")
+
+# Sello de versión en index.html: styles.css/data.js/app.js llevan ?v=<epoch>
+# para que el celular no use caché vieja de GitHub Pages tras cada despliegue.
+import re as _re, time as _time
+_idx = ROOT / "index.html"
+_html = _idx.read_text()
+_v = str(int(_time.time()))
+_html2 = _re.sub(r'((?:styles\.css|data\.js|app\.js))(?:\?v=\d+)?"', rf'\1?v={_v}"', _html)
+if _html2 != _html:
+    _idx.write_text(_html2)
+    print(f"index.html sellado con v={_v}")

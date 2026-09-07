@@ -3369,22 +3369,31 @@ function openHistoria(iso, mk, txt, medioVista) {
   });
   const bIG = drawer.querySelector("#histAbrirIG");
   if (bIG) {
-    // La imagen se prepara al abrir la hoja: el toque debe llamar a compartir
-    // de inmediato (iOS solo abre el menú dentro del gesto del usuario).
+    // El archivo se arma sin fetch (el visor de claude.ai lo bloquea) y de
+    // forma síncrona: en iOS compartir debe ocurrir dentro del gesto del toque.
     let archivoIG = null;
-    if (pr && pr.img && navigator.canShare) {
-      fetch(pr.img).then(r => r.blob()).then(b => {
-        const f = new File([b], "historia.jpg", { type: b.type || "image/jpeg" });
-        if (navigator.canShare({ files: [f] })) archivoIG = f;
-      }).catch(() => {});
+    if (pr && pr.img && pr.img.startsWith("data:")) {
+      try {
+        const coma = pr.img.indexOf(",");
+        const mime = (pr.img.slice(0, coma).match(/data:([^;]+)/) || [])[1] || "image/jpeg";
+        const bin = atob(pr.img.slice(coma + 1));
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        archivoIG = new File([bytes], "historia.jpg", { type: mime });
+      } catch (e) { archivoIG = null; }
     }
     bIG.onclick = async () => {
-      if (archivoIG) {
+      if (archivoIG && navigator.canShare && navigator.canShare({ files: [archivoIG] })) {
         // Menú de compartir con la imagen adjunta: Instagram → Historias
         // la abre lista en el editor, solo falta ponerle la música.
         try { await navigator.share({ files: [archivoIG] }); return; }
-        catch (e) { if (e && e.name === "AbortError") return; }
+        catch (e) {
+          if (e && e.name === "AbortError") return; // cerró el menú: nada más que hacer
+          toastVivo("Aquí no se puede compartir la imagen — abre el enlace público en el celular");
+          return;
+        }
       }
+      if (archivoIG) toastVivo("Este navegador no permite adjuntar la imagen: se abre solo la cámara");
       location.href = "instagram://story-camera";
       setTimeout(() => {
         if (!document.hidden) toastVivo("Este botón funciona en el celular: ahí abre la cámara de historias");
