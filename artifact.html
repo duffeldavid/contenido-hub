@@ -5118,7 +5118,7 @@ function renderHistorias() {
   const nombreCorto = { forestal: "Forestal", manzanares: "Manzanares" };
 
   let html = `
-    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. <b>Toca una historia para programarla</b> — subes la imagen final, eliges hora y redes, y sale sola por la API (sin stickers ni nada que la haga fallar). El círculo la marca publicada a mano; la racha cuenta los días seguidos al aire.</p>
+    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. <b>Toca una historia para planificarla</b> — cargas la imagen o el video, eliges día y hora, y a esa hora te llega el aviso al celular con todo listo para subirla tú desde Instagram o Meta Business. El círculo la marca publicada; la racha cuenta los días seguidos al aire.</p>
     <div class="hist-barra">
       <div class="hist-nav">
         <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">‹</button>
@@ -5208,9 +5208,7 @@ function renderHistorias() {
                                <span class="hs-ph-txt">${esc(t.resto)}</span>
                                <span class="hs-ph-formato">1080 × 1920</span>
                              </div>`}
-                        ${pr && pr.musica
-                          ? `<span class="hs-hora hs-musica" title="Con música: a esta hora te llega el aviso para subirla desde la app">${ICOL.musica} ${pr.hora || "12:00"}</span>`
-                          : pr && pr.auto ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "Sale sola a esta hora" : "Falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
+                        ${pr ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "A esta hora la subes tú — te llega un aviso al celular" : "Aún falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
                         <button class="hist-quitar hs-quitar" data-quitar-hist="${esc(k)}" title="Quitar de este día" aria-label="Quitar de este día">✕</button>
                         <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
                       </div>
@@ -5403,8 +5401,8 @@ function openHistoria(iso, mk, txt, medioVista) {
   const hecha = !!h.hechas[k];
   const { dia, num } = fmtFecha(iso);
   const m = MARCAS[mk];
-  const medio = medioVista || (pr && pr.musica ? "musica" : pr && pr.video ? "video" : "imagen");
-  const lista = pr && (pr.musica || pr.img || pr.video);
+  const medio = medioVista || (pr && pr.video ? "video" : "imagen");
+  const lista = pr && (pr.img || pr.video);
 
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
@@ -5412,23 +5410,22 @@ function openHistoria(iso, mk, txt, medioVista) {
       <span class="hist-badge hist-badge-grande" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
       <div style="flex:1;min-width:0">
         <input id="histTitulo" class="hist-titulo-input" value="${esc(t.resto)}" spellcheck="false" autocomplete="off" title="Toca para editar el título">
-        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : pr && pr.musica ? ` · con música, la subes tú a las ${pr.hora || "12:00"}` : lista ? ` · programada, sale a las ${(pr && pr.hora) || "12:00"}` : ""}</div>
+        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : lista ? ` · planificada para las ${(pr && pr.hora) || "12:00"} — la subes tú` : ""}</div>
       </div>
     </div>
 
     <section class="pub-paso pub-auto" style="margin-top:18px">
-      <h4><span class="paso-num auto">A</span> Programar publicación</h4>
+      <h4><span class="paso-num auto">A</span> Planificar la historia</h4>
       <div class="hist-medio-fila">
         <div class="aprob-pills pub-redes hist-medio" id="histMedio">
           <button data-medio="imagen" class="${medio === "imagen" ? "sel" : ""}">Imagen</button>
           <button data-medio="video" class="${medio === "video" ? "sel" : ""}">Video</button>
-          <button data-medio="musica" class="${medio === "musica" ? "sel" : ""}">Con música</button>
         </div>
-        ${pr ? `<button class="hist-quitar-prog" id="histQuitarProg">Quitar programación</button>` : ""}
+        ${pr ? `<button class="hist-quitar-prog" id="histQuitarProg">Quitar planificación</button>` : ""}
       </div>
 
       ${medio === "imagen" ? `
-      <p class="pub-nota">Sale <b>tal cual la imagen</b> — sin stickers, sin texto de la app, sin música. Diseño final en 1080×1920 y <b>nunca falla</b>.</p>
+      <p class="pub-nota">El diseño final en 1080×1920. A la hora planificada te llega un <b>aviso al celular</b> con la imagen lista para subirla.</p>
       <div class="hist-prog-grid">
         <div class="hist-img-prev ${pr && pr.img ? "" : "vacia"}">
           ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
@@ -5437,25 +5434,14 @@ function openHistoria(iso, mk, txt, medioVista) {
           <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
           ${pr && pr.img ? `<button class="btn-ghost" id="histQuitarImg">Quitar imagen</button>` : ""}
           ${campoHoraRedes(pr, iso)}
-        </div>
-      </div>`
-      : medio === "musica" ? `
-      <p class="pub-nota">El <b>sticker de música solo existe en la app de Instagram</b>, así que esta historia no sale sola: a la hora elegida te llega un aviso al celular que <b>abre directo la cámara de historias</b> para subirla en segundos.</p>
-      <div class="hist-prog-grid">
-        <div class="hist-img-prev ${pr && pr.img ? "" : "vacia"}">
-          ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
-        </div>
-        <div class="hist-prog-campos">
-          <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
-          ${campoFechaHora(pr, iso, "Hora del aviso")}
           <button class="hist-abrir-ig" id="histAbrirIG">${ICOL.musica} ${pr && pr.img ? "Enviar a Instagram con la imagen" : "Abrir Instagram ahora"}</button>
           <p class="hist-abrir-hint">${pr && pr.img
-            ? "En el celular: elige Instagram → Historias y la imagen llega lista, solo agrégale la música."
+            ? "En el celular: elige Instagram → Historias y la imagen llega lista al editor — música y stickers a tu gusto."
             : "Desde el celular abre la cámara de historias. Sube la imagen y te la envía lista."}</p>
         </div>
       </div>`
       : `
-      <p class="pub-nota">El video (MP4/MOV vertical, máx. 60 s) va en la carpeta <b>Videos Contenido Hub</b> del escritorio del Mac. Se publica tal cual, sin nada encima.</p>
+      <p class="pub-nota">El video queda guardado en este navegador para <b>previsualizarlo con sonido</b> antes de subirlo desde Meta Business o la app.</p>
       <div class="hist-prog-grid">
         <div class="hist-img-prev hist-video-prev ${pr && (pr.video || pr.poster) ? "" : "vacia"}" id="histVideoMarco">
           ${pr && (pr.video || pr.poster)
@@ -5472,13 +5458,9 @@ function openHistoria(iso, mk, txt, medioVista) {
       </div>`}
 
       <p class="${lista ? "hist-estado-ok" : "pub-aviso"}" style="margin-top:12px">
-        ${pr && pr.musica
-          ? `Lista: el ${dia.toLowerCase()} ${num} a las ${pr.hora || "12:00"} te llega el aviso al celular para subirla con su música.`
-          : lista
-          ? `Lista: sale sola el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"}.`
-          : medio === "musica"
-          ? `Elige día y hora y quedará el recordatorio.`
-          : `Sube la imagen o elige el video y quedará programada.`}
+        ${lista
+          ? `Planificada: el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"} te llega el aviso al celular para subirla.`
+          : `Sube la imagen o el video y elige día y hora — quedará en el calendario y te avisará.`}
       </p>
       <button class="btn-primary hist-guardar" id="histGuardar" ${store.pendientePub ? "" : "disabled"}>${store.pendientePub ? "Guardar cambios" : "Todo guardado"}</button>
       <div class="hist-acciones">
@@ -5499,19 +5481,7 @@ function openHistoria(iso, mk, txt, medioVista) {
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
 
   drawer.querySelectorAll("#histMedio button").forEach(b => {
-    b.onclick = () => {
-      const md = b.dataset.medio;
-      // "Con música" es publicación manual: se marca en la programación para
-      // que el trabajador avise en vez de publicar; volver a Imagen/Video la quita.
-      if (md === "musica") {
-        const p = progDe(k);
-        if (!p.musica) { p.musica = true; marcarPendiente(); save(); renderHistorias(); }
-      } else if (h.prog[k] && h.prog[k].musica) {
-        delete h.prog[k].musica;
-        marcarPendiente(); save(); renderHistorias();
-      }
-      openHistoria(iso, mk, txt, md);
-    };
+    b.onclick = () => openHistoria(iso, mk, txt, b.dataset.medio);
   });
   const bIG = drawer.querySelector("#histAbrirIG");
   if (bIG) {

@@ -350,107 +350,37 @@ def emitir_historia(k):
 
 
 def procesar_historias(config, estado, ledger, ahora):
-    """Publica las historias programadas (IG y FB no permiten agendarlas:
-    salen a la hora exacta, o al despertar el Mac)."""
+    """Las historias NO se publican por API (decisión de David, 7/sep/2026:
+    el camino automático fallaba con los videos y se descartó). El Hub es el
+    calendario: a la hora planificada se envía UN aviso al celular que abre
+    la historia en el Hub con la imagen lista para subirla a mano."""
     cola = (estado.get("historias") or {}).get("prog") or {}
     hechas = (estado.get("historias") or {}).get("hechas") or {}
     for k, entrada in cola.items():
         if hechas.get(k):
-            continue  # marcada "Ya está al aire": no se publica ni se avisa
-        if entrada.get("musica"):
-            pass  # con música se publica a mano: solo se avisa, no necesita medio
-        elif not entrada.get("auto") or not (entrada.get("img") or entrada.get("video")):
-            continue
+            continue  # marcada "Ya está al aire": nada que avisar
         fecha, resto = k[:10], k[11:]
         if "|" not in resto:
             continue
         marca, texto = resto.split("|", 1)
-        pagina = (config.get("pages") or {}).get(marca)
-        if not pagina:
-            continue
         try:
             dt = datetime.strptime(f"{fecha} {entrada.get('hora', '12:00')}", "%Y-%m-%d %H:%M")
             t_pub = int(dt.replace(tzinfo=TZ).timestamp())
         except Exception:
             continue
-        if ahora < t_pub:
-            continue
-        if ahora - t_pub > 20 * 3600:
-            continue  # más de 20 h tarde: ya no tiene sentido publicarla
+        if ahora < t_pub or ahora - t_pub > 20 * 3600:
+            continue  # aún no es la hora, o ya pasó demasiado
         reg = ledger.setdefault("hist:" + k, {})
-        if reg.get("errores", 0) >= MAX_REINTENTOS or reg.get("avisado"):
+        if reg.get("avisado"):
             continue
-        redes = {"ig": ["ig"], "fb": ["fb"], "ambas": ["ig", "fb"]}.get(entrada.get("red", "ambas"), ["ig", "fb"])
+        reg["avisado"] = True
         titulo = (texto.split(" ", 1)[-1] if " " in texto else texto)[:70]
-        if entrada.get("musica"):
-            # El sticker de música solo existe en la app de Instagram: en vez de
-            # publicar, se avisa. El toque abre la historia en el Hub, donde el
-            # botón envía la imagen lista al editor de historias de Instagram.
-            reg["avisado"] = True
-            avisar("🎵 Hora de la historia con música",
-                   f"«{titulo}» ({marca}): toca este aviso, se abre tu historia y "
-                   "con un botón la envías a Instagram con la imagen lista — solo ponle la música.",
-                   "musical_note",
-                   click=f"{PAGES_BASE}/?historia={urllib.parse.quote(k)}")
-            log(f"historia con música: aviso enviado ({titulo})")
-            continue
-        es_video = bool(entrada.get("video"))
-
-        # Medio a publicar: video desde la carpeta del Mac, o imagen del estado
-        ruta_video = asset_video = None
-        if es_video:
-            ruta_video = buscar_video(entrada["video"])
-            if not ruta_video:
-                reg["errores"] = reg.get("errores", 0) + 1
-                log(f"historia «{titulo}»: no encuentro el video {entrada['video']}")
-                if reg["errores"] == 1:
-                    avisar("⚠️ Falta el video de la historia",
-                           f"«{titulo}»: no encuentro «{entrada['video']}» en la carpeta Videos Contenido Hub del escritorio. Ponlo ahí y sale en el próximo ciclo.",
-                           "warning")
-                continue
-            url_medio, asset_video, err_v = url_video_publico(ruta_video)
-            if err_v:
-                reg["errores"] = reg.get("errores", 0) + 1
-                log(f"historia «{titulo}»: no pude subir el video ({err_v})")
-                continue
-        else:
-            firma = hashlib.sha1(entrada["img"].encode()).hexdigest()[:16]
-            url_medio = asegurar_img_publica(f"historias/{firma}.jpg", entrada["img"], "historia")
-            if not url_medio:
-                log(f"historia «{titulo}»: imagen pública pendiente; reintento próximo ciclo")
-                continue
-
-        error = None
-        if "ig" in redes and not reg.get("ig_id"):
-            ig_id, error = (publicar_story_ig_video if es_video else publicar_story_ig)(pagina, url_medio)
-            if ig_id:
-                reg["ig_id"] = ig_id
-                log(f"historia IG al aire ({'video' if es_video else 'imagen'}): {titulo}")
-        if not error and "fb" in redes and not reg.get("fb_id"):
-            fb_id, error = (publicar_story_fb_video if es_video else publicar_story_fb)(pagina, url_medio)
-            if fb_id:
-                reg["fb_id"] = fb_id
-                log(f"historia FB al aire ({'video' if es_video else 'imagen'}): {titulo}")
-        if error:
-            reg["errores"] = reg.get("errores", 0) + 1
-            log(f"historia ERROR: {error}")
-            if reg["errores"] in (1, MAX_REINTENTOS):
-                avisar("⚠️ Historia automática con problemas",
-                       f"«{titulo}»: {error}"
-                       + (" — no se reintentará más." if reg["errores"] >= MAX_REINTENTOS else ""),
-                       "warning")
-            continue
-        ig_ok = "ig" not in redes or reg.get("ig_id")
-        fb_ok = "fb" not in redes or reg.get("fb_id")
-        if ig_ok and fb_ok:
-            reg["avisado"] = True
-            if es_video and ruta_video:
-                limpiar_video(ruta_video, asset_video)
-            emitir_historia(k)
-            tarde = ahora - t_pub > 900
-            avisar("📲 Historia publicada",
-                   f"«{titulo}» ya está al aire ({marca})"
-                   + (" — salió atrasada: el Mac estaba dormido" if tarde else ""), "tada")
+        avisar("🔔 Hora de la historia",
+               f"«{titulo}» ({marca}): toca el aviso — se abre en el Hub con todo "
+               "listo para subirla a Instagram o Meta Business.",
+               "bell",
+               click=f"{PAGES_BASE}/?historia={urllib.parse.quote(k)}")
+        log(f"historia: aviso enviado ({titulo})")
 
 
 def verificar(config):
