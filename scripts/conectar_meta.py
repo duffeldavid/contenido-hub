@@ -21,7 +21,11 @@ GRAPH = "https://graph.facebook.com/v25.0"
 DESTINO = os.path.expanduser("~/Library/Application Support/ContenidoHub/meta.json")
 
 
-def api(path, **params):
+PERMISOS = ["pages_show_list", "pages_manage_posts", "pages_read_engagement",
+            "instagram_basic", "instagram_content_publish", "business_management"]
+
+
+def api(path, fatal=True, **params):
     url = f"{GRAPH}/{path}?" + urllib.parse.urlencode(params)
     try:
         with urllib.request.urlopen(url, timeout=30) as r:
@@ -30,10 +34,38 @@ def api(path, **params):
         cuerpo = e.read().decode("utf-8", "replace")
         try:
             err = json.loads(cuerpo).get("error", {})
-            print(f"\n❌ Meta respondió un error: {err.get('message', cuerpo)}")
+            msg = err.get("message", cuerpo)
         except Exception:
-            print(f"\n❌ Error HTTP {e.code}: {cuerpo[:300]}")
+            msg = f"HTTP {e.code}: {cuerpo[:300]}"
+        if not fatal:
+            return {"__error": msg}
+        print(f"\n❌ Meta respondió un error: {msg}")
         sys.exit(1)
+
+
+def revisar_permisos(token):
+    """Avisa ANTES de seguir si al token le faltan permisos."""
+    r = api("me/permissions", fatal=False, access_token=token)
+    datos = r.get("data") if isinstance(r, dict) else None
+    if not datos:
+        return  # no se pudo consultar: se sigue y los errores dirán qué falta
+    con = {p["permission"] for p in datos if p.get("status") == "granted"}
+    faltan = [p for p in PERMISOS if p not in con]
+    if faltan:
+        print(f"""
+⚠️  Al token le FALTAN estos permisos: {", ".join(faltan)}
+
+   Cómo arreglarlo (2 minutos):
+   1. Vuelve a https://developers.facebook.com/tools/explorer
+   2. Verifica que arriba a la derecha esté elegida TU app (no «Graph API Explorer»).
+   3. En el panel derecho, en "Permissions", agrega uno por uno los que faltan
+      (escríbelos en el buscador y márcalos).
+   4. Toca «Generate Access Token»: en el diálogo de Facebook elige LAS DOS
+      páginas y sus dos Instagram, y deja TODOS los interruptores encendidos.
+   5. Copia el token nuevo y vuelve a correr este script.
+""")
+        sys.exit(1)
+    print("   ✓ El token trae los 6 permisos necesarios")
 
 
 def elegir_pagina(paginas, apodo, pistas):
@@ -75,6 +107,9 @@ Antes de seguir necesitas (guía completa en scripts/CONECTAR_META.md):
                 client_id=app_id, client_secret=app_secret,
                 fb_exchange_token=token_corto)["access_token"]
 
+    print("→ Revisando los permisos del token…")
+    revisar_permisos(largo)
+
     print("→ Buscando tus páginas…")
     cuentas = api("me/accounts", fields="id,name,access_token", limit="100",
                   access_token=largo).get("data", [])
@@ -87,8 +122,12 @@ Antes de seguir necesitas (guía completa en scripts/CONECTAR_META.md):
     config = {"app_id": app_id, "pages": {}}
     for apodo, pistas in (("forestal", ("forestal",)), ("manzanares", ("manzanares",))):
         pg = elegir_pagina(cuentas, apodo, pistas)
-        info = api(pg["id"], fields="instagram_business_account{id,username}",
+        info = api(pg["id"], fatal=False, fields="instagram_business_account{id,username}",
                    access_token=pg["access_token"])
+        if info.get("__error"):
+            print(f"   ⚠️ {apodo}: no pude leer el Instagram vinculado ({info['__error'][:120]}…)\n"
+                  f"      Se guarda sin Instagram; genera un token con TODOS los permisos y vuelve a correr el script.")
+            info = {}
         ig = info.get("instagram_business_account") or {}
         config["pages"][apodo] = {
             "page_id": pg["id"], "page_name": pg["name"],
