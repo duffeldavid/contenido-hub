@@ -44,7 +44,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, pubTs: 0, pendientePub: false };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, meta: {}, historias: null, pubTs: 0, pendientePub: false };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -53,6 +53,7 @@ function load() {
     fechas: s.fechas || {}, ediciones: s.ediciones || {},
     orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {}, nuevas: s.nuevas || [],
     notis: s.notis || [], horas: s.horas || {},
+    meta: s.meta || {}, historias: s.historias || null,
     pubTs: s.pubTs || 0, pendientePub: !!s.pendientePub,
     updatedAt: s.updatedAt || 0,
   };
@@ -335,6 +336,7 @@ function estadoPublicable(ts) {
     ediciones: store.ediciones, fechas: store.fechas, orden: store.orden,
     estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
     portadas: store.portadas, horas: store.horas,
+    meta: store.meta, historias: store.historias,
   };
 }
 // Envía el estado como adjunto al canal de datos (sin cuentas ni tokens)
@@ -404,6 +406,8 @@ function aplicarEstado(est, avisar) {
   store.nuevas = est.nuevas || [];
   store.portadas = est.portadas || {};
   store.horas = est.horas || {};
+  store.meta = est.meta || {};
+  store.historias = est.historias || store.historias;
   hidratarNuevas();
   store.pubTs = est.ts;
   save();
@@ -434,6 +438,18 @@ function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
 function portadaDe(p) { return store.portadas[p.id] || null; }
 function fechaDe(p) { return store.fechas[p.id] || p.fecha; }
 function horaDe(p) { return store.horas[p.id] || "18:00"; }
+// Cola de publicación automática (la lee el trabajador de Meta en el Mac)
+function metaDe(p) { return store.meta[p.id] || null; }
+function actualizarMeta(p, patch) {
+  const m = store.meta[p.id];
+  if (!m || !m.auto) return;
+  Object.assign(m, {
+    copy: copyDe(p), fecha: fechaDe(p), hora: horaDe(p),
+    titulo: tituloDe(p), marca: p.marca, ts: Date.now(),
+  }, patch || {});
+  marcarPendiente();
+  save();
+}
 function ordenDe(p) { return store.orden[p.id] ?? PIEZAS.findIndex(x => x.id === p.id); }
 function porOrden(a, b) { return ordenDe(a) - ordenDe(b); }
 function tituloDe(p) { return (store.ediciones[p.id] || {}).titulo || p.titulo; }
@@ -1872,8 +1888,21 @@ function openPublicar(id) {
       </div>
     </section>
 
+    <section class="pub-paso pub-auto">
+      <h4><span class="paso-num auto">🤖</span> Programación automática</h4>
+      <p class="pub-nota">Con Meta conectado en tu Mac, la plataforma publica por ti: <b>Facebook queda agendado en Meta de una vez</b> y la de <b>Instagram sale a la hora exacta</b> (el Mac debe estar encendido a esa hora; si está dormido, sale al despertar). Recuerda <b>Guardar cambios</b> para que el Mac reciba la cola.</p>
+      <label class="auto-check">
+        <input type="checkbox" id="pubAuto" ${metaDe(p) && metaDe(p).auto ? "checked" : ""}>
+        <span>Programar automáticamente esta pieza</span>
+      </label>
+      <div class="aprob-pills pub-redes" id="pubRed" ${metaDe(p) && metaDe(p).auto ? "" : "hidden"}>
+        ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${(metaDe(p) || {}).red === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
+      </div>
+      ${!img ? `<p class="pub-aviso" ${metaDe(p) && metaDe(p).auto ? "" : "hidden"} id="pubAvisoImg">⚠️ Instagram necesita la portada subida (paso 1) — sin portada solo saldrá en Facebook.</p>` : ""}
+    </section>
+
     <section class="pub-paso">
-      <h4><span class="paso-num">4</span> Prográmala en Meta</h4>
+      <h4><span class="paso-num">4</span> …o hazlo manual en Meta</h4>
       <p class="pub-nota">Tu cuenta ya está abierta en Meta Business Suite. Con el copy copiado y la portada descargada: <b>pega, sube la imagen y elige ${dia.toLowerCase()} ${num} a las ${horaDe(p)}</b>.</p>
       <div class="pub-meta-btns">
         <a class="btn-meta" id="pubMeta" href="${META_COMPOSER}" target="_blank" rel="noopener">🚀 Abrir compositor de Meta</a>
@@ -1904,6 +1933,7 @@ function openPublicar(id) {
     if (Object.keys(e).length) store.ediciones[p.id] = e; else delete store.ediciones[p.id];
     save();
     emitirContenido({ tipo: "edicion", id: p.id, e: store.ediciones[p.id] || null });
+    actualizarMeta(p);
   };
   drawer.querySelector("#pubCopiar").onclick = async function () {
     try {
@@ -1914,11 +1944,37 @@ function openPublicar(id) {
       this.textContent = "Selecciona y copia con ⌘C";
     }
   };
-  drawer.querySelector("#pubFecha").onchange = e => { moverPieza(p.id, e.target.value); openPublicar(p.id); };
+  drawer.querySelector("#pubFecha").onchange = e => { moverPieza(p.id, e.target.value); actualizarMeta(p); openPublicar(p.id); };
   drawer.querySelector("#pubHora").onchange = e => {
     store.horas[p.id] = e.target.value || "18:00";
+    actualizarMeta(p);
     marcarPendiente(); save(); renderAll({ keep: true });
   };
+  // Programación automática: entra o sale de la cola que lee el Mac
+  const cbAuto = drawer.querySelector("#pubAuto");
+  cbAuto.onchange = () => {
+    if (cbAuto.checked) {
+      store.meta[p.id] = {
+        auto: true, red: (metaDe(p) || {}).red || "ambas",
+        copy: copyDe(p), fecha: fechaDe(p), hora: horaDe(p),
+        titulo: tituloDe(p), marca: p.marca, ts: Date.now(),
+      };
+      if (estadoDe(p) !== "Programado" && estadoDe(p) !== "Publicado") store.estados[p.id] = "Programado";
+      emitirContenido({ tipo: "estado", id: p.id, v: store.estados[p.id] || estadoDe(p) });
+    } else {
+      delete store.meta[p.id];
+    }
+    marcarPendiente(); save(); renderAll();
+    openPublicar(p.id);
+  };
+  drawer.querySelectorAll("#pubRed button").forEach(b => {
+    b.onclick = () => {
+      if (!store.meta[p.id]) return;
+      store.meta[p.id].red = b.dataset.red;
+      actualizarMeta(p);
+      drawer.querySelectorAll("#pubRed button").forEach(x => x.classList.toggle("sel", x === b));
+    };
+  });
   drawer.querySelector("#pubMarcarProg").onclick = () => { moverEstado(p.id, "Programado"); openPublicar(p.id); };
   drawer.querySelector("#pubMarcarPub").onclick = () => { moverEstado(p.id, "Publicado"); closeDrawer(); toastVivo(`🚀 ${tituloDe(p)} marcada como publicada`); };
 }
@@ -2043,7 +2099,7 @@ document.getElementById("main").addEventListener("click", e => {
 let vistaActiva = MODO_CLIENTE ? "aprobacion" : "calendario";
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["calendario", "pipeline", "rodaje", "feed", "aprobacion", "finanzas", "proyectos", "referentes"];
+  : ["calendario", "pipeline", "rodaje", "feed", "historias", "aprobacion", "finanzas", "proyectos", "referentes"];
 function activarVista(v, dir) {
   vistaActiva = v;
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
@@ -2585,6 +2641,209 @@ function openProyecto(id) {
   };
 }
 
+// ════════════════════════════════════════════════════════════
+// HISTORIAS — organización semanal para que las cuentas nunca
+// se queden apagadas. El plan viaja con "Guardar cambios".
+// ════════════════════════════════════════════════════════════
+// Plan base por día de la semana (0=Lunes … 6=Domingo)
+const HISTORIAS_BASE = {
+  forestal: [
+    ["☀️ El primer café del día — buenos días desde la tienda"],
+    ["🎬 Detrás de cámaras: tostión o barismo en proceso"],
+    ["🔁 Reencauche: el post del día compartido a historias"],
+    ["📊 Encuesta: ¿método favorito? ¿origen favorito?"],
+    ["🛍 Producto + antojo: bolsa de café con precio y CTA"],
+    ["👥 La gente: equipo, clientes o finca"],
+    ["❓ Pregunta abierta o recap de la semana"],
+  ],
+  manzanares: [
+    ["☀️ Apertura: la vitrina lista a primera hora"],
+    ["🎬 El oficio: corte o maduración en proceso"],
+    ["🔁 Reencauche: el post del día compartido a historias"],
+    ["📊 Encuesta: ¿término favorito? ¿corte del finde?"],
+    ["🛍 El corte del fin de semana con precio y CTA"],
+    ["👥 El parche del asado: clientes y equipo"],
+    ["❓ Pregunta o tip rápido del parrillero"],
+  ],
+};
+const IDEAS_HISTORIA = {
+  forestal: ["🎵 Trend de audio con el vapor del espresso", "⏳ Cuenta regresiva a un lanzamiento", "🆚 Este o este: dos métodos de preparación", "📦 Unboxing de café recién tostado", "🌡 El termómetro de la tostión en vivo", "🙋 Repost de historias de clientes"],
+  manzanares: ["🎵 Trend de audio con el sellado en plancha", "⏳ Cuenta regresiva al fin de semana de asado", "🆚 Este o este: dos cortes frente a frente", "📦 Así empacamos tu pedido", "🔪 El afilado de la mañana", "🙋 Repost de historias de clientes asando"],
+};
+function historiasStore() {
+  if (!store.historias) {
+    store.historias = {
+      plan: {
+        forestal: HISTORIAS_BASE.forestal.map(d => d.slice()),
+        manzanares: HISTORIAS_BASE.manzanares.map(d => d.slice()),
+      },
+      hechas: {}, extras: {},
+    };
+  }
+  return store.historias;
+}
+let histSemana = 0; // desplazamiento de semanas respecto a la actual
+function lunesDe(offsetSemanas) {
+  const hoy = new Date();
+  const lunes = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate() - ((hoy.getDay() + 6) % 7) + offsetSemanas * 7);
+  return lunes;
+}
+function isoDe(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function historiasDeDia(marca, fechaIso, dow) {
+  const h = historiasStore();
+  const plan = (h.plan[marca] && h.plan[marca][dow]) || [];
+  const extras = h.extras[fechaIso + "|" + marca] || [];
+  return plan.map(txt => ({ txt, extra: false })).concat(extras.map(txt => ({ txt, extra: true })));
+}
+function histKey(fechaIso, marca, txt) { return fechaIso + "|" + marca + "|" + txt; }
+function rachaDe(marca) {
+  const h = historiasStore();
+  let racha = 0;
+  for (let i = 0; i < 60; i++) {
+    const d = new Date(); d.setDate(d.getDate() - i);
+    const iso = isoDe(d), dow = (d.getDay() + 6) % 7;
+    const alguna = historiasDeDia(marca, iso, dow).some(it => h.hechas[histKey(iso, marca, it.txt)]);
+    if (alguna) racha++;
+    else if (i === 0) continue; // hoy aún puede completarse sin romper la racha
+    else break;
+  }
+  return racha;
+}
+function renderHistorias() {
+  const el = document.getElementById("view-historias");
+  if (!el || MODO_CLIENTE) return;
+  if (el.contains(document.activeElement)) return;
+  const h = historiasStore();
+  const lunes = lunesDe(histSemana);
+  const hoy = hoyISO();
+  const marcas = marcaActiva === "todas" ? ["forestal", "manzanares"] : [marcaActiva];
+  const nombresDia = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  const fechas = Array.from({ length: 7 }, (_, i) => { const d = new Date(lunes); d.setDate(lunes.getDate() + i); return d; });
+  const rango = `${fechas[0].getDate()} ${["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][fechas[0].getMonth()]} – ${fechas[6].getDate()} ${["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][fechas[6].getMonth()]}`;
+
+  let html = `
+    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. Marca cada historia al publicarla desde el celular — la racha cuenta los días seguidos con al menos una historia al aire.</p>
+    <div class="hist-barra">
+      <div class="hist-nav">
+        <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">‹</button>
+        <span class="hist-rango">${histSemana === 0 ? "Esta semana" : histSemana === 1 ? "Próxima semana" : histSemana === -1 ? "Semana pasada" : rango} · <span class="hist-rango-fechas">${rango}</span></span>
+        <button class="hist-flecha" id="histDespues" aria-label="Semana siguiente">›</button>
+      </div>
+      <div class="hist-rachas">
+        ${marcas.map(mk => `<span class="hist-racha" style="--brand-color:${MARCAS[mk].color}">🔥 ${MARCAS[mk].nombre}: <b>${rachaDe(mk)}</b> día${rachaDe(mk) === 1 ? "" : "s"} seguidos</span>`).join("")}
+        <button class="btn-restaurar" id="histEditar">✏️ Editar plan semanal</button>
+      </div>
+    </div>`;
+
+  for (const mk of marcas) {
+    const m = MARCAS[mk];
+    const diasCubiertos = fechas.filter((d, i) => historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)])).length;
+    html += `
+      <div class="hist-marca" style="--brand-color:${m.color}">
+        <div class="hist-marca-head">
+          <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${mk === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"}">${m.nombre} · ${m.handle}</span>
+          <span class="hist-cobertura">${diasCubiertos}/7 días con historias esta semana</span>
+        </div>
+        <div class="hist-grid">
+          ${fechas.map((d, i) => {
+            const iso = isoDe(d);
+            const items = historiasDeDia(mk, iso, i);
+            const hechasDia = items.filter(it => h.hechas[histKey(iso, mk, it.txt)]).length;
+            const esHoy = iso === hoy;
+            const pasado = iso < hoy;
+            return `
+              <div class="hist-dia ${esHoy ? "hoy" : ""} ${pasado && !hechasDia && items.length ? "apagado" : ""}">
+                <div class="hist-dia-head">
+                  <span class="hist-dia-nombre">${nombresDia[i].slice(0, 3)} ${d.getDate()}</span>
+                  ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
+                  <span class="hist-dia-n ${items.length && hechasDia >= items.length ? "full" : ""}">${hechasDia}/${items.length}</span>
+                </div>
+                ${items.map(it => {
+                  const k = histKey(iso, mk, it.txt);
+                  return `
+                  <label class="hist-item ${h.hechas[k] ? "hecha" : ""}">
+                    <input type="checkbox" data-hist="${esc(k)}" ${h.hechas[k] ? "checked" : ""}>
+                    <span>${esc(it.txt)}</span>
+                    ${it.extra ? `<button class="hist-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar">✕</button>` : ""}
+                  </label>`;
+                }).join("")}
+                <button class="hist-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día">+</button>
+              </div>`;
+          }).join("")}
+        </div>
+      </div>`;
+  }
+  el.innerHTML = html;
+
+  el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
+  el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
+  el.querySelector("#histEditar").onclick = abrirEditorHistorias;
+  el.querySelectorAll("[data-hist]").forEach(cb => {
+    cb.onchange = () => {
+      if (cb.checked) h.hechas[cb.dataset.hist] = true; else delete h.hechas[cb.dataset.hist];
+      marcarPendiente(); save(); renderHistorias();
+    };
+  });
+  el.querySelectorAll("[data-extra]").forEach(b => {
+    b.onclick = () => {
+      const [iso, mk] = b.dataset.extra.split("|");
+      const banco = IDEAS_HISTORIA[mk] || [];
+      const sugerencia = banco[Math.floor(Math.random() * banco.length)] || "";
+      const txt = prompt(`Historia extra para ${MARCAS[mk].nombre} el ${iso.slice(8)}/${iso.slice(5, 7)}\n💡 Idea: ${sugerencia}\n\nEscribe la historia (o deja la idea sugerida):`, sugerencia);
+      if (!txt || !txt.trim()) return;
+      const key = iso + "|" + mk;
+      (h.extras[key] = h.extras[key] || []).push(txt.trim());
+      marcarPendiente(); save(); renderHistorias();
+    };
+  });
+  el.querySelectorAll("[data-quitar-extra]").forEach(b => {
+    b.onclick = e => {
+      e.preventDefault(); e.stopPropagation();
+      const key = b.dataset.quitarExtra;
+      h.extras[key] = (h.extras[key] || []).filter(t => t !== b.dataset.txt);
+      if (!h.extras[key].length) delete h.extras[key];
+      marcarPendiente(); save(); renderHistorias();
+    };
+  });
+}
+function abrirEditorHistorias() {
+  const h = historiasStore();
+  const nombresDia = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
+  let mk = marcaActiva !== "todas" ? marcaActiva : "forestal";
+  function pintar() {
+    drawer.innerHTML = `
+      <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+      <h2>Plan semanal de historias</h2>
+      <div class="sub">Una historia por línea. Este plan se repite todas las semanas — los cambios aplican desde ya.</div>
+      <div class="aprob-pills" id="histEdMarca" style="margin-bottom:16px">
+        <button data-mk="forestal" class="${mk === "forestal" ? "sel" : ""}">Café Forestal</button>
+        <button data-mk="manzanares" class="${mk === "manzanares" ? "sel" : ""}">Carnes Manzanares</button>
+      </div>
+      ${nombresDia.map((n, i) => `
+        <section style="margin-bottom:14px">
+          <h4>${n}</h4>
+          <textarea class="aprob-comment hist-ed" data-dow="${i}" style="min-height:52px">${esc((h.plan[mk][i] || []).join("\n"))}</textarea>
+        </section>`).join("")}
+      <p class="pub-nota">💡 Ideas rápidas: ${(IDEAS_HISTORIA[mk] || []).map(t => esc(t)).join(" · ")}</p>
+      <button class="btn-primary" id="histEdGuardar" style="width:100%">Guardar plan</button>`;
+    drawer.querySelector("#drawerClose").onclick = closeDrawer;
+    drawer.querySelectorAll("#histEdMarca button").forEach(b => {
+      b.onclick = () => { guardar(); mk = b.dataset.mk; pintar(); };
+    });
+    drawer.querySelector("#histEdGuardar").onclick = () => { guardar(); closeDrawer(); renderHistorias(); toastVivo("✅ Plan semanal de historias guardado"); };
+  }
+  function guardar() {
+    drawer.querySelectorAll(".hist-ed").forEach(ta => {
+      h.plan[mk][Number(ta.dataset.dow)] = ta.value.split("\n").map(s => s.trim()).filter(Boolean);
+    });
+    marcarPendiente(); save();
+  }
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  pintar();
+}
+
 // ---------- Init ----------
 function renderAll() {
   renderCampanita();
@@ -2593,6 +2852,7 @@ function renderAll() {
   renderPipeline();
   renderRodaje();
   renderFeed();
+  renderHistorias();
   renderAprobacion();
   renderFinanzas();
   renderProyectos();
