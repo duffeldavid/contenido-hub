@@ -1329,6 +1329,17 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 /* Historias en video */
 .hist-medio { max-width: 250px; margin-bottom: 12px; }
+.hist-fecha-hora { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hist-fecha-hora > div { display: flex; flex-direction: column; gap: 4px; }
+.hist-acciones { display: flex; gap: 18px; margin-top: 10px; }
+.hist-acciones #histQuitarDia { color: #F2B4AA; }
+.hist-video-prev { position: relative; width: 126px; overflow: hidden; }
+.hist-video-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hist-video-prev img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hs-play-centro {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 40px; height: 40px;
+}
 .hist-play {
   width: 46px; height: 46px; border-radius: 50%; flex: none;
   background: rgba(33,28,22,.82); display: grid; place-items: center;
@@ -1347,6 +1358,93 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   border-radius: 10px; padding: 8px 11px; line-height: 1.45;
 }
 .hist-estado-ok b { color: #205c31; }
+
+/* ═══════════ ÍCONOS DE LÍNEA EN TODA LA PLATAFORMA ═══════════ */
+.hstat .ico .icl { width: 16px; height: 16px; vertical-align: 0; }
+.flujo-ico { display: inline-flex; }
+.flujo-ico .icl { width: 19px; height: 19px; }
+.btn-programar .icl { width: 13px; height: 13px; vertical-align: -2px; }
+.cp-vacia { color: var(--faint); }
+.cp-vacia .icl { width: 15px; height: 15px; }
+.noti-ico .icl { width: 16px; height: 16px; }
+.pro-ico { display: inline-flex; align-items: center; }
+.pro-ico .icl { width: 24px; height: 24px; }
+.pro-ico.grande .icl { width: 30px; height: 30px; }
+.guardar-ico { display: inline-flex; }
+.guardar-ico .icl { width: 16px; height: 16px; }
+.cal-toggle { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.cal-toggle::-webkit-scrollbar { display: none; }
+
+/* ═══════════ HOJA FLOTANTE EN VIDRIO OSCURO ═══════════ */
+/* La tarjeta flotante ya no es blanca: es el mismo vidrio de la página,
+   con desenfoque profundo y texto claro. */
+.drawer {
+  color-scheme: dark;
+  background: rgba(26, 19, 15, .68);
+  backdrop-filter: blur(28px) saturate(1.25);
+  -webkit-backdrop-filter: blur(28px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: #F3EEE6;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .drawer { background: rgba(24, 18, 14, .97); }
+}
+.drawer h2, .drawer h4 { color: #fff; }
+.drawer section h4 { color: rgba(255,255,255,.55); }
+.drawer .sub { color: rgba(255,255,255,.6); }
+.drawer .close-btn { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.85); }
+.drawer .edit-input, .drawer .aprob-comment {
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #fff;
+}
+.drawer .aprob-comment::placeholder, .drawer .edit-input::placeholder { color: rgba(255,255,255,.4); }
+.drawer .btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.28); color: #fff; }
+.drawer .btn-ghost:hover { border-color: rgba(255,255,255,.6); }
+.drawer .aprob-pills button, .drawer .estado-select button {
+  background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.22); color: rgba(255,255,255,.85);
+}
+.drawer .chip { background: rgba(255,255,255,.1); border-color: transparent; color: rgba(255,255,255,.85); }
+.drawer .chip.brand { background: rgba(255,255,255,.92); }
+.drawer .chip.aprobado { background: rgba(63,148,89,.3); color: #A9E4B6; }
+.drawer .chip.ajustar { background: rgba(178,58,46,.3); color: #F2B4AA; }
+.drawer .check-item span { color: rgba(255,255,255,.88); }
+.drawer .check-item input:checked + span { color: rgba(255,255,255,.42); }
+.drawer .gear-list li { color: rgba(255,255,255,.7); }
+.drawer .gear-list li::before { color: #E9C46A; }
+.drawer .ref-links a { color: #E9C46A; }
+.drawer .notion-link { color: rgba(255,255,255,.55); }
+.drawer .copy-text, .drawer .coment-fijo {
+  background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: rgba(255,255,255,.88);
+}
+.drawer .link-btn { color: rgba(255,255,255,.6); }
+.drawer .link-btn:hover { color: #fff; }
+.drawer .pub-nota { color: rgba(255,255,255,.62); }
+.drawer .pub-auto {
+  background: rgba(107,92,184,.18); border-color: rgba(150,135,220,.4);
+}
+.drawer .auto-check span { color: #fff; }
+.drawer .pub-aviso { background: rgba(201,143,45,.22); color: #F0CE96; }
+.drawer .hist-estado-ok { background: rgba(63,148,89,.24); color: #A9E4B6; }
+.drawer .hist-estado-ok b { color: #CDEfd4; }
+.drawer .hist-lbl { color: rgba(255,255,255,.5); }
+.drawer .hist-img-prev { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); color: rgba(255,255,255,.5); }
+.drawer .hist-video-nombre { color: rgba(255,255,255,.7); }
+.drawer .hist-idea { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.2); color: #fff; }
+.drawer .hist-idea.sel { background: rgba(233,196,106,.18); border-color: #E9C46A; box-shadow: 0 0 0 1px #E9C46A; }
+.drawer .pro-tipos button { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.7); }
+.drawer .pro-tipos button b { color: #fff; }
+.drawer .pro-tipos button.sel { background: rgba(233,196,106,.16); border-color: #E9C46A; box-shadow: 0 0 0 1px #E9C46A; }
+.drawer .pro-fase.actual { background: rgba(233,196,106,.14); }
+.drawer .pro-sig { background: rgba(233,196,106,.15); border-left-color: #E9C46A; color: #fff; }
+.drawer .pro-sig.hecho { background: rgba(63,148,89,.22); border-left-color: #3F9459; }
+.drawer .pro-sig-lbl { color: rgba(255,255,255,.55); }
+.drawer .pro-fase-n { color: rgba(255,255,255,.45); }
+.drawer .anillo text { fill: #fff; }
+.drawer .anillo circle:first-of-type { stroke: rgba(255,255,255,.16); }
+.drawer .pdf-check { color: rgba(255,255,255,.6); }
+.drawer .portada-hint { color: rgba(255,255,255,.5); }
+.drawer .quitado-fila { border-color: rgba(255,255,255,.12); }
+.drawer .fin-borrar { color: rgba(255,255,255,.5); }
+.drawer .candado-txt { color: rgba(255,255,255,.6); }
 
 /* ═══════════ PROGRAMACIÓN AUTOMÁTICA (cola Meta) ═══════════ */
 .pub-auto { background: #F4F1FB; border: 1px solid #DDD3F0; border-radius: var(--radius); padding: 14px; }

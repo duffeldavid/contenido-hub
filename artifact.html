@@ -1334,6 +1334,17 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 /* Historias en video */
 .hist-medio { max-width: 250px; margin-bottom: 12px; }
+.hist-fecha-hora { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.hist-fecha-hora > div { display: flex; flex-direction: column; gap: 4px; }
+.hist-acciones { display: flex; gap: 18px; margin-top: 10px; }
+.hist-acciones #histQuitarDia { color: #F2B4AA; }
+.hist-video-prev { position: relative; width: 126px; overflow: hidden; }
+.hist-video-el { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hist-video-prev img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.hs-play-centro {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 40px; height: 40px;
+}
 .hist-play {
   width: 46px; height: 46px; border-radius: 50%; flex: none;
   background: rgba(33,28,22,.82); display: grid; place-items: center;
@@ -1352,6 +1363,93 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   border-radius: 10px; padding: 8px 11px; line-height: 1.45;
 }
 .hist-estado-ok b { color: #205c31; }
+
+/* ═══════════ ÍCONOS DE LÍNEA EN TODA LA PLATAFORMA ═══════════ */
+.hstat .ico .icl { width: 16px; height: 16px; vertical-align: 0; }
+.flujo-ico { display: inline-flex; }
+.flujo-ico .icl { width: 19px; height: 19px; }
+.btn-programar .icl { width: 13px; height: 13px; vertical-align: -2px; }
+.cp-vacia { color: var(--faint); }
+.cp-vacia .icl { width: 15px; height: 15px; }
+.noti-ico .icl { width: 16px; height: 16px; }
+.pro-ico { display: inline-flex; align-items: center; }
+.pro-ico .icl { width: 24px; height: 24px; }
+.pro-ico.grande .icl { width: 30px; height: 30px; }
+.guardar-ico { display: inline-flex; }
+.guardar-ico .icl { width: 16px; height: 16px; }
+.cal-toggle { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+.cal-toggle::-webkit-scrollbar { display: none; }
+
+/* ═══════════ HOJA FLOTANTE EN VIDRIO OSCURO ═══════════ */
+/* La tarjeta flotante ya no es blanca: es el mismo vidrio de la página,
+   con desenfoque profundo y texto claro. */
+.drawer {
+  color-scheme: dark;
+  background: rgba(26, 19, 15, .68);
+  backdrop-filter: blur(28px) saturate(1.25);
+  -webkit-backdrop-filter: blur(28px) saturate(1.25);
+  border: 1px solid rgba(255, 255, 255, .16);
+  color: #F3EEE6;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .drawer { background: rgba(24, 18, 14, .97); }
+}
+.drawer h2, .drawer h4 { color: #fff; }
+.drawer section h4 { color: rgba(255,255,255,.55); }
+.drawer .sub { color: rgba(255,255,255,.6); }
+.drawer .close-btn { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.85); }
+.drawer .edit-input, .drawer .aprob-comment {
+  background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.18); color: #fff;
+}
+.drawer .aprob-comment::placeholder, .drawer .edit-input::placeholder { color: rgba(255,255,255,.4); }
+.drawer .btn-ghost { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.28); color: #fff; }
+.drawer .btn-ghost:hover { border-color: rgba(255,255,255,.6); }
+.drawer .aprob-pills button, .drawer .estado-select button {
+  background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.22); color: rgba(255,255,255,.85);
+}
+.drawer .chip { background: rgba(255,255,255,.1); border-color: transparent; color: rgba(255,255,255,.85); }
+.drawer .chip.brand { background: rgba(255,255,255,.92); }
+.drawer .chip.aprobado { background: rgba(63,148,89,.3); color: #A9E4B6; }
+.drawer .chip.ajustar { background: rgba(178,58,46,.3); color: #F2B4AA; }
+.drawer .check-item span { color: rgba(255,255,255,.88); }
+.drawer .check-item input:checked + span { color: rgba(255,255,255,.42); }
+.drawer .gear-list li { color: rgba(255,255,255,.7); }
+.drawer .gear-list li::before { color: #E9C46A; }
+.drawer .ref-links a { color: #E9C46A; }
+.drawer .notion-link { color: rgba(255,255,255,.55); }
+.drawer .copy-text, .drawer .coment-fijo {
+  background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.14); color: rgba(255,255,255,.88);
+}
+.drawer .link-btn { color: rgba(255,255,255,.6); }
+.drawer .link-btn:hover { color: #fff; }
+.drawer .pub-nota { color: rgba(255,255,255,.62); }
+.drawer .pub-auto {
+  background: rgba(107,92,184,.18); border-color: rgba(150,135,220,.4);
+}
+.drawer .auto-check span { color: #fff; }
+.drawer .pub-aviso { background: rgba(201,143,45,.22); color: #F0CE96; }
+.drawer .hist-estado-ok { background: rgba(63,148,89,.24); color: #A9E4B6; }
+.drawer .hist-estado-ok b { color: #CDEfd4; }
+.drawer .hist-lbl { color: rgba(255,255,255,.5); }
+.drawer .hist-img-prev { background: rgba(255,255,255,.06); border-color: rgba(255,255,255,.25); color: rgba(255,255,255,.5); }
+.drawer .hist-video-nombre { color: rgba(255,255,255,.7); }
+.drawer .hist-idea { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.2); color: #fff; }
+.drawer .hist-idea.sel { background: rgba(233,196,106,.18); border-color: #E9C46A; box-shadow: 0 0 0 1px #E9C46A; }
+.drawer .pro-tipos button { background: rgba(255,255,255,.07); border-color: rgba(255,255,255,.2); color: rgba(255,255,255,.7); }
+.drawer .pro-tipos button b { color: #fff; }
+.drawer .pro-tipos button.sel { background: rgba(233,196,106,.16); border-color: #E9C46A; box-shadow: 0 0 0 1px #E9C46A; }
+.drawer .pro-fase.actual { background: rgba(233,196,106,.14); }
+.drawer .pro-sig { background: rgba(233,196,106,.15); border-left-color: #E9C46A; color: #fff; }
+.drawer .pro-sig.hecho { background: rgba(63,148,89,.22); border-left-color: #3F9459; }
+.drawer .pro-sig-lbl { color: rgba(255,255,255,.55); }
+.drawer .pro-fase-n { color: rgba(255,255,255,.45); }
+.drawer .anillo text { fill: #fff; }
+.drawer .anillo circle:first-of-type { stroke: rgba(255,255,255,.16); }
+.drawer .pdf-check { color: rgba(255,255,255,.6); }
+.drawer .portada-hint { color: rgba(255,255,255,.5); }
+.drawer .quitado-fila { border-color: rgba(255,255,255,.12); }
+.drawer .fin-borrar { color: rgba(255,255,255,.5); }
+.drawer .candado-txt { color: rgba(255,255,255,.6); }
 
 /* ═══════════ PROGRAMACIÓN AUTOMÁTICA (cola Meta) ═══════════ */
 .pub-auto { background: #F4F1FB; border: 1px solid #DDD3F0; border-radius: var(--radius); padding: 14px; }
@@ -2167,10 +2265,11 @@ function renderCampanita() {
     ${enArtifact ? `<a class="noti-aviso" href="${ENLACE_PUBLICO}" target="_blank" rel="noopener">⚡ Aquí (claude.ai) las respuestas no entran en vivo.<br><b>Abre el enlace público</b> para verlas llegar al instante →</a>` : ""}
     ${store.notis.length ? store.notis.map(n => {
       const p = PIEZAS.find(x => x.id === n.piezaId);
-      const icono = n.v === "Aprobado" ? "✅" : n.v === "Ajustar" ? "✏️" : "⏳";
+      const icono = n.v === "Aprobado" ? icl("ok") : n.v === "Ajustar" ? icl("ajuste") : icl("reloj");
+      const tinte = n.v === "Aprobado" ? "#2E7D43" : n.v === "Ajustar" ? "#B23A2E" : "#C98F2D";
       return `
         <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
-          <span class="noti-ico">${icono}</span>
+          <span class="noti-ico" style="color:${tinte}">${icono}</span>
           <span class="noti-cuerpo">
             <span class="noti-txt"><b>${esc(n.autor || AUTOR_CLIENTE)} ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustes en" : "revisó"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
             ${n.c ? `<span class="noti-com">💬 "${esc(n.c.slice(0, 120))}"</span>` : ""}
@@ -2290,6 +2389,8 @@ function reducirPortadas(maxH = 520, calidad = 0.66) {
   for (const k of Object.keys(prog)) {
     if (prog[k] && prog[k].img) tareas.push(
       reducirDataUri(prog[k].img, 1080, 0.62).then(u => { prog[k].img = u; }));
+    if (prog[k] && prog[k].poster) tareas.push(
+      reducirDataUri(prog[k].poster, 640, 0.6).then(u => { prog[k].poster = u; }));
   }
   return Promise.all(tareas).then(() => save());
 }
@@ -2512,16 +2613,32 @@ function brandColor(p) { return MARCAS[p.marca].color; }
 function brandTint(p) { return p.marca === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"; }
 const FORMATO_ICONO = { "Reel": "🎬", "Foto": "📷", "Carrusel": "🖼️", "Pieza gráfica": "✏️", "Historia": "⚡" };
 
-// Íconos de línea minimalistas (estilo app moderna) para el link del cliente
+// Íconos de línea minimalistas (estilo app moderna) — en TODA la plataforma:
+// cero emojis genéricos (decisión de diseño de David).
 const ICOL = {
   ok: '<svg class="icl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M8.3 12.4l2.5 2.5 4.9-5.3"/></svg>',
   ajuste: '<svg class="icl" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/></svg>',
   reloj: '<svg class="icl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>',
   enviar: '<svg class="icl" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
   lista: '<svg class="icl" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
+  calendario: '<svg class="icl" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
+  video: '<svg class="icl" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3z"/></svg>',
+  foto: '<svg class="icl" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="14" rx="3"/><circle cx="12" cy="13" r="4"/><path d="M9 6l1.5-2h3L15 6"/></svg>',
+  capas: '<svg class="icl" viewBox="0 0 24 24"><rect x="7" y="7" width="14" height="14" rx="3"/><path d="M3 15V6a3 3 0 0 1 3-3h9"/></svg>',
+  rayo: '<svg class="icl" viewBox="0 0 24 24"><path d="M13 2 5 13h6l-1 9 8-11h-6l1-9z"/></svg>',
+  caja: '<svg class="icl" viewBox="0 0 24 24"><path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/></svg>',
+  nube: '<svg class="icl" viewBox="0 0 24 24"><path d="M7 18a4.5 4.5 0 0 1-.7-8.95A6 6 0 0 1 17.8 10.6 3.8 3.8 0 0 1 17 18H7z"/></svg>',
+  descarga: '<svg class="icl" viewBox="0 0 24 24"><path d="M12 3v11M7 10l5 5 5-5M4 20h16"/></svg>',
+  copiar: '<svg class="icl" viewBox="0 0 24 24"><rect x="9" y="9" width="12" height="12" rx="2.5"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+  chispa: '<svg class="icl" viewBox="0 0 24 24"><path d="M12 3.5 13.9 9l5.6 1.9-5.6 1.9L12 18.5l-1.9-5.7-5.6-1.9L10.1 9 12 3.5z"/></svg>',
+  musica: '<svg class="icl" viewBox="0 0 24 24"><path d="M9 18V5.5L20 3.5V16"/><circle cx="6.4" cy="18" r="2.6"/><circle cx="17.4" cy="16" r="2.6"/></svg>',
+  paleta: '<svg class="icl" viewBox="0 0 24 24"><path d="M12 21a9 9 0 1 1 9-9c0 2.2-1.5 3.4-3 3.4h-2.2a2 2 0 0 0-1.4 3.4c.6.6.2 2.2-2.4 2.2z"/><circle cx="7.6" cy="11" r="1"/><circle cx="11" cy="7.6" r="1"/><circle cx="15.6" cy="9.4" r="1"/></svg>',
+  hoja: '<svg class="icl" viewBox="0 0 24 24"><path d="M4 20C6 8 12 4 20 4c0 10-6 15-14 15"/><path d="M4 20c2-5 5-8 10-10"/></svg>',
+  camara: '<svg class="icl" viewBox="0 0 24 24"><rect x="3" y="10" width="18" height="10" rx="2.5"/><path d="M3.6 6.5 20 4l.5 3.5L4.1 10z"/></svg>',
 };
-// En el link del cliente: ícono de línea; en la plataforma de David: emoji
-const icl = n => MODO_CLIENTE ? (ICOL[n] || "") : ({ ok: "✅", ajuste: "✏️", reloj: "⏳", enviar: "📲", lista: "" }[n] || "");
+const icl = n => ICOL[n] || "";
+// Ícono por formato de pieza (miniaturas del planificador)
+const FORMATO_IC = { "Reel": "video", "Foto": "foto", "Carrusel": "capas", "Pieza gráfica": "ajuste", "Historia": "rayo" };
 
 // Portada visual de cada pieza: la real si David la subió; si no, la primera
 // foto de referencia del concepto. Estática — solo reacciona al cursor
@@ -2556,7 +2673,7 @@ function pieceCard(p, { compact = false, drag = false } = {}) {
       ${compact ? "" : `<div class="piece-meta">${p.formato} · ${esc(p.mensaje)} · ${esc(p.tono)}</div>`}
       ${!MODO_CLIENTE && ["Listo", "Programado"].includes(est) ? `
       <button class="btn-programar ${est === "Programado" ? "ya" : ""}" data-programar="${p.id}">
-        ${est === "Programado" ? `🕑 ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${horaDe(p)} — abrir` : "📤 Programar publicación"}
+        ${est === "Programado" ? `${icl("reloj")} ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${horaDe(p)} — abrir` : `${icl("enviar")} Programar publicación`}
       </button>` : ""}
     </article>`;
 }
@@ -2620,10 +2737,10 @@ function renderHero() {
   const porGrabar = piezas.filter(p => estadoDe(p) === "Por grabar").length;
   const aprobadas = piezas.filter(p => aprobDe(p).v === "Aprobado").length;
   document.getElementById("heroStats").innerHTML = `
-    <div class="hstat"><span class="ico">📅</span><div><div class="num">${pub}/${piezas.length}</div><div class="lbl">publicadas</div></div></div>
-    <div class="hstat clicable" id="statAprobadas" role="button" title="Ver los contenidos aprobados"><span class="ico">✅</span><div><div class="num">${aprobadas}/${piezas.length}</div><div class="lbl">aprobadas por Mercadeo GM</div></div></div>
-    <div class="hstat"><span class="ico">🎥</span><div><div class="num">${porGrabar}</div><div class="lbl">por grabar</div></div></div>
-    <div class="hstat"><span class="ico">📦</span><div><div class="num">${listas}</div><div class="lbl">listas o programadas</div></div></div>`;
+    <div class="hstat"><span class="ico">${icl("calendario")}</span><div><div class="num">${pub}/${piezas.length}</div><div class="lbl">publicadas</div></div></div>
+    <div class="hstat clicable" id="statAprobadas" role="button" title="Ver los contenidos aprobados"><span class="ico">${icl("ok")}</span><div><div class="num">${aprobadas}/${piezas.length}</div><div class="lbl">aprobadas por Mercadeo GM</div></div></div>
+    <div class="hstat"><span class="ico">${icl("camara")}</span><div><div class="num">${porGrabar}</div><div class="lbl">por grabar</div></div></div>
+    <div class="hstat"><span class="ico">${icl("caja")}</span><div><div class="num">${listas}</div><div class="lbl">listas o programadas</div></div></div>`;
   document.getElementById("statAprobadas").onclick = () => {
     aprobFiltro = "Aprobado";
     renderAprobacion();
@@ -2665,7 +2782,7 @@ function chipPieza(p) {
   return `
     <div class="chip-pieza" draggable="true" data-id="${p.id}" title="${esc(tituloDe(p))} · ${est}"
          style="--brand-color:${brandColor(p)}">
-      ${img ? `<span class="cp-thumb"><img src="${img}" alt="" loading="lazy"></span>` : `<span class="cp-thumb cp-vacia">${FORMATO_ICONO[p.formato] || "🎬"}</span>`}
+      ${img ? `<span class="cp-thumb"><img src="${img}" alt="" loading="lazy"></span>` : `<span class="cp-thumb cp-vacia">${icl(FORMATO_IC[p.formato] || "video")}</span>`}
       <span class="cp-cuerpo">
         <span class="cp-meta">
           <span class="cp-dot ${ESTADO_CLASS[est]}"></span>${horaDe(p)}
@@ -2799,10 +2916,10 @@ function renderCalendario() {
 // Columnas del flujo real de trabajo. Soltar una pieza en una columna
 // la lleva a ese estado (y en Programados abre la hoja de publicación).
 const FLUJO_COLS = [
-  { id: "crear", n: "Aprobados para crear", ico: "🎬", destino: "Por grabar", hint: "Con el visto bueno de Mercadeo — a producir", match: p => aprobDe(p).v === "Aprobado" && ["Idea", "Por grabar", "En edición"].includes(estadoDe(p)) },
-  { id: "listo", n: "Listos", ico: "✅", destino: "Listo", hint: "Editados y con portada — a un paso de salir", match: p => estadoDe(p) === "Listo" },
-  { id: "prog", n: "Programados", ico: "🕑", destino: "Programado", hint: "Con fecha y hora en Meta Business Suite", match: p => estadoDe(p) === "Programado" },
-  { id: "pub", n: "Publicados", ico: "🚀", destino: "Publicado", hint: "Ya están en el feed", match: p => estadoDe(p) === "Publicado" },
+  { id: "crear", n: "Aprobados para crear", ic: "camara", color: "#C98F2D", destino: "Por grabar", hint: "Con el visto bueno de Mercadeo — a producir", match: p => aprobDe(p).v === "Aprobado" && ["Idea", "Por grabar", "En edición"].includes(estadoDe(p)) },
+  { id: "listo", n: "Listos", ic: "ok", color: "#3F9459", destino: "Listo", hint: "Editados y con portada — a un paso de salir", match: p => estadoDe(p) === "Listo" },
+  { id: "prog", n: "Programados", ic: "reloj", color: "#8E6BC9", destino: "Programado", hint: "Con fecha y hora en Meta Business Suite", match: p => estadoDe(p) === "Programado" },
+  { id: "pub", n: "Publicados", ic: "enviar", color: "#4C8BC2", destino: "Publicado", hint: "Ya están en el feed", match: p => estadoDe(p) === "Publicado" },
 ];
 function htmlFlujo(piezas) {
   const enCols = new Set();
@@ -2813,7 +2930,7 @@ function htmlFlujo(piezas) {
     html += `
       <div class="flujo-col" data-destino="${col.destino}">
         <div class="flujo-col-head">
-          <span class="flujo-ico">${col.ico}</span>
+          <span class="flujo-ico" style="color:${col.color}">${icl(col.ic)}</span>
           <div><div class="flujo-nombre">${col.n}</div><div class="flujo-hint">${col.hint}</div></div>
           <span class="count">${grupo.length}</span>
         </div>
@@ -2825,7 +2942,7 @@ function htmlFlujo(piezas) {
               <span class="flujo-titulo">${esc(tituloDe(p))}</span>
               ${col.id === "listo" || col.id === "prog" ? `
               <button class="btn-programar ${col.id === "prog" ? "ya" : ""}" data-programar="${p.id}">
-                ${col.id === "prog" ? `🕑 ${horaDe(p)} — abrir` : "📤 Programar"}
+                ${col.id === "prog" ? `${icl("reloj")} ${horaDe(p)} — abrir` : `${icl("enviar")} Programar`}
               </button>` : ""}
             </div>
           </div>`).join("") || `<div class="pipe-empty">Arrastra piezas aquí</div>`}
@@ -3113,8 +3230,8 @@ function renderAprobacion() {
     <div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">${icl("enviar")} ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
-      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">📄 Exportar PDF para cliente (${todas.filter(p => store.pdf[p.id] !== false).length})</button>`}
-      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">🔗 Copiar link para cliente</button>`}
+      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">${icl("descarga")} PDF cliente (${todas.filter(p => store.pdf[p.id] !== false).length})</button>`}
+      ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">${icl("copiar")} Link cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${todas.length} aprobadas</span>
     </div>
     <div class="cal-toggle aprob-filtros">
@@ -3133,7 +3250,7 @@ function renderAprobacion() {
         <div class="aprob-info">
           ${coverHtml(p, "cover-thumb")}
           <div>
-            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por ? ` · ✍️ respondió ${esc(a.por)}` : ""}</div>
+            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por ? ` · respondió ${esc(a.por)}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
             <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
             ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
@@ -3177,7 +3294,7 @@ function renderAprobacion() {
       if (pdfCb.checked) delete store.pdf[id]; else store.pdf[id] = false;
       save();
       const btn = el.querySelector("#btnPdf");
-      if (btn) btn.textContent = `📄 Exportar PDF para cliente (${todas.filter(x => store.pdf[x.id] !== false).length})`;
+      if (btn) btn.innerHTML = `${icl("descarga")} PDF cliente (${todas.filter(x => store.pdf[x.id] !== false).length})`;
     };
   });
   const btnPdf = el.querySelector("#btnPdf");
@@ -3195,8 +3312,8 @@ function renderAprobacion() {
     const url = ENLACE_PUBLICO + "?modo=cliente";
     try {
       await navigator.clipboard.writeText(url);
-      btnLink.textContent = "🔗 Link copiado ✓";
-      setTimeout(() => { btnLink.textContent = "🔗 Copiar link para cliente"; }, 2500);
+      btnLink.innerHTML = `${icl("ok")} Link copiado`;
+      setTimeout(() => { btnLink.innerHTML = `${icl("copiar")} Link cliente`; }, 2500);
     } catch {
       prompt("Copia el link para tu cliente:", url);
     }
@@ -3291,16 +3408,16 @@ function renderReferentes() {
       </div>
     </div>
 
-    <div class="ref-section-title">☕ Café de especialidad</div>
+    <div class="ref-section-title">Café de especialidad</div>
     ${refRail(R.cafe, "cuenta")}
 
-    <div class="ref-section-title">🥩 Carne premium</div>
+    <div class="ref-section-title">Carne premium</div>
     ${refRail(R.carne, "cuenta")}
 
-    <div class="ref-section-title">⚡ Tácticas 2025-2026 — desliza →</div>
+    <div class="ref-section-title">Tácticas 2025-2026 — desliza →</div>
     ${refRail(R.tacticas, "tactica")}
 
-    <div class="ref-section-title">📌 Inspiración visual</div>
+    <div class="ref-section-title">Inspiración visual</div>
     <p class="view-note">Escribe lo que quieras buscar y ábrelo directo en Pinterest, o toca cualquier imagen del mosaico para explorar esa idea.</p>
     <form class="searchbar" id="pinForm">
       <input type="search" id="pinQuery" class="edit-input" placeholder="Busca referencias… ej: specialty coffee reel, parrilla ASMR, butcher shop">
@@ -3311,7 +3428,7 @@ function renderReferentes() {
         ${fila.map(m => `
           <a class="mas-item" href="https://www.pinterest.com/search/pins/?q=${encodeURIComponent(m.q)}" target="_blank" rel="noopener">
             <img src="${IMG(m.img)}" alt="${esc(m.q)}" loading="lazy">
-            <span class="mas-label">📌 ${esc(m.q)}</span>
+            <span class="mas-label">${esc(m.q)}</span>
           </a>`).join("")}
       </div>`).join("")}`;
 
@@ -3519,6 +3636,7 @@ fileInput.onchange = async () => {
       const pr = progDe(histImgTarget);
       pr.img = uri;
       pr.video = null;
+      pr.poster = null;
       marcarPendiente();
       save();
       renderHistorias();
@@ -3617,7 +3735,7 @@ function openDrawer(id) {
       <div class="estado-select">
         ${ESTADOS.map(e => `<button data-estado="${e}" class="${e === est ? "sel " + ESTADO_CLASS[e] : ""}">${e}</button>`).join("")}
       </div>
-      <button class="btn-programar" id="btnIrPublicar" style="margin-top:10px">📤 Preparar y programar en Meta</button>
+      <button class="btn-programar" id="btnIrPublicar" style="margin-top:10px">${icl("enviar")} Programar en Meta</button>
     </section>
 
     <section>
@@ -3838,8 +3956,8 @@ function openPublicar(id) {
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
     <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${brandTint(p)}">${m.nombre} · ${m.handle}</span>
-    <h2>Programar publicación</h2>
-    <div class="sub">${esc(tituloDe(p))} · ${p.formato}</div>
+    <h2>${esc(tituloDe(p))}</h2>
+    <div class="sub">${p.formato} · ${dia.toLowerCase()} ${num}</div>
 
     <section class="pub-paso">
       <h4><span class="paso-num">1</span> Portada</h4>
@@ -3847,15 +3965,15 @@ function openPublicar(id) {
         ${coverHtml(p, "cover-prev")}
         <div class="portada-acts">
           <button class="btn-ghost" id="pubPortada">${img ? "Cambiar" : "Subir portada"}</button>
-          ${img ? `<button class="btn-primary" id="pubDescargar">⬇️ Descargar para subirla a Meta</button>` : `<span class="portada-hint">Sube la portada final para poder descargarla y usarla en Meta.</span>`}
+          ${img ? `<button class="btn-primary" id="pubDescargar">${icl("descarga")} Descargar</button>` : ""}
         </div>
       </div>
     </section>
 
     <section class="pub-paso">
-      <h4><span class="paso-num">2</span> Copy final</h4>
-      <textarea id="pubCopy" class="aprob-comment" style="min-height:130px">${esc(copyDe(p))}</textarea>
-      <button class="btn-primary" id="pubCopiar" style="margin-top:8px">📋 Copiar copy</button>
+      <h4><span class="paso-num">2</span> Copy</h4>
+      <textarea id="pubCopy" class="aprob-comment" style="min-height:110px">${esc(copyDe(p))}</textarea>
+      <button class="btn-primary" id="pubCopiar" style="margin-top:8px">${icl("copiar")} Copiar copy</button>
     </section>
 
     <section class="pub-paso">
@@ -3872,32 +3990,31 @@ function openPublicar(id) {
     </section>
 
     <section class="pub-paso pub-auto">
-      <h4><span class="paso-num auto">🤖</span> Programación automática</h4>
-      <p class="pub-nota">Con Meta conectado en tu Mac, la plataforma publica por ti: <b>Facebook queda agendado en Meta de una vez</b> y la de <b>Instagram sale a la hora exacta</b> (el Mac debe estar encendido a esa hora; si está dormido, sale al despertar). Recuerda <b>Guardar cambios</b> para que el Mac reciba la cola.</p>
+      <h4><span class="paso-num auto">A</span> Automática</h4>
       <label class="auto-check">
         <input type="checkbox" id="pubAuto" ${metaDe(p) && metaDe(p).auto ? "checked" : ""}>
-        <span>Programar automáticamente esta pieza</span>
+        <span>Publicar sola desde el Mac</span>
       </label>
       <div class="aprob-pills pub-redes" id="pubRed" ${metaDe(p) && metaDe(p).auto ? "" : "hidden"}>
         ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${(metaDe(p) || {}).red === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
       </div>
-      ${!img ? `<p class="pub-aviso" ${metaDe(p) && metaDe(p).auto ? "" : "hidden"} id="pubAvisoImg">⚠️ Instagram necesita la portada subida (paso 1) — sin portada solo saldrá en Facebook.</p>` : ""}
+      <p class="pub-nota" style="margin:10px 0 0">Facebook queda agendado en Meta; Instagram sale a la hora exacta. Guarda cambios.</p>
+      ${!img ? `<p class="pub-aviso" ${metaDe(p) && metaDe(p).auto ? "" : "hidden"} id="pubAvisoImg">Instagram necesita la portada — sin ella solo sale en Facebook.</p>` : ""}
     </section>
 
     <section class="pub-paso">
-      <h4><span class="paso-num">4</span> …o hazlo manual en Meta</h4>
-      <p class="pub-nota">Tu cuenta ya está abierta en Meta Business Suite. Con el copy copiado y la portada descargada: <b>pega, sube la imagen y elige ${dia.toLowerCase()} ${num} a las ${horaDe(p)}</b>.</p>
+      <h4><span class="paso-num">4</span> Manual en Meta</h4>
       <div class="pub-meta-btns">
-        <a class="btn-meta" id="pubMeta" href="${META_COMPOSER}" target="_blank" rel="noopener">🚀 Abrir compositor de Meta</a>
-        <a class="btn-ghost" href="${META_PLANNER}" target="_blank" rel="noopener">🗓 Ver calendario de Meta</a>
+        <a class="btn-meta" id="pubMeta" href="${META_COMPOSER}" target="_blank" rel="noopener">${icl("enviar")} Abrir Meta</a>
+        <a class="btn-ghost" href="${META_PLANNER}" target="_blank" rel="noopener">Calendario de Meta</a>
       </div>
     </section>
 
     <section class="pub-paso">
-      <h4><span class="paso-num">5</span> Confirma aquí</h4>
+      <h4><span class="paso-num">5</span> Confirmar</h4>
       <div class="aprob-pills">
-        <button id="pubMarcarProg" class="${est === "Programado" ? "sel" : ""}">🕑 Quedó programada</button>
-        <button id="pubMarcarPub" class="${est === "Publicado" ? "sel" : ""}">🚀 Ya está publicada</button>
+        <button id="pubMarcarProg" class="${est === "Programado" ? "sel" : ""}">${icl("reloj")} Programada</button>
+        <button id="pubMarcarPub" class="${est === "Publicado" ? "sel" : ""}">${icl("ok")} Publicada</button>
       </div>
     </section>`;
 
@@ -3907,7 +4024,7 @@ function openPublicar(id) {
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
   drawer.querySelector("#pubPortada").onclick = () => pedirPortada(p.id);
   const bDesc = drawer.querySelector("#pubDescargar");
-  if (bDesc) bDesc.onclick = () => { descargarPortada(p); bDesc.textContent = "⬇️ Descargada ✓"; };
+  if (bDesc) bDesc.onclick = () => { descargarPortada(p); bDesc.innerHTML = `${icl("ok")} Descargada`; };
   const taCopy = drawer.querySelector("#pubCopy");
   taCopy.onchange = () => {
     const e = { ...(store.ediciones[p.id] || {}) };
@@ -3921,7 +4038,7 @@ function openPublicar(id) {
   drawer.querySelector("#pubCopiar").onclick = async function () {
     try {
       await navigator.clipboard.writeText(taCopy.value.trim());
-      this.textContent = "📋 Copiado ✓ — pégalo en Meta";
+      this.innerHTML = `${icl("ok")} Copiado — pégalo en Meta`;
     } catch {
       taCopy.focus(); taCopy.select();
       this.textContent = "Selecciona y copia con ⌘C";
@@ -3981,7 +4098,7 @@ function abrirCreador(fecha) {
       <h4>Idea</h4>
       <input id="creadorTitulo" class="edit-input" placeholder="Título del contenido">
       <textarea id="creadorConcepto" class="aprob-comment" style="margin-top:8px;min-height:90px" placeholder="Concepto: de qué va, qué se ve, cuál es el gancho…"></textarea>
-      <button class="btn-ghost" id="creadorIdea" style="margin-top:8px">✨ Sugerir idea</button>
+      <button class="btn-ghost" id="creadorIdea" style="margin-top:8px">${icl("chispa")} Sugerir idea</button>
     </section>
     <section>
       <h4>Formato</h4>
@@ -4091,7 +4208,13 @@ const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
   : ["calendario", "rodaje", "pipeline", "historias", "feed", "aprobacion", "finanzas", "proyectos", "referentes"];
 function activarVista(v, dir) {
+  const previa = vistaActiva;
   vistaActiva = v;
+  // Entrar a Calendario muestra SIEMPRE el Planificador primero
+  if (v === "calendario" && previa !== "calendario" && !MODO_CLIENTE && calModo !== "mes") {
+    calModo = "mes";
+    renderCalendario();
+  }
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
   document.querySelectorAll(".view").forEach(x => x.classList.remove("active", "entra-izq", "entra-der"));
   const el = document.getElementById("view-" + v);
@@ -4315,7 +4438,7 @@ function renderFinanzas() {
   const neto = tIngreso - tGastos;
 
   el.innerHTML = `
-    <p class="view-note">Tus cuentas y tu dinero, con claridad total. <b>🔒 Privado:</b> esta sección vive solo en este dispositivo — no se publica al equipo ni viaja con "Guardar cambios".</p>
+    <p class="view-note">Tus cuentas y tu dinero, con claridad total. <b>Privado:</b> esta sección vive solo en este dispositivo — no se publica al equipo ni viaja con "Guardar cambios".</p>
 
     <div class="fin-resumen">
       <div class="fin-card"><span class="fin-lbl">Ingreso mensual</span><span class="fin-num">${fmtMoney(tIngreso)}</span></div>
@@ -4367,7 +4490,7 @@ function renderFinanzas() {
       </table></div>
       <div class="fin-hoja-pie">
         <button class="btn-ghost" id="finLimpiarHoja">Limpiar hoja</button>
-        <button class="btn-ghost" id="finExportar">⬇️ Respaldar finanzas (JSON)</button>
+        <button class="btn-ghost" id="finExportar">${icl("descarga")} Respaldar (JSON)</button>
       </div>
     </div>`;
 
@@ -4437,19 +4560,19 @@ function esc0(s) { return s; } // los values de la hoja ya vienen formateados
 // (privado: vive solo en este dispositivo)
 // ════════════════════════════════════════════════════════════
 const PLANTILLAS_PRO = {
-  musica: { n: "Música", ico: "🎵", desc: "De la idea a la canción publicada", fases: [
+  musica: { n: "Música", ic: "musica", color: "#7A5CB8", desc: "De la idea a la canción publicada", fases: [
     { n: "Semana 1 · Visión y referencias", tareas: ["Definir la idea central en una frase", "Armar playlist de 5 referencias", "Elegir BPM, tonalidad y mood", "Bocetar la estructura (intro · verso · coro)"] },
     { n: "Semana 2 · Maqueta", tareas: ["Producir el beat o la armonía base", "Grabar melodías guía", "Escribir la letra completa", "Maqueta de principio a fin (aunque sea fea)"] },
     { n: "Semana 3 · Producción fina", tareas: ["Grabar las tomas definitivas", "Editar y afinar voces", "Sumar arreglos y transiciones", "Mezcla v1 · escucharla en 3 equipos distintos"] },
     { n: "Semana 4 · Cierre y salida", tareas: ["Ajustes finales de mezcla", "Master", "Portada y piezas visuales", "Publicar, distribuir y compartir"] },
   ]},
-  diseno: { n: "Diseño", ico: "🎨", desc: "Proyectos de marca y dirección de arte", fases: [
+  diseno: { n: "Diseño", ic: "paleta", color: "#B07A28", desc: "Proyectos de marca y dirección de arte", fases: [
     { n: "Semana 1 · Brief e investigación", tareas: ["Escribir el brief en una página", "Moodboard y referencias por lámina", "Benchmark de la competencia", "Definir el concepto creativo"] },
     { n: "Semana 2 · Propuestas", tareas: ["Explorar 3 rutas visuales rápidas", "Elegir la ruta ganadora", "Desarrollar la propuesta elegida", "Contrastarla contra el brief"] },
     { n: "Semana 3 · Desarrollo", tareas: ["Aplicar el feedback", "Desarrollar piezas y variantes", "Afinar tipografía, ritmo y color", "Preparar artes finales"] },
     { n: "Semana 4 · Entrega", tareas: ["Exportar en todos los formatos", "Armar la presentación de entrega", "Entregar y archivar ordenado", "Retro: qué repetir y qué mejorar"] },
   ]},
-  personal: { n: "Personal", ico: "🌱", desc: "Metas propias con método y sin presión", fases: [
+  personal: { n: "Personal", ic: "hoja", color: "#41684A", desc: "Metas propias con método y sin presión", fases: [
     { n: "Semana 1 · Claridad", tareas: ["Escribir la meta y el porqué", "Definir cómo se ve \"logrado\"", "Partirla en pasos pequeños", "Agendar los bloques en el calendario"] },
     { n: "Semana 2 · Arranque", tareas: ["Completar el primer paso", "Eliminar un obstáculo del camino", "Registrar el avance", "Ajustar el plan si algo no fluye"] },
     { n: "Semana 3 · Constancia", tareas: ["Mantener el ritmo: 3+ sesiones", "Pedir feedback o apoyo", "Celebrar un avance visible", "Revisar qué falta para cerrar"] },
@@ -4494,7 +4617,7 @@ function renderProyectos() {
   if (el.contains(document.activeElement)) return;
 
   el.innerHTML = `
-    <p class="view-note">Cualquier proyecto — música, diseño o personal — <b>de la idea a la entrega en 4 semanas</b>. Cada plantilla trae la metodología lista: solo marca la siguiente acción y avanza. 🔒 Privado en este dispositivo.</p>
+    <p class="view-note">Cualquier proyecto — música, diseño o personal — <b>de la idea a la entrega en 4 semanas</b>. Cada plantilla trae la metodología lista: solo marca la siguiente acción y avanza. Privado en este dispositivo.</p>
     <div class="pro-grid">
       <button class="pro-nueva" id="proNueva">
         <span class="pro-nueva-mas">＋</span>
@@ -4510,7 +4633,7 @@ function renderProyectos() {
         return `
         <article class="pro-card ${prog.pct >= 1 ? "lograda" : ""}" data-pro="${pr.id}">
           <div class="pro-card-top">
-            <span class="pro-ico">${t.ico}</span>
+            <span class="pro-ico" style="color:${t.color}">${icl(t.ic)}</span>
             <div class="pro-card-tit">
               <h4>${esc(pr.nombre)}</h4>
               <span class="pro-tipo">${t.n}${pr.desc ? " · " + esc(pr.desc) : ""}</span>
@@ -4518,7 +4641,7 @@ function renderProyectos() {
             ${anillo(prog.pct)}
           </div>
           ${prog.pct >= 1
-            ? `<div class="pro-sig hecho">🏆 Proyecto completado — ¡a celebrarlo!</div>`
+            ? `<div class="pro-sig hecho">Proyecto completado — ¡a celebrarlo!</div>`
             : sig
             ? `<div class="pro-sig"><span class="pro-sig-lbl">Siguiente acción</span>${esc(sig.texto)}</div>`
             : ""}
@@ -4543,7 +4666,7 @@ function abrirCreadorProyecto() {
       <div class="pro-tipos" id="proTipos">
         ${Object.entries(PLANTILLAS_PRO).map(([k, t], i) => `
           <button data-tipo="${k}" class="${i === 1 ? "sel" : ""}">
-            <span class="pro-ico">${t.ico}</span><b>${t.n}</b><span>${t.desc}</span>
+            <span class="pro-ico" style="color:${t.color}">${icl(t.ic)}</span><b>${t.n}</b><span>${t.desc}</span>
           </button>`).join("")}
       </div>
     </section>
@@ -4583,14 +4706,14 @@ function openProyecto(id) {
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
     <div class="pro-drawer-top">
-      <span class="pro-ico grande">${t.ico}</span>
+      <span class="pro-ico grande" style="color:${t.color}">${icl(t.ic)}</span>
       <div style="flex:1">
         <h2 style="margin:0">${esc(pr.nombre)}</h2>
         <div class="sub" style="margin:2px 0 0">${t.n} · inició ${fmtCorta(pr.inicio)} · entrega ${fmtCorta(sumarDias(pr.inicio, 27))}</div>
       </div>
       ${anillo(prog.pct, 56)}
     </div>
-    ${sig ? `<div class="pro-sig" style="margin-top:14px"><span class="pro-sig-lbl">Siguiente acción</span>${esc(sig.texto)}</div>` : `<div class="pro-sig hecho" style="margin-top:14px">🏆 Todas las tareas completadas</div>`}
+    ${sig ? `<div class="pro-sig" style="margin-top:14px"><span class="pro-sig-lbl">Siguiente acción</span>${esc(sig.texto)}</div>` : `<div class="pro-sig hecho" style="margin-top:14px">Todas las tareas completadas</div>`}
     ${t.fases.map((f, fi) => {
       const hechasFase = f.tareas.filter((_, ti) => pr.hecho[fi + "-" + ti]).length;
       return `
@@ -4671,6 +4794,7 @@ function historiasStore() {
     };
   }
   if (!store.historias.prog) store.historias.prog = {}; // historias programadas por API
+  if (!store.historias.quitadas) store.historias.quitadas = {}; // del plan, quitadas en un día puntual
   return store.historias;
 }
 let histSemana = 0; // desplazamiento de semanas respecto a la actual
@@ -4682,9 +4806,56 @@ function lunesDe(offsetSemanas) {
 function isoDe(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
 function historiasDeDia(marca, fechaIso, dow) {
   const h = historiasStore();
-  const plan = (h.plan[marca] && h.plan[marca][dow]) || [];
+  const plan = ((h.plan[marca] && h.plan[marca][dow]) || [])
+    .filter(txt => !h.quitadas[histKey(fechaIso, marca, txt)]);
   const extras = h.extras[fechaIso + "|" + marca] || [];
   return plan.map(txt => ({ txt, extra: false })).concat(extras.map(txt => ({ txt, extra: true })));
+}
+function partesClave(k) {
+  const resto = k.slice(11);
+  const sep = resto.indexOf("|");
+  return { iso: k.slice(0, 10), mk: resto.slice(0, sep), txt: resto.slice(sep + 1) };
+}
+// Mover una historia a otra fecha (el carrusel se reacomoda solo)
+function moverHistoria(k, nuevaFecha) {
+  const h = historiasStore();
+  const { iso, mk, txt } = partesClave(k);
+  if (!nuevaFecha || iso === nuevaFecha) return k;
+  const k2 = histKey(nuevaFecha, mk, txt);
+  const key = iso + "|" + mk;
+  if ((h.extras[key] || []).includes(txt)) {
+    h.extras[key] = h.extras[key].filter(t => t !== txt);
+    if (!h.extras[key].length) delete h.extras[key];
+  } else {
+    h.quitadas[k] = true; // era del plan semanal: se oculta solo ese día
+  }
+  const d2 = new Date(nuevaFecha + "T12:00:00");
+  const dow2 = (d2.getDay() + 6) % 7;
+  const enPlanDestino = ((h.plan[mk] && h.plan[mk][dow2]) || []).includes(txt);
+  delete h.quitadas[k2];
+  if (!enPlanDestino && !(h.extras[nuevaFecha + "|" + mk] || []).includes(txt)) {
+    (h.extras[nuevaFecha + "|" + mk] = h.extras[nuevaFecha + "|" + mk] || []).push(txt);
+  }
+  if (h.prog[k]) { h.prog[k2] = h.prog[k]; delete h.prog[k]; }
+  if (h.hechas[k]) { h.hechas[k2] = true; delete h.hechas[k]; }
+  if (typeof videoURLs !== "undefined" && videoURLs[k]) { videoURLs[k2] = videoURLs[k]; delete videoURLs[k]; }
+  marcarPendiente(); save();
+  return k2;
+}
+// Quitar una historia de un día (del plan o extra)
+function quitarHistoria(k) {
+  const h = historiasStore();
+  const { iso, mk, txt } = partesClave(k);
+  const key = iso + "|" + mk;
+  if ((h.extras[key] || []).includes(txt)) {
+    h.extras[key] = h.extras[key].filter(t => t !== txt);
+    if (!h.extras[key].length) delete h.extras[key];
+  } else {
+    h.quitadas[k] = true;
+  }
+  delete h.prog[k];
+  delete h.hechas[k];
+  marcarPendiente(); save(); renderHistorias();
 }
 function histKey(fechaIso, marca, txt) { return fechaIso + "|" + marca + "|" + txt; }
 function rachaDe(marca) {
@@ -4822,6 +4993,11 @@ function renderHistorias() {
                           ? `<img class="hs-img" src="${img}" alt="">
                              <span class="hs-grad"></span>
                              <span class="hs-txt">${esc(t.resto)}</span>`
+                          : video && pr.poster
+                          ? `<img class="hs-img" src="${pr.poster}" alt="">
+                             <span class="hs-grad"></span>
+                             <span class="hist-play hs-play-centro">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>
+                             <span class="hs-txt">${esc(t.resto)}</span>`
                           : video
                           ? `<div class="hs-placeholder hs-es-video" style="--tc:${t.color};--tb:${t.color}14">
                                <span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>
@@ -4834,7 +5010,7 @@ function renderHistorias() {
                                <span class="hs-ph-formato">1080 × 1920</span>
                              </div>`}
                         ${pr && pr.auto ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "Sale sola a esta hora" : "Falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
-                        ${it.extra ? `<button class="hist-quitar hs-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar" aria-label="Quitar">✕</button>` : ""}
+                        <button class="hist-quitar hs-quitar" data-quitar-hist="${esc(k)}" title="Quitar de este día" aria-label="Quitar de este día">✕</button>
                         <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
                       </div>
                     </div>`;
@@ -4879,13 +5055,10 @@ function renderHistorias() {
       abrirExtraHistoria(iso, mk);
     };
   });
-  el.querySelectorAll("[data-quitar-extra]").forEach(b => {
+  el.querySelectorAll("[data-quitar-hist]").forEach(b => {
     b.onclick = e => {
       e.preventDefault(); e.stopPropagation();
-      const key = b.dataset.quitarExtra;
-      h.extras[key] = (h.extras[key] || []).filter(t => t !== b.dataset.txt);
-      if (!h.extras[key].length) delete h.extras[key];
-      marcarPendiente(); save(); renderHistorias();
+      quitarHistoria(b.dataset.quitarHist);
     };
   });
 }
@@ -4912,14 +5085,46 @@ videoPicker.accept = "video/mp4,video/quicktime,.mp4,.mov";
 videoPicker.hidden = true;
 document.body.appendChild(videoPicker);
 let videoPickTarget = null;
-videoPicker.onchange = () => {
+// URLs locales de los videos elegidos EN ESTA SESIÓN: permiten la
+// previsualización en tiempo real (como el compositor de Meta).
+const videoURLs = {};
+// Captura un frame del video como portada (viaja con Guardar cambios)
+function posterDeVideo(file) {
+  return new Promise(res => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement("video");
+    v.muted = true;
+    v.playsInline = true;
+    v.preload = "auto";
+    v.src = url;
+    const listo = () => {
+      try {
+        const f = Math.min(1, 960 / (v.videoHeight || 960));
+        const c = document.createElement("canvas");
+        c.width = Math.round((v.videoWidth || 540) * f);
+        c.height = Math.round((v.videoHeight || 960) * f);
+        c.getContext("2d").drawImage(v, 0, 0, c.width, c.height);
+        res({ poster: c.toDataURL("image/jpeg", 0.72), url });
+      } catch { res({ poster: null, url }); }
+    };
+    v.onloadeddata = () => { try { v.currentTime = Math.min(0.6, (v.duration || 1) / 3); } catch { listo(); } };
+    v.onseeked = listo;
+    v.onerror = () => res({ poster: null, url });
+    setTimeout(() => { if (!v.videoWidth) res({ poster: null, url }); }, 6000);
+  });
+}
+videoPicker.onchange = async () => {
   const f = videoPicker.files[0];
   if (!f || !videoPickTarget) return;
-  const pr = progDe(videoPickTarget);
+  const k = videoPickTarget;
+  const pr = progDe(k);
   pr.video = f.name;
   pr.img = null;
+  const { poster, url } = await posterDeVideo(f);
+  pr.poster = poster;
+  videoURLs[k] = url;
   marcarPendiente(); save(); renderHistorias();
-  abrirHistoriaClave(videoPickTarget, "video");
+  abrirHistoriaClave(k, "video");
 };
 function openHistoria(iso, mk, txt, medioVista) {
   const h = historiasStore();
@@ -4958,29 +5163,37 @@ function openHistoria(iso, mk, txt, medioVista) {
         <div class="hist-prog-campos">
           <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
           ${pr && pr.img ? `<button class="btn-ghost" id="histQuitarImg">Quitar imagen</button>` : ""}
-          ${campoHoraRedes(pr)}
+          ${campoHoraRedes(pr, iso)}
         </div>
       </div>`
       : `
-      <p class="pub-nota">El video final (<b>MP4 o MOV vertical, máx. 60 s</b>) va en la carpeta <b>Videos Contenido Hub</b> del escritorio de tu Mac. Elígelo aquí — solo se toma el nombre; el Mac lo sube y lo publica <b>tal cual, sin nada encima</b>.</p>
+      <p class="pub-nota">El video (MP4/MOV vertical, máx. 60 s) va en la carpeta <b>Videos Contenido Hub</b> del escritorio del Mac. Se publica tal cual, sin nada encima.</p>
       <div class="hist-prog-grid">
-        <div class="hist-img-prev vacia hist-video-prev">
-          ${pr && pr.video ? `<span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span><span class="hist-video-nombre">${esc(pr.video)}</span>` : `<span>MP4<br>9:16</span>`}
+        <div class="hist-img-prev hist-video-prev ${pr && (pr.video || pr.poster) ? "" : "vacia"}">
+          ${videoURLs[k]
+            ? `<video class="hist-video-el" src="${videoURLs[k]}" autoplay muted loop playsinline controls></video>`
+            : pr && pr.poster
+            ? `<img src="${pr.poster}" alt=""><span class="hist-play hs-play-centro">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>`
+            : pr && pr.video
+            ? `<span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span><span class="hist-video-nombre">${esc(pr.video)}</span>`
+            : `<span>MP4<br>9:16</span>`}
         </div>
         <div class="hist-prog-campos">
           <button class="btn-primary" id="histElegirVideo">${pr && pr.video ? "Cambiar video" : "Elegir el video…"}</button>
-          <label class="hist-lbl">O escribe el nombre del archivo</label>
-          <input id="histVideoNombre" class="edit-input" placeholder="mi-historia.mp4" value="${esc((pr && pr.video) || "")}" autocomplete="off" spellcheck="false">
-          ${campoHoraRedes(pr)}
+          <input id="histVideoNombre" class="edit-input" placeholder="nombre-del-archivo.mp4" value="${esc((pr && pr.video) || "")}" autocomplete="off" spellcheck="false">
+          ${campoHoraRedes(pr, iso)}
         </div>
       </div>`}
 
       <p class="${lista ? "hist-estado-ok" : "pub-aviso"}" style="margin-top:12px">
         ${lista
           ? `Lista: sale sola el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"}. Recuerda <b>Guardar cambios</b>.`
-          : `Sube la imagen o elige el video y quedará programada — sin eso no se publica.`}
+          : `Sube la imagen o elige el video y quedará programada.`}
       </p>
-      ${pr ? `<button class="link-btn" id="histQuitarProg" style="color:#B23A2E;margin-top:6px">Quitar programación</button>` : ""}
+      <div class="hist-acciones">
+        <button class="link-btn" id="histQuitarDia">Quitar de este día</button>
+        ${pr ? `<button class="link-btn" id="histQuitarProg">Quitar programación</button>` : ""}
+      </div>
     </section>
 
     <section>
@@ -5007,7 +5220,9 @@ function openHistoria(iso, mk, txt, medioVista) {
   const inVid = drawer.querySelector("#histVideoNombre");
   if (inVid) inVid.onchange = () => {
     const pr2 = progDe(k);
-    pr2.video = inVid.value.trim() || null;
+    const nuevo = inVid.value.trim() || null;
+    if (nuevo !== pr2.video) pr2.poster = null; // otro archivo: el frame anterior ya no aplica
+    pr2.video = nuevo;
     if (pr2.video) pr2.img = null;
     marcarPendiente(); save(); renderHistorias();
     openHistoria(iso, mk, txt, "video");
@@ -5018,6 +5233,19 @@ function openHistoria(iso, mk, txt, medioVista) {
     marcarPendiente(); save(); renderHistorias();
     openHistoria(iso, mk, txt, medio);
   };
+  // Cambiar el día: la historia se mueve y el carrusel se reacomoda solo
+  const inFecha = drawer.querySelector("#histFecha");
+  if (inFecha) inFecha.onchange = () => {
+    const k2 = moverHistoria(k, inFecha.value);
+    renderHistorias();
+    if (k2 !== k) {
+      const { num: n2 } = fmtFecha(inFecha.value);
+      toastVivo(`Historia movida al ${n2}`);
+      abrirHistoriaClave(k2, medio);
+    }
+  };
+  const bQD = drawer.querySelector("#histQuitarDia");
+  if (bQD) bQD.onclick = () => { quitarHistoria(k); closeDrawer(); toastVivo("Historia quitada del día"); };
   drawer.querySelectorAll("#histRed button").forEach(b => {
     b.onclick = () => {
       progDe(k).red = b.dataset.red;
@@ -5033,10 +5261,14 @@ function openHistoria(iso, mk, txt, medioVista) {
     openHistoria(iso, mk, txt, medio);
   };
 }
-function campoHoraRedes(pr) {
+function campoHoraRedes(pr, iso) {
   return `
-    <label class="hist-lbl">Hora</label>
-    <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}">
+    <div class="hist-fecha-hora">
+      <div><label class="hist-lbl">Día</label>
+      <input type="date" id="histFecha" class="edit-input" value="${iso}"></div>
+      <div><label class="hist-lbl">Hora</label>
+      <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}"></div>
+    </div>
     <label class="hist-lbl">Dónde</label>
     <div class="aprob-pills pub-redes" id="histRed">
       ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${((pr && pr.red) || "ambas") === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
@@ -5054,6 +5286,10 @@ function abrirExtraHistoria(iso, mk) {
     <section>
       <h4>¿Qué vas a subir?</h4>
       <input id="extraTxt" class="edit-input" placeholder="Escribe la historia…" autocomplete="off">
+    </section>
+    <section>
+      <h4>Día</h4>
+      <input type="date" id="extraFecha" class="edit-input" value="${iso}">
     </section>
     <section>
       <h4>O toca una idea</h4>
@@ -5088,12 +5324,13 @@ function abrirExtraHistoria(iso, mk) {
   const agregar = () => {
     const txt = (elegida || input.value).trim();
     if (!txt) { input.focus(); return; }
-    const key = iso + "|" + mk;
+    const fechaElegida = drawer.querySelector("#extraFecha").value || iso;
+    const key = fechaElegida + "|" + mk;
     (h.extras[key] = h.extras[key] || []).push(txt);
     marcarPendiente(); save();
     closeDrawer();
     renderHistorias();
-    toastVivo(`Historia agregada al ${num} · ${MARCAS[mk].nombre}`);
+    toastVivo(`Historia agregada al ${Number(fechaElegida.slice(8))} · ${MARCAS[mk].nombre}`);
   };
   drawer.querySelector("#extraAgregar").onclick = agregar;
   input.onkeydown = e => { if (e.key === "Enter") agregar(); };
@@ -5208,7 +5445,7 @@ if (MODO_CLIENTE) {
   const fab = document.createElement("button");
   fab.id = "btnGuardarCambios";
   fab.className = "guardar-fab";
-  fab.innerHTML = `<span class="guardar-ico" aria-hidden="true">☁️</span><span class="guardar-txt">Todo guardado</span><span class="guardar-punto" aria-hidden="true"></span>`;
+  fab.innerHTML = `<span class="guardar-ico" aria-hidden="true">${icl("nube")}</span><span class="guardar-txt">Todo guardado</span><span class="guardar-punto" aria-hidden="true"></span>`;
   fab.onclick = publicarCambios;
   document.body.appendChild(fab);
   pintarGuardar();
