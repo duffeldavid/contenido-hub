@@ -2424,14 +2424,52 @@ function reducirPortadas(maxH = 520, calidad = 0.66) {
   }
   return Promise.all(tareas).then(() => save());
 }
+// La cola ligera para el Mac: lo que el trabajador necesita para publicar
+// (sin el peso de todas las portadas — solo las de piezas encoladas).
+function colaPublicable(ts) {
+  const portadas = {};
+  for (const id of Object.keys(store.meta)) {
+    if (store.portadas[id]) portadas[id] = store.portadas[id];
+  }
+  return {
+    ts: ts || Date.now(),
+    meta: store.meta, historias: store.historias,
+    fechas: store.fechas, horas: store.horas, ediciones: store.ediciones,
+    estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
+    portadas,
+  };
+}
 async function publicarCambios() {
   if (EN_ARTIFACT) {
-    // El visor de claude.ai bloquea las conexiones externas (CSP)
-    toastAccion("Aquí (claude.ai) no se puede guardar — usa el enlace público", "Abrir", () => {
-      const a = document.createElement("a");
-      a.href = ENLACE_PUBLICO; a.target = "_blank"; a.rel = "noopener";
-      document.body.appendChild(a); a.click(); a.remove();
-    });
+    // El visor de claude.ai bloquea las conexiones externas, pero el canal
+    // interno del artifact (db) sí funciona: la cola viaja por ahí y el
+    // puente la reenvía al Mac en unos minutos.
+    const b = document.getElementById("btnGuardarCambios");
+    if (b) { b.disabled = true; b.querySelector(".guardar-txt").textContent = "Guardando…"; }
+    try {
+      const db = await window.claude.use("db");
+      if (!db) throw new Error("sin canal");
+      let cola = colaPublicable();
+      let cuerpo = JSON.stringify(cola);
+      if (cuerpo.length > 800000) {
+        await reducirPortadas();
+        cola = colaPublicable(cola.ts);
+      }
+      await db.doc("cola/actual").set(cola);
+      store.pendientePub = false;
+      store.pubTs = cola.ts;
+      save();
+      toastVivo("✓ Guardado desde claude.ai — el Mac recibe la cola en unos minutos");
+    } catch (e) {
+      toastAccion("No se pudo guardar aquí — usa el enlace público", "Abrir", () => {
+        const a = document.createElement("a");
+        a.href = ENLACE_PUBLICO; a.target = "_blank"; a.rel = "noopener";
+        document.body.appendChild(a); a.click(); a.remove();
+      });
+    } finally {
+      if (b) b.disabled = false;
+      pintarGuardar();
+    }
     return;
   }
   const b = document.getElementById("btnGuardarCambios");

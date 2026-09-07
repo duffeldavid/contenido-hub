@@ -35,53 +35,73 @@ def git(*args):
     return subprocess.run(["git", "-C", REPO, *args], capture_output=True, text=True)
 
 
+COLA = os.environ.get("HUB_COLA", os.path.join(REPO, "cola.json"))
+
+
+def ts_de(ruta):
+    try:
+        with open(ruta) as f:
+            return json.load(f).get("ts", 0)
+    except Exception:
+        return 0
+
+
 def main():
-    actual = ts_archivado()
+    # Dos tipos de adjunto: estado-hub (Guardar desde el enlace público) y
+    # cola-hub (Guardar desde claude.ai, reenviado por el puente).
+    destinos = {
+        "estado-hub": (ESTADO, "estado.json", ts_archivado()),
+        "cola-hub": (COLA, "cola.json", ts_de(COLA)),
+    }
     try:
         with urllib.request.urlopen(CANAL, timeout=30) as r:
             lineas = r.read().decode("utf-8", "replace").splitlines()
     except Exception:
         return
 
-    # El mensaje más reciente con adjunto estado-hub que supere lo archivado
-    candidatos = []
+    candidatos = {"estado-hub": [], "cola-hub": []}
     for linea in lineas:
         try:
             m = json.loads(linea)
         except Exception:
             continue
         adj = m.get("attachment") or {}
-        if not str(adj.get("name", "")).startswith("estado-hub"):
-            continue
-        if int(m.get("time", 0)) * 1000 <= actual:
-            continue
-        candidatos.append((int(m.get("time", 0)), adj.get("url", "")))
+        nombre = str(adj.get("name", ""))
+        for prefijo in candidatos:
+            if nombre.startswith(prefijo) and int(m.get("time", 0)) * 1000 > destinos[prefijo][2]:
+                candidatos[prefijo].append((int(m.get("time", 0)), adj.get("url", "")))
 
-    mejor = None
-    for _, url in sorted(candidatos, reverse=True):
-        try:
-            with urllib.request.urlopen(url, timeout=60) as r:
-                est = json.load(r)
-        except Exception:
-            continue  # adjunto vencido o ilegible: probar el anterior
-        if est.get("ts", 0) > actual:
-            mejor = est
-            break
+    nuevos = {}
+    for prefijo, lista in candidatos.items():
+        actual = destinos[prefijo][2]
+        for _, url in sorted(lista, reverse=True):
+            try:
+                with urllib.request.urlopen(url, timeout=60) as r:
+                    dato = json.load(r)
+            except Exception:
+                continue  # adjunto vencido o ilegible: probar el anterior
+            if dato.get("ts", 0) > actual:
+                nuevos[prefijo] = dato
+                break
 
-    if not mejor:
+    if not nuevos:
         print("sin novedades")
         return
     if not SIN_GIT and git("pull", "--ff-only", "origin", "main").returncode != 0:
         print("repo divergido: se reintenta el próximo ciclo")
         return
-    if mejor.get("ts", 0) <= ts_archivado():
+    escritos = []
+    for prefijo, dato in nuevos.items():
+        ruta, nombre_git, _ = destinos[prefijo]
+        if dato.get("ts", 0) <= ts_de(ruta):
+            continue
+        with open(ruta, "w") as f:
+            json.dump(dato, f, separators=(",", ":"))
+        escritos.append(nombre_git)
+        print(f"archivado {nombre_git} ts", dato.get("ts"))
+    if SIN_GIT or not escritos:
         return
-    with open(ESTADO, "w") as f:
-        json.dump(mejor, f, separators=(",", ":"))
-    print("archivado estado ts", mejor.get("ts"))
-    if SIN_GIT:
-        return
-    git("add", "estado.json")
+    git("add", *escritos)
     r = git("commit", "-m", "Archivar estado guardado desde la plataforma\n\n"
             "Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>")
     if r.returncode == 0:

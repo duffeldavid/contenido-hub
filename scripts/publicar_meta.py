@@ -462,6 +462,18 @@ def main():
 
     git("pull", "--ff-only", "origin", "main")
     estado = cargar(os.path.join(REPO, "estado.json"), {})
+    # La cola guardada desde claude.ai llega por el puente como cola.json:
+    # si es más nueva que estado.json, sus campos mandan.
+    cola_puente = cargar(os.path.join(REPO, "cola.json"), None)
+    if cola_puente and cola_puente.get("ts", 0) > estado.get("ts", 0):
+        for campo in ("meta", "historias", "fechas", "horas", "ediciones",
+                      "estados", "ocultas", "nuevas"):
+            if campo in cola_puente:
+                estado[campo] = cola_puente[campo]
+        fusion = dict(estado.get("portadas") or {})
+        fusion.update(cola_puente.get("portadas") or {})
+        estado["portadas"] = fusion
+        log(f"cola del puente aplicada (ts {cola_puente.get('ts')})")
     cola = estado.get("meta") or {}
     hist = (estado.get("historias") or {}).get("prog") or {}
     if not cola and not hist:
