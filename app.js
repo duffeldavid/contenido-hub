@@ -2172,7 +2172,7 @@ document.getElementById("main").addEventListener("click", e => {
 let vistaActiva = MODO_CLIENTE ? "aprobacion" : "calendario";
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["calendario", "pipeline", "rodaje", "feed", "historias", "aprobacion", "finanzas", "proyectos", "referentes"];
+  : ["calendario", "rodaje", "pipeline", "historias", "feed", "aprobacion", "finanzas", "proyectos", "referentes"];
 function activarVista(v, dir) {
   vistaActiva = v;
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
