@@ -3196,15 +3196,18 @@ function openHistoria(iso, mk, txt, medioVista) {
       <span class="hist-badge hist-badge-grande" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
       <div style="flex:1;min-width:0">
         <h2 style="margin:0">${esc(t.resto)}</h2>
-        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada ✓" : ""}</div>
+        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : lista ? ` · programada, sale a las ${(pr && pr.hora) || "12:00"}` : ""}</div>
       </div>
     </div>
 
     <section class="pub-paso pub-auto" style="margin-top:18px">
       <h4><span class="paso-num auto">A</span> Programar publicación</h4>
-      <div class="aprob-pills pub-redes hist-medio" id="histMedio">
-        <button data-medio="imagen" class="${medio === "imagen" ? "sel" : ""}">Imagen</button>
-        <button data-medio="video" class="${medio === "video" ? "sel" : ""}">Video</button>
+      <div class="hist-medio-fila">
+        <div class="aprob-pills pub-redes hist-medio" id="histMedio">
+          <button data-medio="imagen" class="${medio === "imagen" ? "sel" : ""}">Imagen</button>
+          <button data-medio="video" class="${medio === "video" ? "sel" : ""}">Video</button>
+        </div>
+        ${pr ? `<button class="hist-quitar-prog" id="histQuitarProg">Quitar programación</button>` : ""}
       </div>
 
       ${medio === "imagen" ? `
@@ -3244,7 +3247,6 @@ function openHistoria(iso, mk, txt, medioVista) {
       <button class="btn-primary hist-guardar" id="histGuardar" ${store.pendientePub ? "" : "disabled"}>${store.pendientePub ? "Guardar cambios" : "Todo guardado"}</button>
       <div class="hist-acciones">
         <button class="link-btn" id="histQuitarDia">Quitar de este día</button>
-        ${pr ? `<button class="link-btn" id="histQuitarProg">Quitar programación</button>` : ""}
       </div>
     </section>
 
