@@ -2198,7 +2198,7 @@ function cambiarVista(dir) {
 }
 // Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
 // más las tarjetas (su deslizado izquierdo ya significa "quitar").
-const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos";
+const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail";
 const mainEl = document.getElementById("main");
 let swX = 0, swY = 0, swOk = false;
 mainEl.addEventListener("touchstart", e => {
@@ -2867,7 +2867,7 @@ function renderHistorias() {
             <span class="hist-cobertura">${diasCubiertos}/7 días</span>
           </div>
         </div>
-        <div class="hist-grid">
+        <div class="hist-rail">
           ${fechas.map((d, i) => {
             const iso = isoDe(d);
             const items = historiasDeDia(mk, iso, i);
@@ -2877,32 +2877,45 @@ function renderHistorias() {
             const completo = items.length && hechasDia >= items.length;
             const apagado = pasado && !hechasDia && items.length;
             return `
-              <div class="hist-dia ${esHoy ? "hoy" : ""} ${completo ? "completo" : ""} ${apagado ? "apagado" : ""}">
-                <div class="hist-dia-head">
+              <div class="hist-grupo ${esHoy ? "hoy" : ""}" ${esHoy ? 'data-hoy="1"' : ""}>
+                <div class="hist-grupo-head">
                   <span class="hist-dow">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][i]}</span>
                   <span class="hist-numdia ${esHoy ? "hoy" : ""}">${d.getDate()}</span>
                   <span class="hist-estado">
                     ${completo
                       ? `<span class="hist-listo">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>`
                       : apagado
-                      ? `<span class="hist-alerta">sin historias</span>`
+                      ? `<span class="hist-alerta">sin historia</span>`
                       : `<span class="hist-conteo">${hechasDia}/${items.length}</span>`}
                   </span>
                 </div>
-                ${items.map(it => {
-                  const k = histKey(iso, mk, it.txt);
-                  const t = tipoHistoria(it.txt);
-                  const pr = h.prog[k];
-                  return `
-                  <div class="hist-item ${h.hechas[k] ? "hecha" : ""}" data-hist="${esc(k)}" role="button" tabindex="0">
-                    <span class="hist-badge" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
-                    <span class="hist-txt">${esc(t.resto)}</span>
-                    ${pr && pr.auto ? `<span class="hist-prog-chip ${pr.img ? "" : "falta"}" title="${pr.img ? "Programada automática" : "Falta la imagen"}">${pr.hora || "12:00"}</span>` : ""}
-                    ${it.extra ? `<button class="hist-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar" aria-label="Quitar">✕</button>` : ""}
-                    <span class="hist-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
-                  </div>`;
-                }).join("")}
-                <button class="hist-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día">＋</button>
+                <div class="hist-cards">
+                  ${items.map(it => {
+                    const k = histKey(iso, mk, it.txt);
+                    const t = tipoHistoria(it.txt);
+                    const pr = h.prog[k];
+                    const img = pr && pr.img;
+                    const hecha = !!h.hechas[k];
+                    return `
+                    <div class="hs-ring ${hecha ? "vista" : ""}">
+                      <div class="hist-story ${hecha ? "hecha" : ""}" data-hist="${esc(k)}" role="button" tabindex="0" title="${esc(t.resto)}">
+                        ${img
+                          ? `<img class="hs-img" src="${img}" alt="">
+                             <span class="hs-grad"></span>
+                             <span class="hs-txt">${esc(t.resto)}</span>`
+                          : `<div class="hs-placeholder" style="--tc:${t.color};--tb:${t.color}14">
+                               <span class="hist-badge hs-ph-badge" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
+                               <span class="hs-ph-txt">${esc(t.resto)}</span>
+                               <span class="hs-ph-formato">1080 × 1920</span>
+                             </div>`}
+                        ${pr && pr.auto ? `<span class="hs-hora ${img ? "" : "falta"}" title="${img ? "Sale sola a esta hora" : "Falta la imagen final"}">${pr.hora || "12:00"}</span>` : ""}
+                        ${it.extra ? `<button class="hist-quitar hs-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar" aria-label="Quitar">✕</button>` : ""}
+                        <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
+                      </div>
+                    </div>`;
+                  }).join("")}
+                  <button class="hs-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día"><span>＋</span></button>
+                </div>
               </div>`;
           }).join("")}
         </div>
@@ -2910,22 +2923,30 @@ function renderHistorias() {
   }
   el.innerHTML = html;
 
+  // El carrusel llega solo hasta el día de hoy
+  if (histSemana === 0) {
+    el.querySelectorAll(".hist-rail").forEach(rail => {
+      const grupoHoy = rail.querySelector("[data-hoy]");
+      if (grupoHoy) rail.scrollLeft = Math.max(0, grupoHoy.offsetLeft - rail.offsetLeft - 14);
+    });
+  }
+
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;
-  el.querySelectorAll(".hist-item").forEach(fila => {
-    const k = fila.dataset.hist;
+  el.querySelectorAll(".hist-story").forEach(card => {
+    const k = card.dataset.hist;
     const alternar = () => {
       if (h.hechas[k]) delete h.hechas[k]; else h.hechas[k] = true;
       marcarPendiente(); save(); renderHistorias();
     };
     // El círculo marca publicada; el resto de la tarjeta abre su programación
-    fila.onclick = e => {
+    card.onclick = e => {
       if (e.target.closest(".hist-quitar")) return;
       if (e.target.closest(".hist-check")) { alternar(); return; }
       abrirHistoriaClave(k);
     };
-    fila.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); } };
+    card.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abrirHistoriaClave(k); } };
   });
   el.querySelectorAll("[data-extra]").forEach(b => {
     b.onclick = () => {
