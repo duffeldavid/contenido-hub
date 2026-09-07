@@ -1326,6 +1326,26 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   font-size: 10.5px; font-weight: 700; text-transform: uppercase;
   letter-spacing: .08em; color: var(--faint); margin-top: 4px;
 }
+/* Historias en video */
+.hist-medio { max-width: 250px; margin-bottom: 12px; }
+.hist-play {
+  width: 46px; height: 46px; border-radius: 50%; flex: none;
+  background: rgba(33,28,22,.82); display: grid; place-items: center;
+  box-shadow: 0 4px 14px -4px rgba(0,0,0,.5);
+}
+.hist-ic-play { width: 22px; height: 22px; fill: #fff; stroke: none; margin-left: 2px; }
+.hist-video-prev { gap: 8px; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 10px; }
+.hist-video-nombre {
+  font-size: 10px; font-weight: 700; color: var(--dim);
+  max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.hs-es-video { gap: 14px; }
+.hs-ph-video { max-width: calc(100% - 24px); overflow: hidden; text-overflow: ellipsis; }
+.hist-estado-ok {
+  font-size: 12.5px; color: #2E7D43; background: #E5F2E7;
+  border-radius: 10px; padding: 8px 11px; line-height: 1.45;
+}
+.hist-estado-ok b { color: #205c31; }
 
 /* ═══════════ PROGRAMACIÓN AUTOMÁTICA (cola Meta) ═══════════ */
 .pub-auto { background: #F4F1FB; border: 1px solid #DDD3F0; border-radius: var(--radius); padding: 14px; }
@@ -3490,12 +3510,13 @@ fileInput.onchange = async () => {
     if (histImgTarget) {
       // Imagen final de una historia (vertical 9:16): se publica tal cual
       const uri = await comprimirImagen(file, 1350, 0.72);
-      const h = historiasStore();
-      if (h.prog[histImgTarget]) h.prog[histImgTarget].img = uri;
+      const pr = progDe(histImgTarget);
+      pr.img = uri;
+      pr.video = null;
       marcarPendiente();
       save();
       renderHistorias();
-      abrirHistoriaClave(histImgTarget);
+      abrirHistoriaClave(histImgTarget, "imagen");
       return;
     }
     if (!portadaTarget) return;
@@ -4786,6 +4807,7 @@ function renderHistorias() {
                     const t = tipoHistoria(it.txt);
                     const pr = h.prog[k];
                     const img = pr && pr.img;
+                    const video = pr && pr.video;
                     const hecha = !!h.hechas[k];
                     return `
                     <div class="hs-ring ${hecha ? "vista" : ""}">
@@ -4794,12 +4816,18 @@ function renderHistorias() {
                           ? `<img class="hs-img" src="${img}" alt="">
                              <span class="hs-grad"></span>
                              <span class="hs-txt">${esc(t.resto)}</span>`
+                          : video
+                          ? `<div class="hs-placeholder hs-es-video" style="--tc:${t.color};--tb:${t.color}14">
+                               <span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>
+                               <span class="hs-ph-txt">${esc(t.resto)}</span>
+                               <span class="hs-ph-formato hs-ph-video">${esc(video)}</span>
+                             </div>`
                           : `<div class="hs-placeholder" style="--tc:${t.color};--tb:${t.color}14">
                                <span class="hist-badge hs-ph-badge" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
                                <span class="hs-ph-txt">${esc(t.resto)}</span>
                                <span class="hs-ph-formato">1080 × 1920</span>
                              </div>`}
-                        ${pr && pr.auto ? `<span class="hs-hora ${img ? "" : "falta"}" title="${img ? "Sale sola a esta hora" : "Falta la imagen final"}">${pr.hora || "12:00"}</span>` : ""}
+                        ${pr && pr.auto ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "Sale sola a esta hora" : "Falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
                         ${it.extra ? `<button class="hist-quitar hs-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar" aria-label="Quitar">✕</button>` : ""}
                         <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
                       </div>
@@ -4857,13 +4885,37 @@ function renderHistorias() {
 }
 
 // ---------- Programar una historia por API (imagen tal cual, sin stickers) ----------
-function abrirHistoriaClave(k) {
+function abrirHistoriaClave(k, medio) {
   const iso = k.slice(0, 10);
   const resto = k.slice(11);
   const sep = resto.indexOf("|");
-  openHistoria(iso, resto.slice(0, sep), resto.slice(sep + 1));
+  openHistoria(iso, resto.slice(0, sep), resto.slice(sep + 1), medio);
 }
-function openHistoria(iso, mk, txt) {
+// La entrada de programación se crea sola al primer gesto (imagen, video, hora…)
+function progDe(k) {
+  const h = historiasStore();
+  if (!h.prog[k]) h.prog[k] = { auto: true, red: "ambas", hora: "12:00", img: null };
+  h.prog[k].auto = true;
+  return h.prog[k];
+}
+// Selector de video: solo toma el NOMBRE del archivo — el video queda en la
+// carpeta "Videos Contenido Hub" del Mac y el trabajador lo sube desde ahí.
+const videoPicker = document.createElement("input");
+videoPicker.type = "file";
+videoPicker.accept = "video/mp4,video/quicktime,.mp4,.mov";
+videoPicker.hidden = true;
+document.body.appendChild(videoPicker);
+let videoPickTarget = null;
+videoPicker.onchange = () => {
+  const f = videoPicker.files[0];
+  if (!f || !videoPickTarget) return;
+  const pr = progDe(videoPickTarget);
+  pr.video = f.name;
+  pr.img = null;
+  marcarPendiente(); save(); renderHistorias();
+  abrirHistoriaClave(videoPickTarget, "video");
+};
+function openHistoria(iso, mk, txt, medioVista) {
   const h = historiasStore();
   const k = histKey(iso, mk, txt);
   const t = tipoHistoria(txt);
@@ -4871,6 +4923,8 @@ function openHistoria(iso, mk, txt) {
   const hecha = !!h.hechas[k];
   const { dia, num } = fmtFecha(iso);
   const m = MARCAS[mk];
+  const medio = medioVista || (pr && pr.video ? "video" : "imagen");
+  const lista = pr && (pr.img || pr.video);
 
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
@@ -4883,29 +4937,44 @@ function openHistoria(iso, mk, txt) {
     </div>
 
     <section class="pub-paso pub-auto" style="margin-top:18px">
-      <h4><span class="paso-num auto">A</span> Publicación automática</h4>
-      <p class="pub-nota">La historia sale <b>tal cual la imagen que subas</b> — sin stickers, sin texto de la app, sin música. Deja el diseño final en la imagen (1080×1920) y <b>nunca falla</b>. Recuerda Guardar cambios.</p>
-      <label class="auto-check">
-        <input type="checkbox" id="histAuto" ${pr && pr.auto ? "checked" : ""}>
-        <span>Programar esta historia</span>
-      </label>
-      <div id="histProgCampos" ${pr && pr.auto ? "" : "hidden"} style="margin-top:12px">
-        <div class="hist-prog-grid">
-          <div class="hist-img-prev ${pr && pr.img ? "" : "vacia"}" id="histImgPrev">
-            ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
-          </div>
-          <div class="hist-prog-campos">
-            <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
-            ${pr && pr.img ? `<button class="btn-ghost" id="histQuitarImg">Quitar imagen</button>` : `<p class="pub-aviso" style="margin:0">Sin imagen no se puede publicar.</p>`}
-            <label class="hist-lbl">Hora</label>
-            <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}">
-            <label class="hist-lbl">Dónde</label>
-            <div class="aprob-pills pub-redes" id="histRed">
-              ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${((pr && pr.red) || "ambas") === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
-            </div>
-          </div>
-        </div>
+      <h4><span class="paso-num auto">A</span> Programar publicación</h4>
+      <div class="aprob-pills pub-redes hist-medio" id="histMedio">
+        <button data-medio="imagen" class="${medio === "imagen" ? "sel" : ""}">Imagen</button>
+        <button data-medio="video" class="${medio === "video" ? "sel" : ""}">Video</button>
       </div>
+
+      ${medio === "imagen" ? `
+      <p class="pub-nota">Sale <b>tal cual la imagen</b> — sin stickers, sin texto de la app, sin música. Diseño final en 1080×1920 y <b>nunca falla</b>.</p>
+      <div class="hist-prog-grid">
+        <div class="hist-img-prev ${pr && pr.img ? "" : "vacia"}">
+          ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
+        </div>
+        <div class="hist-prog-campos">
+          <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
+          ${pr && pr.img ? `<button class="btn-ghost" id="histQuitarImg">Quitar imagen</button>` : ""}
+          ${campoHoraRedes(pr)}
+        </div>
+      </div>`
+      : `
+      <p class="pub-nota">El video final (<b>MP4 o MOV vertical, máx. 60 s</b>) va en la carpeta <b>Videos Contenido Hub</b> del escritorio de tu Mac. Elígelo aquí — solo se toma el nombre; el Mac lo sube y lo publica <b>tal cual, sin nada encima</b>.</p>
+      <div class="hist-prog-grid">
+        <div class="hist-img-prev vacia hist-video-prev">
+          ${pr && pr.video ? `<span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span><span class="hist-video-nombre">${esc(pr.video)}</span>` : `<span>MP4<br>9:16</span>`}
+        </div>
+        <div class="hist-prog-campos">
+          <button class="btn-primary" id="histElegirVideo">${pr && pr.video ? "Cambiar video" : "Elegir el video…"}</button>
+          <label class="hist-lbl">O escribe el nombre del archivo</label>
+          <input id="histVideoNombre" class="edit-input" placeholder="mi-historia.mp4" value="${esc((pr && pr.video) || "")}" autocomplete="off" spellcheck="false">
+          ${campoHoraRedes(pr)}
+        </div>
+      </div>`}
+
+      <p class="${lista ? "hist-estado-ok" : "pub-aviso"}" style="margin-top:12px">
+        ${lista
+          ? `Lista: sale sola el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"}. Recuerda <b>Guardar cambios</b>.`
+          : `Sube la imagen o elige el video y quedará programada — sin eso no se publica.`}
+      </p>
+      ${pr ? `<button class="link-btn" id="histQuitarProg" style="color:#B23A2E;margin-top:6px">Quitar programación</button>` : ""}
     </section>
 
     <section>
@@ -4920,36 +4989,52 @@ function openHistoria(iso, mk, txt) {
   backdrop.classList.add("open");
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
 
-  const cbAuto = drawer.querySelector("#histAuto");
-  cbAuto.onchange = () => {
-    if (cbAuto.checked) {
-      h.prog[k] = h.prog[k] || { auto: true, red: "ambas", hora: "12:00", img: null };
-      h.prog[k].auto = true;
-    } else {
-      delete h.prog[k];
-    }
-    marcarPendiente(); save(); renderHistorias();
-    openHistoria(iso, mk, txt);
-  };
+  drawer.querySelectorAll("#histMedio button").forEach(b => {
+    b.onclick = () => openHistoria(iso, mk, txt, b.dataset.medio);
+  });
   const bImg = drawer.querySelector("#histSubirImg");
-  if (bImg) bImg.onclick = () => { if (h.prog[k]) pedirImgHistoria(k); };
-  const bQ = drawer.querySelector("#histQuitarImg");
-  if (bQ) bQ.onclick = () => { if (h.prog[k]) { h.prog[k].img = null; marcarPendiente(); save(); renderHistorias(); openHistoria(iso, mk, txt); } };
+  if (bImg) bImg.onclick = () => { progDe(k); pedirImgHistoria(k); };
+  const bQI = drawer.querySelector("#histQuitarImg");
+  if (bQI) bQI.onclick = () => { progDe(k).img = null; marcarPendiente(); save(); renderHistorias(); openHistoria(iso, mk, txt, "imagen"); };
+  const bVid = drawer.querySelector("#histElegirVideo");
+  if (bVid) bVid.onclick = () => { videoPickTarget = k; videoPicker.value = ""; videoPicker.click(); };
+  const inVid = drawer.querySelector("#histVideoNombre");
+  if (inVid) inVid.onchange = () => {
+    const pr2 = progDe(k);
+    pr2.video = inVid.value.trim() || null;
+    if (pr2.video) pr2.img = null;
+    marcarPendiente(); save(); renderHistorias();
+    openHistoria(iso, mk, txt, "video");
+  };
   const inHora = drawer.querySelector("#histHora");
-  if (inHora) inHora.onchange = () => { if (h.prog[k]) { h.prog[k].hora = inHora.value || "12:00"; marcarPendiente(); save(); renderHistorias(); } };
+  if (inHora) inHora.onchange = () => {
+    progDe(k).hora = inHora.value || "12:00";
+    marcarPendiente(); save(); renderHistorias();
+    openHistoria(iso, mk, txt, medio);
+  };
   drawer.querySelectorAll("#histRed button").forEach(b => {
     b.onclick = () => {
-      if (!h.prog[k]) return;
-      h.prog[k].red = b.dataset.red;
+      progDe(k).red = b.dataset.red;
       marcarPendiente(); save();
       drawer.querySelectorAll("#histRed button").forEach(x => x.classList.toggle("sel", x === b));
     };
   });
+  const bQP = drawer.querySelector("#histQuitarProg");
+  if (bQP) bQP.onclick = () => { delete h.prog[k]; marcarPendiente(); save(); renderHistorias(); openHistoria(iso, mk, txt); };
   drawer.querySelector("#histMarcar").onclick = () => {
     if (h.hechas[k]) delete h.hechas[k]; else h.hechas[k] = true;
     marcarPendiente(); save(); renderHistorias();
-    openHistoria(iso, mk, txt);
+    openHistoria(iso, mk, txt, medio);
   };
+}
+function campoHoraRedes(pr) {
+  return `
+    <label class="hist-lbl">Hora</label>
+    <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}">
+    <label class="hist-lbl">Dónde</label>
+    <div class="aprob-pills pub-redes" id="histRed">
+      ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${((pr && pr.red) || "ambas") === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
+    </div>`;
 }
 
 // Hoja para agregar una historia extra a un día (con ideas tocables)

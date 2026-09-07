@@ -57,6 +57,15 @@ cp "/Users/davidduffel/Library/Application Support/ContenidoHub/repo/scripts/com
    - **Instagram** sale a la hora elegida si el Mac está encendido; si estaba
      dormido, sale al despertar (te llega la notificación ntfy de todo).
 
+## Historias en video
+1. Deja el video final (MP4/MOV vertical, máx. 60 s) en la carpeta
+   **Videos Contenido Hub** del escritorio del Mac.
+2. En la plataforma: toca la historia → pestaña **Video** → elige el archivo
+   (solo se toma el nombre) → hora y redes → **Guardar cambios**.
+3. A la hora exacta, el Mac sube el video (a un release de GitHub, temporal)
+   y lo publica en Instagram y Facebook; después archiva el archivo en
+   `videos/publicados/` y borra la copia temporal.
+
 ## Detalles buenos de saber
 - Instagram **exige portada** (JPEG). Sin portada, solo sale en Facebook.
 - La portada se sube como `portadas/<id>.jpg` al repo público (igual ya viaja
