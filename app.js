@@ -369,11 +369,12 @@ function reducirDataUri(uri, maxH, calidad) {
 function reducirPortadas(maxH = 520, calidad = 0.66) {
   const tareas = Object.keys(store.portadas).map(id =>
     reducirDataUri(store.portadas[id], maxH, calidad).then(u => { store.portadas[id] = u; }));
-  // las imágenes de historias programadas se reducen menos (deben verse bien a 9:16)
+  // las imágenes de historias se publican tal cual: si hay que reducir,
+  // apenas lo justo para que no se note al aire (nunca por debajo de 1620)
   const prog = (store.historias && store.historias.prog) || {};
   for (const k of Object.keys(prog)) {
     if (prog[k] && prog[k].img) tareas.push(
-      reducirDataUri(prog[k].img, 1080, 0.62).then(u => { prog[k].img = u; }));
+      reducirDataUri(prog[k].img, 1620, 0.82).then(u => { prog[k].img = u; }));
     if (prog[k] && prog[k].poster) tareas.push(
       reducirDataUri(prog[k].poster, 640, 0.6).then(u => { prog[k].poster = u; }));
   }
@@ -432,7 +433,8 @@ async function publicarCambios() {
   try {
     let estado = estadoPublicable();
     let cuerpo = JSON.stringify(estado);
-    if (cuerpo.length > 1900000) {
+    // ntfy acepta adjuntos de hasta 15 MB: solo se reduce si el estado es enorme
+    if (cuerpo.length > 6000000) {
       await reducirPortadas();
       estado = estadoPublicable(estado.ts);
       cuerpo = JSON.stringify(estado);
@@ -1654,9 +1656,16 @@ fileInput.onchange = async () => {
   if (!file) return;
   try {
     if (histImgTarget) {
-      // Imagen final de una historia (vertical 9:16): se publica tal cual,
-      // a resolución completa de historia (1920 de alto) para que no se pixele
-      const uri = await comprimirImagen(file, 1920, 0.88);
+      // Imagen final de una historia: si ya es un JPEG razonable se guarda
+      // TAL CUAL (cero recompresión — lo que exportas es lo que se publica);
+      // solo un archivo enorme o PNG pasa por el redimensionado a 1920.
+      const esJpeg = file.type === "image/jpeg" || /\.jpe?g$/i.test(file.name);
+      let uri = null;
+      if (esJpeg && file.size <= 2.5 * 1024 * 1024) {
+        const { h } = await medidasImagen(file);
+        if (h <= 2200) uri = await leerDataURL(file);
+      }
+      if (!uri) uri = await comprimirImagen(file, 1920, 0.92);
       const pr = progDe(histImgTarget);
       pr.img = uri;
       pr.video = null;
@@ -1680,6 +1689,22 @@ fileInput.onchange = async () => {
     alert("No se pudo procesar la imagen. Intenta con otra foto.");
   }
 };
+function medidasImagen(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => { const m = { w: img.width, h: img.height }; URL.revokeObjectURL(img.src); resolve(m); };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+function leerDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
 function comprimirImagen(file, maxH = 640, calidad = 0.74) {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -2819,6 +2844,18 @@ function historiasStore() {
   }
   if (!store.historias.prog) store.historias.prog = {}; // historias programadas por API
   if (!store.historias.quitadas) store.historias.quitadas = {}; // del plan, quitadas en un día puntual
+  // Limpieza: las historias guardan la imagen a calidad completa, así que lo
+  // pasado hace más de 14 días se suelta para que el estado no crezca sin fin.
+  if (!historiasStore._limpio) {
+    historiasStore._limpio = true;
+    const corte = isoDe(new Date(Date.now() - 14 * 864e5));
+    for (const grupo of ["prog", "hechas", "quitadas", "extras"]) {
+      const obj = store.historias[grupo] || {};
+      for (const k of Object.keys(obj)) {
+        if (k.slice(0, 10) < corte) delete obj[k];
+      }
+    }
+  }
   return store.historias;
 }
 let histSemana = 0; // desplazamiento de semanas respecto a la actual
