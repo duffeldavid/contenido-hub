@@ -1654,8 +1654,9 @@ fileInput.onchange = async () => {
   if (!file) return;
   try {
     if (histImgTarget) {
-      // Imagen final de una historia (vertical 9:16): se publica tal cual
-      const uri = await comprimirImagen(file, 1350, 0.72);
+      // Imagen final de una historia (vertical 9:16): se publica tal cual,
+      // a resolución completa de historia (1920 de alto) para que no se pixele
+      const uri = await comprimirImagen(file, 1920, 0.88);
       const pr = progDe(histImgTarget);
       pr.img = uri;
       pr.video = null;

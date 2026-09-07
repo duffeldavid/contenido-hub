@@ -353,7 +353,10 @@ def procesar_historias(config, estado, ledger, ahora):
     """Publica las historias programadas (IG y FB no permiten agendarlas:
     salen a la hora exacta, o al despertar el Mac)."""
     cola = (estado.get("historias") or {}).get("prog") or {}
+    hechas = (estado.get("historias") or {}).get("hechas") or {}
     for k, entrada in cola.items():
+        if hechas.get(k):
+            continue  # marcada "Ya está al aire": no se publica ni se avisa
         if entrada.get("musica"):
             pass  # con música se publica a mano: solo se avisa, no necesita medio
         elif not entrada.get("auto") or not (entrada.get("img") or entrada.get("video")):
