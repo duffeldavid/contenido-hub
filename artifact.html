@@ -5098,6 +5098,41 @@ let videoPickTarget = null;
 // URLs locales de los videos elegidos EN ESTA SESIÓN: permiten la
 // previsualización en tiempo real (como el compositor de Meta).
 const videoURLs = {};
+// …y además cada video elegido se guarda en el navegador (IndexedDB) para
+// que la previsualización sobreviva recargas: se elige UNA vez y listo.
+function abrirBDVideos() {
+  return new Promise((res, rej) => {
+    const req = indexedDB.open("hubVideos", 1);
+    req.onupgradeneeded = () => req.result.createObjectStore("videos");
+    req.onsuccess = () => res(req.result);
+    req.onerror = () => rej(req.error);
+  });
+}
+async function guardarVideoLocal(nombre, blob) {
+  try {
+    const db = await abrirBDVideos();
+    const tx = db.transaction("videos", "readwrite");
+    const st = tx.objectStore("videos");
+    st.put({ blob, ts: Date.now() }, String(nombre).toLowerCase());
+    // limpieza: los videos de hace más de 21 días ya salieron — fuera
+    st.openCursor().onsuccess = e => {
+      const c = e.target.result;
+      if (!c) return;
+      if ((c.value.ts || 0) < Date.now() - 21 * 86400000) c.delete();
+      c.continue();
+    };
+  } catch {}
+}
+function cargarVideoLocal(nombre) {
+  return new Promise(res => {
+    if (!nombre) return res(null);
+    abrirBDVideos().then(db => {
+      const req = db.transaction("videos").objectStore("videos").get(String(nombre).toLowerCase());
+      req.onsuccess = () => res(req.result && req.result.blob ? URL.createObjectURL(req.result.blob) : null);
+      req.onerror = () => res(null);
+    }).catch(() => res(null));
+  });
+}
 // Captura un frame del video como portada (viaja con Guardar cambios)
 function posterDeVideo(file) {
   return new Promise(res => {
@@ -5133,6 +5168,7 @@ videoPicker.onchange = async () => {
   const { poster, url } = await posterDeVideo(f);
   pr.poster = poster;
   videoURLs[k] = url;
+  guardarVideoLocal(f.name, f); // queda en el navegador: no hay que re-elegirlo
   marcarPendiente(); save(); renderHistorias();
   abrirHistoriaClave(k, "video");
 };
@@ -5229,16 +5265,21 @@ function openHistoria(iso, mk, txt, medioVista) {
   // El navegador solo recuerda el archivo dentro de la misma sesión: si la
   // página se recargó, pide elegirlo una vez y de ahí en adelante reproduce.
   const bPlay = drawer.querySelector("#histPlay");
-  if (bPlay) bPlay.onclick = () => {
+  if (bPlay) bPlay.onclick = async () => {
     const marco = drawer.querySelector("#histVideoMarco");
-    if (videoURLs[k]) {
+    let url = videoURLs[k];
+    if (!url && pr && pr.video) {
+      url = await cargarVideoLocal(pr.video); // guardado en el navegador
+      if (url) videoURLs[k] = url;
+    }
+    if (url) {
       marco.classList.add("reproduciendo");
-      marco.innerHTML = `<video class="hist-video-el" src="${videoURLs[k]}" controls loop playsinline></video>`;
+      marco.innerHTML = `<video class="hist-video-el" src="${url}" controls loop playsinline></video>`;
       const v = marco.querySelector("video");
       v.volume = 1;
       v.play().catch(() => {});
     } else {
-      toastVivo("Elige el archivo una vez y podrás verlo con sonido");
+      toastVivo("Elige el archivo una vez y quedará guardado para reproducirlo siempre");
       videoPickTarget = k;
       videoPicker.value = "";
       videoPicker.click();
