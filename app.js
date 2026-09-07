@@ -3154,13 +3154,11 @@ function openHistoria(iso, mk, txt, medioVista) {
       : `
       <p class="pub-nota">El video (MP4/MOV vertical, máx. 60 s) va en la carpeta <b>Videos Contenido Hub</b> del escritorio del Mac. Se publica tal cual, sin nada encima.</p>
       <div class="hist-prog-grid">
-        <div class="hist-img-prev hist-video-prev ${pr && (pr.video || pr.poster) ? "" : "vacia"}">
-          ${videoURLs[k]
-            ? `<video class="hist-video-el" src="${videoURLs[k]}" autoplay muted loop playsinline controls></video>`
-            : pr && pr.poster
-            ? `<img src="${pr.poster}" alt=""><span class="hist-play hs-play-centro">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>`
-            : pr && pr.video
-            ? `<span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span><span class="hist-video-nombre">${esc(pr.video)}</span>`
+        <div class="hist-img-prev hist-video-prev ${pr && (pr.video || pr.poster) ? "" : "vacia"}" id="histVideoMarco">
+          ${pr && (pr.video || pr.poster)
+            ? `${pr.poster ? `<img src="${pr.poster}" alt="">` : `<span class="hist-video-nombre">${esc(pr.video || "")}</span>`}
+               <button class="hist-play hs-play-centro" id="histPlay" title="Reproducir con sonido" aria-label="Reproducir con sonido">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</button>
+               <span class="hist-play-hint">Toca para verlo con sonido</span>`
             : `<span>MP4<br>9:16</span>`}
         </div>
         <div class="hist-prog-campos">
@@ -3202,6 +3200,25 @@ function openHistoria(iso, mk, txt, medioVista) {
   if (bQI) bQI.onclick = () => { progDe(k).img = null; marcarPendiente(); save(); renderHistorias(); openHistoria(iso, mk, txt, "imagen"); };
   const bVid = drawer.querySelector("#histElegirVideo");
   if (bVid) bVid.onclick = () => { videoPickTarget = k; videoPicker.value = ""; videoPicker.click(); };
+  // Play = previsualizar CON SONIDO (confirmar el audio antes de programar).
+  // El navegador solo recuerda el archivo dentro de la misma sesión: si la
+  // página se recargó, pide elegirlo una vez y de ahí en adelante reproduce.
+  const bPlay = drawer.querySelector("#histPlay");
+  if (bPlay) bPlay.onclick = () => {
+    const marco = drawer.querySelector("#histVideoMarco");
+    if (videoURLs[k]) {
+      marco.classList.add("reproduciendo");
+      marco.innerHTML = `<video class="hist-video-el" src="${videoURLs[k]}" controls loop playsinline></video>`;
+      const v = marco.querySelector("video");
+      v.volume = 1;
+      v.play().catch(() => {});
+    } else {
+      toastVivo("Elige el archivo una vez y podrás verlo con sonido");
+      videoPickTarget = k;
+      videoPicker.value = "";
+      videoPicker.click();
+    }
+  };
   const inVid = drawer.querySelector("#histVideoNombre");
   if (inVid) inVid.onchange = () => {
     const pr2 = progDe(k);
