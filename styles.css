@@ -1341,6 +1341,8 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 .hist-medio { max-width: 250px; margin-bottom: 12px; }
 .hist-fecha-hora { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .hist-fecha-hora > div { display: flex; flex-direction: column; gap: 4px; }
+.hist-guardar { width: 100%; margin-top: 12px; }
+.hist-guardar:disabled { opacity: .55; cursor: default; transform: none; box-shadow: none; }
 .hist-acciones { display: flex; gap: 18px; margin-top: 10px; }
 .hist-acciones #histQuitarDia { color: #F2B4AA; }
 .hist-video-prev { position: relative; width: 126px; overflow: hidden; }

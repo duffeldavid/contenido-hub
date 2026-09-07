@@ -3238,9 +3238,10 @@ function openHistoria(iso, mk, txt, medioVista) {
 
       <p class="${lista ? "hist-estado-ok" : "pub-aviso"}" style="margin-top:12px">
         ${lista
-          ? `Lista: sale sola el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"}. Recuerda <b>Guardar cambios</b>.`
+          ? `Lista: sale sola el ${dia.toLowerCase()} ${num} a las ${(pr && pr.hora) || "12:00"}.`
           : `Sube la imagen o elige el video y quedará programada.`}
       </p>
+      <button class="btn-primary hist-guardar" id="histGuardar" ${store.pendientePub ? "" : "disabled"}>${store.pendientePub ? "Guardar cambios" : "Todo guardado"}</button>
       <div class="hist-acciones">
         <button class="link-btn" id="histQuitarDia">Quitar de este día</button>
         ${pr ? `<button class="link-btn" id="histQuitarProg">Quitar programación</button>` : ""}
@@ -3321,6 +3322,15 @@ function openHistoria(iso, mk, txt, medioVista) {
   };
   const bQD = drawer.querySelector("#histQuitarDia");
   if (bQD) bQD.onclick = () => { quitarHistoria(k); closeDrawer(); toastVivo("Historia quitada del día"); };
+  // Guardar cambios sin salir de la hoja (mismo efecto que el botón flotante)
+  const bG = drawer.querySelector("#histGuardar");
+  if (bG) bG.onclick = async () => {
+    bG.disabled = true;
+    bG.textContent = "Guardando…";
+    await publicarCambios();
+    bG.textContent = store.pendientePub ? "Guardar cambios" : "Guardado ✓";
+    bG.disabled = !store.pendientePub;
+  };
   drawer.querySelectorAll("#histRed button").forEach(b => {
     b.onclick = () => {
       progDe(k).red = b.dataset.red;
