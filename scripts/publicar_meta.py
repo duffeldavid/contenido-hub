@@ -112,37 +112,40 @@ def emitir_estado(pieza_id, valor):
         pass
 
 
-def asegurar_portada_publica(pieza_id, data_uri):
-    """Escribe portadas/<id>.jpg en el repo y devuelve su URL pública."""
+def asegurar_img_publica(rel, data_uri, motivo):
+    """Escribe la imagen en el repo (ruta relativa) y devuelve su URL pública."""
     if not data_uri or "," not in data_uri:
         return None
     datos = base64.b64decode(data_uri.split(",", 1)[1])
-    carpeta = os.path.join(REPO, "portadas")
-    os.makedirs(carpeta, exist_ok=True)
-    ruta = os.path.join(carpeta, f"{pieza_id}.jpg")
+    ruta = os.path.join(REPO, rel)
+    os.makedirs(os.path.dirname(ruta), exist_ok=True)
     firma = hashlib.sha1(datos).hexdigest()
     ya = os.path.exists(ruta) and hashlib.sha1(open(ruta, "rb").read()).hexdigest() == firma
     if not ya:
         with open(ruta, "wb") as f:
             f.write(datos)
         git("add", ruta)
-        r = git("commit", "-m", f"Portada pública para publicación automática ({pieza_id})\n\n"
+        r = git("commit", "-m", f"Imagen pública para publicación automática ({motivo})\n\n"
                 "Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>")
         if r.returncode == 0:
             git("push", "origin", "main")
             git("push", "origin", "main:gh-pages")
-    url = f"{PAGES_BASE}/portadas/{pieza_id}.jpg"
+    url = f"{PAGES_BASE}/{rel}?v={firma[:8]}"
     # Esperar a que GitHub Pages la sirva (despliegue ~1 min)
     for _ in range(10):
         try:
-            req = urllib.request.Request(url + f"?v={firma[:8]}", method="HEAD")
+            req = urllib.request.Request(url, method="HEAD")
             with urllib.request.urlopen(req, timeout=20) as r:
                 if r.status == 200:
-                    return url + f"?v={firma[:8]}"
+                    return url
         except Exception:
             pass
         time.sleep(15)
     return None  # aún no está: se reintenta el próximo ciclo
+
+
+def asegurar_portada_publica(pieza_id, data_uri):
+    return asegurar_img_publica(f"portadas/{pieza_id}.jpg", data_uri, pieza_id)
 
 
 def publicar_facebook(pagina, entrada, url_portada, t_pub, ahora):
@@ -194,6 +197,123 @@ def publicar_instagram(pagina, entrada, url_portada):
     return pub.get("id"), None
 
 
+def esperar_contenedor(ig_token, creation_id):
+    for _ in range(12):
+        st, err = api("GET", str(creation_id), ig_token, fields="status_code")
+        if err:
+            return err
+        if st.get("status_code") == "FINISHED":
+            return None
+        if st.get("status_code") == "ERROR":
+            return "Meta no pudo procesar la imagen"
+        time.sleep(5)
+    return None  # a veces publica bien aunque el estado tarde
+
+
+def publicar_story_ig(pagina, url_img):
+    """Historia de Instagram: la imagen tal cual, sin stickers ni texto."""
+    ig = pagina.get("ig_id")
+    if not ig:
+        return None, "la página no tiene Instagram vinculado"
+    token = pagina["page_token"]
+    cont, err = api("POST", f"{ig}/media", token, image_url=url_img, media_type="STORIES")
+    if err:
+        return None, err
+    err = esperar_contenedor(token, cont["id"])
+    if err:
+        return None, err
+    pub, err = api("POST", f"{ig}/media_publish", token, creation_id=cont["id"])
+    if err:
+        return None, err
+    return pub.get("id"), None
+
+
+def publicar_story_fb(pagina, url_img):
+    """Historia de la página de Facebook (foto sin publicar → photo_stories)."""
+    token = pagina["page_token"]
+    foto, err = api("POST", f"{pagina['page_id']}/photos", token, url=url_img, published="false")
+    if err:
+        return None, err
+    st, err = api("POST", f"{pagina['page_id']}/photo_stories", token, photo_id=foto["id"])
+    if err:
+        return None, err
+    return st.get("post_id") or st.get("id"), None
+
+
+def emitir_historia(k):
+    """La plataforma marca la historia como publicada al recibir esto."""
+    try:
+        cuerpo = json.dumps({"tipo": "historia", "k": k, "autor": "Meta", "ts": int(time.time() * 1000)})
+        urllib.request.urlopen(
+            urllib.request.Request(NTFY_DATOS, data=cuerpo.encode()), timeout=15)
+    except Exception:
+        pass
+
+
+def procesar_historias(config, estado, ledger, ahora):
+    """Publica las historias programadas (IG y FB no permiten agendarlas:
+    salen a la hora exacta, o al despertar el Mac)."""
+    cola = (estado.get("historias") or {}).get("prog") or {}
+    for k, entrada in cola.items():
+        if not entrada.get("auto") or not entrada.get("img"):
+            continue
+        fecha, resto = k[:10], k[11:]
+        if "|" not in resto:
+            continue
+        marca, texto = resto.split("|", 1)
+        pagina = (config.get("pages") or {}).get(marca)
+        if not pagina:
+            continue
+        try:
+            dt = datetime.strptime(f"{fecha} {entrada.get('hora', '12:00')}", "%Y-%m-%d %H:%M")
+            t_pub = int(dt.replace(tzinfo=TZ).timestamp())
+        except Exception:
+            continue
+        if ahora < t_pub:
+            continue
+        if ahora - t_pub > 20 * 3600:
+            continue  # más de 20 h tarde: ya no tiene sentido publicarla
+        reg = ledger.setdefault("hist:" + k, {})
+        if reg.get("errores", 0) >= MAX_REINTENTOS or reg.get("avisado"):
+            continue
+        redes = {"ig": ["ig"], "fb": ["fb"], "ambas": ["ig", "fb"]}.get(entrada.get("red", "ambas"), ["ig", "fb"])
+        firma = hashlib.sha1(entrada["img"].encode()).hexdigest()[:16]
+        url_img = asegurar_img_publica(f"historias/{firma}.jpg", entrada["img"], "historia")
+        titulo = (texto.split(" ", 1)[-1] if " " in texto else texto)[:70]
+        if not url_img:
+            log(f"historia «{titulo}»: imagen pública pendiente; reintento próximo ciclo")
+            continue
+        error = None
+        if "ig" in redes and not reg.get("ig_id"):
+            ig_id, error = publicar_story_ig(pagina, url_img)
+            if ig_id:
+                reg["ig_id"] = ig_id
+                log(f"historia IG al aire: {titulo}")
+        if not error and "fb" in redes and not reg.get("fb_id"):
+            fb_id, error = publicar_story_fb(pagina, url_img)
+            if fb_id:
+                reg["fb_id"] = fb_id
+                log(f"historia FB al aire: {titulo}")
+        if error:
+            reg["errores"] = reg.get("errores", 0) + 1
+            log(f"historia ERROR: {error}")
+            if reg["errores"] in (1, MAX_REINTENTOS):
+                avisar("⚠️ Historia automática con problemas",
+                       f"«{titulo}»: {error}"
+                       + (" — no se reintentará más." if reg["errores"] >= MAX_REINTENTOS else ""),
+                       "warning")
+            continue
+        ig_ok = "ig" not in redes or reg.get("ig_id")
+        fb_ok = "fb" not in redes or reg.get("fb_id")
+        if ig_ok and fb_ok:
+            reg["avisado"] = True
+            emitir_historia(k)
+            tarde = ahora - t_pub > 900
+            avisar("📲 Historia publicada",
+                   f"«{titulo}» ya está al aire ({marca})"
+                   + (" — salió atrasada: el Mac estaba dormido" if tarde else ""), "tada")
+
+
 def verificar(config):
     print("Verificando conexión con Meta (no se publica nada):")
     ok = True
@@ -222,7 +342,8 @@ def main():
     git("pull", "--ff-only", "origin", "main")
     estado = cargar(os.path.join(REPO, "estado.json"), {})
     cola = estado.get("meta") or {}
-    if not cola:
+    hist = (estado.get("historias") or {}).get("prog") or {}
+    if not cola and not hist:
         log("cola vacía")
         return
     portadas = estado.get("portadas") or {}
@@ -305,6 +426,7 @@ def main():
             reg["avisado"] = True
             emitir_estado(pieza_id, "Publicado")
 
+    procesar_historias(config, estado, ledger, ahora)
     guardar_ledger(ledger)
 
 

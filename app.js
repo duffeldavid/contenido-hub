@@ -203,6 +203,12 @@ function aplicarEventoCliente(linea, enVivo) {
       store.estados[d.id] = d.v;
       return true;
     }
+    // El trabajador de Meta publicó una historia: se marca sola como hecha
+    if (d.tipo === "historia" && d.k) {
+      historiasStore().hechas[d.k] = true;
+      if (enVivo && !MODO_CLIENTE) toastVivo("📲 Historia publicada automáticamente");
+      return true;
+    }
     if (d.tipo !== "aprob") return false;
     if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado entre sesiones
     const autor = d.autor || AUTOR_CLIENTE;
@@ -344,22 +350,31 @@ function enviarEstadoNtfy(cuerpo) {
   return fetch(NTFY_DATOS, { method: "PUT", headers: { "Filename": "estado-hub.json" }, body: cuerpo })
     .then(r => { if (!r.ok) throw 0; return r.json(); });
 }
-// Si el estado supera el límite de adjuntos (~2MB), se reencogen las portadas
-function reducirPortadas(maxH = 520, calidad = 0.66) {
-  const ids = Object.keys(store.portadas);
-  return Promise.all(ids.map(id => new Promise(res => {
+// Si el estado supera el límite de adjuntos (~2MB), se reencogen las imágenes
+function reducirDataUri(uri, maxH, calidad) {
+  return new Promise(res => {
     const img = new Image();
     img.onload = () => {
       const f = Math.min(1, maxH / img.height);
       const c = document.createElement("canvas");
       c.width = Math.round(img.width * f); c.height = Math.round(img.height * f);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
-      store.portadas[id] = c.toDataURL("image/jpeg", calidad);
-      res();
+      res(c.toDataURL("image/jpeg", calidad));
     };
-    img.onerror = () => res();
-    img.src = store.portadas[id];
-  }))).then(() => save());
+    img.onerror = () => res(uri);
+    img.src = uri;
+  });
+}
+function reducirPortadas(maxH = 520, calidad = 0.66) {
+  const tareas = Object.keys(store.portadas).map(id =>
+    reducirDataUri(store.portadas[id], maxH, calidad).then(u => { store.portadas[id] = u; }));
+  // las imágenes de historias programadas se reducen menos (deben verse bien a 9:16)
+  const prog = (store.historias && store.historias.prog) || {};
+  for (const k of Object.keys(prog)) {
+    if (prog[k] && prog[k].img) tareas.push(
+      reducirDataUri(prog[k].img, 1080, 0.62).then(u => { prog[k].img = u; }));
+  }
+  return Promise.all(tareas).then(() => save());
 }
 async function publicarCambios() {
   if (EN_ARTIFACT) {
@@ -701,7 +716,9 @@ function renderHero() {
 }
 
 // ---------- Vista: Calendario ----------
-let calModo = "semanas"; // "semanas" | "dias" (columnas Lunes · Miércoles · Viernes)
+// El planificador (cuadrícula del mes estilo Meta Business) es la primera pantalla
+let calModo = MODO_CLIENTE ? "semanas" : "mes"; // "mes" | "semanas" | "dias" | "flujo"
+let calFiltro = "todas"; // "todas" | "aprobadas" | "programadas"
 
 function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
   const { dia, num } = fmtFecha(f);
@@ -721,12 +738,25 @@ function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
     </div>`;
 }
 
-// Chip compacto (estilo Google Calendar) para la vista Organizar mes
+// Tarjeta de publicación para el planificador (estilo Meta Business Suite):
+// miniatura + hora + punto de estado + título. Arrastrable entre días.
 function chipPieza(p) {
+  const est = estadoDe(p);
+  const ap = aprobDe(p).v;
+  const img = portadaDe(p) || IMG((p.fotos || [])[0] || "");
+  const auto = metaDe(p) && metaDe(p).auto;
   return `
-    <div class="chip-pieza" draggable="true" data-id="${p.id}" title="${esc(tituloDe(p))}"
+    <div class="chip-pieza" draggable="true" data-id="${p.id}" title="${esc(tituloDe(p))} · ${est}"
          style="--brand-color:${brandColor(p)}">
-      <span class="cp-txt">${esc(tituloDe(p))}</span>
+      ${img ? `<span class="cp-thumb"><img src="${img}" alt="" loading="lazy"></span>` : `<span class="cp-thumb cp-vacia">${FORMATO_ICONO[p.formato] || "🎬"}</span>`}
+      <span class="cp-cuerpo">
+        <span class="cp-meta">
+          <span class="cp-dot ${ESTADO_CLASS[est]}"></span>${horaDe(p)}
+          ${auto ? `<span class="cp-auto">Auto</span>` : ""}
+          ${ap === "Aprobado" ? `<span class="cp-ok">✓</span>` : ""}
+        </span>
+        <span class="cp-txt">${esc(tituloDe(p))}</span>
+      </span>
     </div>`;
 }
 
@@ -742,19 +772,31 @@ function renderCalendario() {
   // David haya movido un contenido desde Organizar mes.
   const fechasConPiezas = [...new Set([...FECHAS_MES, ...Object.keys(porFecha)])].sort();
 
+  const nAprob = piezas.filter(p => aprobDe(p).v === "Aprobado").length;
+  const nProg = piezas.filter(p => ["Programado", "Publicado"].includes(estadoDe(p)) || (metaDe(p) && metaDe(p).auto)).length;
+  const filtroFn = calFiltro === "aprobadas" ? (p => aprobDe(p).v === "Aprobado")
+    : calFiltro === "programadas" ? (p => ["Programado", "Publicado"].includes(estadoDe(p)) || (metaDe(p) && metaDe(p).auto))
+    : (() => true);
+
   let html = `
     <p class="view-note">${calModo === "mes"
-      ? `El mes completo, con festivos y celebraciones de Colombia. <b>Arrastra cada contenido al día real</b> en que se publicará — las demás vistas se actualizan solas (en el celular usa el selector de fecha dentro de la pieza).`
+      ? `Tu mes como en Meta Business: cada tarjeta trae <b>portada, hora y estado</b> (el punto de color) — con festivos y celebraciones de Colombia. <b>Arrastra para cambiar de día</b> y <b>toca una pieza lista para abrir su programación</b>.`
       : calModo === "flujo"
       ? `Tu tablero de trabajo: <b>arrastra cada contenido entre columnas</b> según avanza — de aprobado a creado, programado y publicado. Al soltar una pieza en <b>Programados</b> se abre la hoja para dejarla lista para Meta Business Suite.`
       : `Toca una pieza para ver copy, checklist, portada y referencias. <b>Arrástrala a otro día</b> para reacomodar el mes (en el celular usa el selector de fecha dentro de la pieza).`}</p>
     <div class="cal-barra">
       <div class="cal-toggle">
-        <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Por semanas</button>
-        <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">Lunes · Miércoles · Viernes</button>
-        <button data-m="mes" class="${calModo === "mes" ? "active" : ""}">🗓 Organizar mes</button>
-        ${MODO_CLIENTE ? "" : `<button data-m="flujo" class="${calModo === "flujo" ? "active" : ""}">🧩 Flujo</button>`}
+        ${MODO_CLIENTE ? "" : `<button data-m="mes" class="${calModo === "mes" ? "active" : ""}">Planificador</button>`}
+        <button data-m="semanas" class="${calModo === "semanas" ? "active" : ""}">Semanas</button>
+        <button data-m="dias" class="${calModo === "dias" ? "active" : ""}">L · M · V</button>
+        ${MODO_CLIENTE ? "" : `<button data-m="flujo" class="${calModo === "flujo" ? "active" : ""}">Flujo</button>`}
       </div>
+      ${calModo === "mes" && !MODO_CLIENTE ? `
+      <div class="cal-toggle cal-filtros">
+        <button data-f="todas" class="${calFiltro === "todas" ? "active" : ""}">Todas (${piezas.length})</button>
+        <button data-f="aprobadas" class="${calFiltro === "aprobadas" ? "active" : ""}">✓ Aprobadas (${nAprob})</button>
+        <button data-f="programadas" class="${calFiltro === "programadas" ? "active" : ""}">Programadas (${nProg})</button>
+      </div>` : ""}
       ${!MODO_CLIENTE && Object.keys(store.ocultas).length ? `<button class="btn-restaurar" id="btnQuitados">↩ Quitados (${Object.keys(store.ocultas).length})</button>` : ""}
     </div>`;
 
@@ -771,7 +813,7 @@ function renderCalendario() {
     for (let i = 0; i < offset; i++) html += `<div class="mes-celda vacia"></div>`;
     dias.forEach(f => {
       const fest = FESTIVOS_CO[f];
-      const grupo = (porFecha[f] || []).sort(porOrden);
+      const grupo = (porFecha[f] || []).filter(filtroFn).sort(porOrden);
       const col = (offset + Number(f.slice(8)) - 1) % 7;
       html += `
         <div class="mes-celda cal-day ${f === hoy ? "hoy" : ""} ${col >= 5 ? "finde" : ""} ${fest ? "con-" + fest.t : ""}" data-fecha="${f}">
@@ -823,8 +865,11 @@ function renderCalendario() {
     }
   }
   el.innerHTML = html;
-  el.querySelectorAll(".cal-toggle button").forEach(b => {
+  el.querySelectorAll(".cal-toggle button[data-m]").forEach(b => {
     b.onclick = () => { calModo = b.dataset.m; renderCalendario(); };
+  });
+  el.querySelectorAll(".cal-filtros button[data-f]").forEach(b => {
+    b.onclick = () => { calFiltro = b.dataset.f; renderCalendario(); };
   });
   const bq = el.querySelector("#btnQuitados");
   if (bq) bq.onclick = abrirQuitados;
@@ -1533,16 +1578,36 @@ fileInput.accept = "image/*";
 fileInput.hidden = true;
 document.body.appendChild(fileInput);
 let portadaTarget = null;
+let histImgTarget = null; // clave de historia esperando imagen
 
 function pedirPortada(id) {
   portadaTarget = id;
+  histImgTarget = null;
+  fileInput.value = "";
+  fileInput.click();
+}
+function pedirImgHistoria(k) {
+  histImgTarget = k;
+  portadaTarget = null;
   fileInput.value = "";
   fileInput.click();
 }
 fileInput.onchange = async () => {
   const file = fileInput.files[0];
-  if (!file || !portadaTarget) return;
+  if (!file) return;
   try {
+    if (histImgTarget) {
+      // Imagen final de una historia (vertical 9:16): se publica tal cual
+      const uri = await comprimirImagen(file, 1350, 0.72);
+      const h = historiasStore();
+      if (h.prog[histImgTarget]) h.prog[histImgTarget].img = uri;
+      marcarPendiente();
+      save();
+      renderHistorias();
+      abrirHistoriaClave(histImgTarget);
+      return;
+    }
+    if (!portadaTarget) return;
     const uri = await comprimirImagen(file);
     store.portadas[portadaTarget] = uri;
     marcarPendiente();
@@ -1555,7 +1620,7 @@ fileInput.onchange = async () => {
     alert("No se pudo procesar la imagen. Intenta con otra foto.");
   }
 };
-function comprimirImagen(file, maxH = 640) {
+function comprimirImagen(file, maxH = 640, calidad = 0.74) {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
@@ -1565,7 +1630,7 @@ function comprimirImagen(file, maxH = 640) {
       c.width = w; c.height = h;
       c.getContext("2d").drawImage(img, 0, 0, w, h);
       URL.revokeObjectURL(img.src);
-      resolve(c.toDataURL("image/jpeg", 0.74));
+      resolve(c.toDataURL("image/jpeg", calidad));
     };
     img.onerror = reject;
     img.src = URL.createObjectURL(file);
@@ -2092,7 +2157,14 @@ document.getElementById("main").addEventListener("click", e => {
   const q = e.target.closest("[data-quitar]");
   if (q) { e.stopPropagation(); quitarPieza(q.dataset.quitar); return; }
   const card = e.target.closest(".piece, .cell, .chip-pieza, .flujo-item");
-  if (card) openDrawer(card.dataset.id);
+  if (!card) return;
+  // En el planificador, tocar una pieza lista/programada abre directo su programación
+  const pieza = PIEZAS.find(x => x.id === card.dataset.id);
+  if (!MODO_CLIENTE && card.classList.contains("chip-pieza") && pieza && ["Listo", "Programado", "Publicado"].includes(estadoDe(pieza))) {
+    openPublicar(pieza.id);
+  } else {
+    openDrawer(card.dataset.id);
+  }
 });
 
 // ---------- Navegación (gestos estilo iOS entre secciones) ----------
@@ -2680,6 +2752,7 @@ function historiasStore() {
       hechas: {}, extras: {},
     };
   }
+  if (!store.historias.prog) store.historias.prog = {}; // historias programadas por API
   return store.historias;
 }
 let histSemana = 0; // desplazamiento de semanas respecto a la actual
@@ -2709,6 +2782,40 @@ function rachaDe(marca) {
   }
   return racha;
 }
+// Íconos de línea por tipo de historia. El símbolo al inicio del texto
+// guardado define el tipo — en pantalla se muestra el ícono, nunca el emoji.
+const HIST_ICONOS = {
+  "☀": ["#D9930D", '<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M19.1 4.9 17 7M7 17l-2.1 2.1"/>'],
+  "🎬": ["#7A5CB8", '<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3z"/>'],
+  "🔁": ["#4C8BC2", '<path d="m17 2.5 4 4-4 4"/><path d="M3 11V9.5a3 3 0 0 1 3-3h15"/><path d="m7 21.5-4-4 4-4"/><path d="M21 13v1.5a3 3 0 0 1-3 3H3"/>'],
+  "📊": ["#3F9459", '<path d="M4 20h16"/><path d="M7 20v-6M12 20V7M17 20v-9"/>'],
+  "🛍": ["#B07A28", '<path d="M11.6 3H5a2 2 0 0 0-2 2v6.6a2 2 0 0 0 .6 1.4l7.4 7.4a2 2 0 0 0 2.8 0l6.6-6.6a2 2 0 0 0 0-2.8L13 3.6A2 2 0 0 0 11.6 3z"/><circle cx="8" cy="8" r="1.3"/>'],
+  "👥": ["#2E8C8C", '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.4-5.4 6.5-5.4s5.7 2 6.5 5.4"/><circle cx="17.2" cy="9" r="2.7"/><path d="M16.8 14.7c2.5.4 4.2 2.1 4.7 5.3"/>'],
+  "❓": ["#C25B4C", '<circle cx="12" cy="12" r="9.2"/><path d="M9.4 9.1a2.8 2.8 0 1 1 5 1.9c-.8.9-2.4 1.4-2.4 2.9"/><path d="M12 17.2v.01"/>'],
+  "🎵": ["#B84C82", '<path d="M9 18V5.5L20 3.5V16"/><circle cx="6.4" cy="18" r="2.6"/><circle cx="17.4" cy="16" r="2.6"/>'],
+  "⏳": ["#8A5A2B", '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>'],
+  "🆚": ["#4C8BC2", '<path d="M12 3v18"/><rect x="2.5" y="7" width="6.5" height="10" rx="2"/><rect x="15" y="7" width="6.5" height="10" rx="2"/>'],
+  "📦": ["#6B5CB8", '<path d="M21 8 12 3 3 8v8l9 5 9-5V8z"/><path d="m3 8 9 5 9-5M12 13v8"/>'],
+  "🙋": ["#2E8C8C", '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.4 3.4-5.4 6.5-5.4s5.7 2 6.5 5.4"/><path d="M17.5 11V4.5M17.5 4.5 15 7M17.5 4.5 20 7"/>'],
+};
+const HIST_DEFECTO = ["#B07A28", '<path d="M12 3.5 13.9 9l5.6 1.9-5.6 1.9L12 18.5l-1.9-5.7-5.6-1.9L10.1 9 12 3.5z"/>'];
+function tipoHistoria(txt) {
+  const limpio = String(txt).replace(/️/g, "");
+  for (const emo of Object.keys(HIST_ICONOS)) {
+    if (limpio.startsWith(emo)) {
+      const esp = txt.indexOf(" ");
+      return { color: HIST_ICONOS[emo][0], svg: HIST_ICONOS[emo][1], resto: esp > 0 ? txt.slice(esp + 1) : txt };
+    }
+  }
+  return { color: HIST_DEFECTO[0], svg: HIST_DEFECTO[1], resto: txt };
+}
+function iconoHist(svg, color, clase = "hist-ic") {
+  return `<svg class="${clase}" viewBox="0 0 24 24" style="--tc:${color}" aria-hidden="true">${svg}</svg>`;
+}
+const SVG_LLAMA = '<path d="M12 21.5c-3.9 0-6.7-2.6-6.7-6.2 0-2.5 1.4-4.4 2.9-6.2 1.1-1.4 2.3-2.9 2.9-4.8 2.4 1.9 2.9 4.3 2.4 6.2 1-.4 1.9-1.2 2.4-2.4 1.8 1.9 2.8 4.1 2.8 6.6 0 3.6-2.8 6.8-6.7 6.8z"/>';
+const SVG_LAPIZ = '<path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/>';
+const SVG_CHECK = '<path d="M5.5 12.5l4.2 4.2L18.5 8"/>';
+
 function renderHistorias() {
   const el = document.getElementById("view-historias");
   if (!el || MODO_CLIENTE) return;
@@ -2717,21 +2824,31 @@ function renderHistorias() {
   const lunes = lunesDe(histSemana);
   const hoy = hoyISO();
   const marcas = marcaActiva === "todas" ? ["forestal", "manzanares"] : [marcaActiva];
-  const nombresDia = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"];
   const fechas = Array.from({ length: 7 }, (_, i) => { const d = new Date(lunes); d.setDate(lunes.getDate() + i); return d; });
-  const rango = `${fechas[0].getDate()} ${["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][fechas[0].getMonth()]} – ${fechas[6].getDate()} ${["ene","feb","mar","abr","may","jun","jul","ago","sep","oct","nov","dic"][fechas[6].getMonth()]}`;
+  const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+  const rango = `${fechas[0].getDate()} ${MESES[fechas[0].getMonth()]} – ${fechas[6].getDate()} ${MESES[fechas[6].getMonth()]}`;
+  const nombreCorto = { forestal: "Forestal", manzanares: "Manzanares" };
 
   let html = `
-    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. Marca cada historia al publicarla desde el celular — la racha cuenta los días seguidos con al menos una historia al aire.</p>
+    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. <b>Toca una historia para programarla</b> — subes la imagen final, eliges hora y redes, y sale sola por la API (sin stickers ni nada que la haga fallar). El círculo la marca publicada a mano; la racha cuenta los días seguidos al aire.</p>
     <div class="hist-barra">
       <div class="hist-nav">
         <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">‹</button>
-        <span class="hist-rango">${histSemana === 0 ? "Esta semana" : histSemana === 1 ? "Próxima semana" : histSemana === -1 ? "Semana pasada" : rango} · <span class="hist-rango-fechas">${rango}</span></span>
+        <div class="hist-titulo">
+          <span class="hist-rango">${histSemana === 0 ? "Esta semana" : histSemana === 1 ? "Próxima semana" : histSemana === -1 ? "Semana pasada" : "Semana"}</span>
+          <span class="hist-rango-fechas">${rango}</span>
+        </div>
         <button class="hist-flecha" id="histDespues" aria-label="Semana siguiente">›</button>
       </div>
       <div class="hist-rachas">
-        ${marcas.map(mk => `<span class="hist-racha" style="--brand-color:${MARCAS[mk].color}">🔥 ${MARCAS[mk].nombre}: <b>${rachaDe(mk)}</b> día${rachaDe(mk) === 1 ? "" : "s"} seguidos</span>`).join("")}
-        <button class="btn-restaurar" id="histEditar">✏️ Editar plan semanal</button>
+        ${marcas.map(mk => {
+          const r = rachaDe(mk);
+          return `<span class="hist-racha ${r > 0 ? "viva" : ""}" style="--brand-color:${MARCAS[mk].color}">
+            ${iconoHist(SVG_LLAMA, MARCAS[mk].color, "hist-ic hist-llama")}
+            <b>${r}</b><span class="hist-racha-lbl">día${r === 1 ? "" : "s"} · ${nombreCorto[mk]}</span>
+          </span>`;
+        }).join("")}
+        <button class="btn-restaurar hist-btn-plan" id="histEditar">${iconoHist(SVG_LAPIZ, "#fff")} Plan semanal</button>
       </div>
     </div>`;
 
@@ -2742,7 +2859,13 @@ function renderHistorias() {
       <div class="hist-marca" style="--brand-color:${m.color}">
         <div class="hist-marca-head">
           <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${mk === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"}">${m.nombre} · ${m.handle}</span>
-          <span class="hist-cobertura">${diasCubiertos}/7 días con historias esta semana</span>
+          <div class="hist-semaforo" title="${diasCubiertos}/7 días con historias">
+            ${fechas.map((d, i) => {
+              const cubierto = historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)]);
+              return `<span class="hist-punto ${cubierto ? "on" : ""} ${isoDe(d) === hoy ? "hoy" : ""}"></span>`;
+            }).join("")}
+            <span class="hist-cobertura">${diasCubiertos}/7 días</span>
+          </div>
         </div>
         <div class="hist-grid">
           ${fechas.map((d, i) => {
@@ -2751,23 +2874,35 @@ function renderHistorias() {
             const hechasDia = items.filter(it => h.hechas[histKey(iso, mk, it.txt)]).length;
             const esHoy = iso === hoy;
             const pasado = iso < hoy;
+            const completo = items.length && hechasDia >= items.length;
+            const apagado = pasado && !hechasDia && items.length;
             return `
-              <div class="hist-dia ${esHoy ? "hoy" : ""} ${pasado && !hechasDia && items.length ? "apagado" : ""}">
+              <div class="hist-dia ${esHoy ? "hoy" : ""} ${completo ? "completo" : ""} ${apagado ? "apagado" : ""}">
                 <div class="hist-dia-head">
-                  <span class="hist-dia-nombre">${nombresDia[i].slice(0, 3)} ${d.getDate()}</span>
-                  ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
-                  <span class="hist-dia-n ${items.length && hechasDia >= items.length ? "full" : ""}">${hechasDia}/${items.length}</span>
+                  <span class="hist-dow">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][i]}</span>
+                  <span class="hist-numdia ${esHoy ? "hoy" : ""}">${d.getDate()}</span>
+                  <span class="hist-estado">
+                    ${completo
+                      ? `<span class="hist-listo">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>`
+                      : apagado
+                      ? `<span class="hist-alerta">sin historias</span>`
+                      : `<span class="hist-conteo">${hechasDia}/${items.length}</span>`}
+                  </span>
                 </div>
                 ${items.map(it => {
                   const k = histKey(iso, mk, it.txt);
+                  const t = tipoHistoria(it.txt);
+                  const pr = h.prog[k];
                   return `
-                  <label class="hist-item ${h.hechas[k] ? "hecha" : ""}">
-                    <input type="checkbox" data-hist="${esc(k)}" ${h.hechas[k] ? "checked" : ""}>
-                    <span>${esc(it.txt)}</span>
-                    ${it.extra ? `<button class="hist-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar">✕</button>` : ""}
-                  </label>`;
+                  <div class="hist-item ${h.hechas[k] ? "hecha" : ""}" data-hist="${esc(k)}" role="button" tabindex="0">
+                    <span class="hist-badge" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
+                    <span class="hist-txt">${esc(t.resto)}</span>
+                    ${pr && pr.auto ? `<span class="hist-prog-chip ${pr.img ? "" : "falta"}" title="${pr.img ? "Programada automática" : "Falta la imagen"}">${pr.hora || "12:00"}</span>` : ""}
+                    ${it.extra ? `<button class="hist-quitar" data-quitar-extra="${esc(iso + "|" + mk)}" data-txt="${esc(it.txt)}" title="Quitar" aria-label="Quitar">✕</button>` : ""}
+                    <span class="hist-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
+                  </div>`;
                 }).join("")}
-                <button class="hist-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día">+</button>
+                <button class="hist-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día">＋</button>
               </div>`;
           }).join("")}
         </div>
@@ -2778,22 +2913,24 @@ function renderHistorias() {
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;
-  el.querySelectorAll("[data-hist]").forEach(cb => {
-    cb.onchange = () => {
-      if (cb.checked) h.hechas[cb.dataset.hist] = true; else delete h.hechas[cb.dataset.hist];
+  el.querySelectorAll(".hist-item").forEach(fila => {
+    const k = fila.dataset.hist;
+    const alternar = () => {
+      if (h.hechas[k]) delete h.hechas[k]; else h.hechas[k] = true;
       marcarPendiente(); save(); renderHistorias();
     };
+    // El círculo marca publicada; el resto de la tarjeta abre su programación
+    fila.onclick = e => {
+      if (e.target.closest(".hist-quitar")) return;
+      if (e.target.closest(".hist-check")) { alternar(); return; }
+      abrirHistoriaClave(k);
+    };
+    fila.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); alternar(); } };
   });
   el.querySelectorAll("[data-extra]").forEach(b => {
     b.onclick = () => {
       const [iso, mk] = b.dataset.extra.split("|");
-      const banco = IDEAS_HISTORIA[mk] || [];
-      const sugerencia = banco[Math.floor(Math.random() * banco.length)] || "";
-      const txt = prompt(`Historia extra para ${MARCAS[mk].nombre} el ${iso.slice(8)}/${iso.slice(5, 7)}\n💡 Idea: ${sugerencia}\n\nEscribe la historia (o deja la idea sugerida):`, sugerencia);
-      if (!txt || !txt.trim()) return;
-      const key = iso + "|" + mk;
-      (h.extras[key] = h.extras[key] || []).push(txt.trim());
-      marcarPendiente(); save(); renderHistorias();
+      abrirExtraHistoria(iso, mk);
     };
   });
   el.querySelectorAll("[data-quitar-extra]").forEach(b => {
@@ -2805,6 +2942,159 @@ function renderHistorias() {
       marcarPendiente(); save(); renderHistorias();
     };
   });
+}
+
+// ---------- Programar una historia por API (imagen tal cual, sin stickers) ----------
+function abrirHistoriaClave(k) {
+  const iso = k.slice(0, 10);
+  const resto = k.slice(11);
+  const sep = resto.indexOf("|");
+  openHistoria(iso, resto.slice(0, sep), resto.slice(sep + 1));
+}
+function openHistoria(iso, mk, txt) {
+  const h = historiasStore();
+  const k = histKey(iso, mk, txt);
+  const t = tipoHistoria(txt);
+  const pr = h.prog[k] || null;
+  const hecha = !!h.hechas[k];
+  const { dia, num } = fmtFecha(iso);
+  const m = MARCAS[mk];
+
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <div class="pro-drawer-top">
+      <span class="hist-badge hist-badge-grande" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
+      <div style="flex:1;min-width:0">
+        <h2 style="margin:0">${esc(t.resto)}</h2>
+        <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada ✓" : ""}</div>
+      </div>
+    </div>
+
+    <section class="pub-paso pub-auto" style="margin-top:18px">
+      <h4><span class="paso-num auto">A</span> Publicación automática</h4>
+      <p class="pub-nota">La historia sale <b>tal cual la imagen que subas</b> — sin stickers, sin texto de la app, sin música. Deja el diseño final en la imagen (1080×1920) y <b>nunca falla</b>. Recuerda Guardar cambios.</p>
+      <label class="auto-check">
+        <input type="checkbox" id="histAuto" ${pr && pr.auto ? "checked" : ""}>
+        <span>Programar esta historia</span>
+      </label>
+      <div id="histProgCampos" ${pr && pr.auto ? "" : "hidden"} style="margin-top:12px">
+        <div class="hist-prog-grid">
+          <div class="hist-img-prev ${pr && pr.img ? "" : "vacia"}" id="histImgPrev">
+            ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
+          </div>
+          <div class="hist-prog-campos">
+            <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
+            ${pr && pr.img ? `<button class="btn-ghost" id="histQuitarImg">Quitar imagen</button>` : `<p class="pub-aviso" style="margin:0">Sin imagen no se puede publicar.</p>`}
+            <label class="hist-lbl">Hora</label>
+            <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}">
+            <label class="hist-lbl">Dónde</label>
+            <div class="aprob-pills pub-redes" id="histRed">
+              ${["ig", "fb", "ambas"].map(r => `<button data-red="${r}" class="${((pr && pr.red) || "ambas") === r ? "sel" : ""}">${r === "ig" ? "Instagram" : r === "fb" ? "Facebook" : "Ambas"}</button>`).join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h4>¿La publicaste a mano?</h4>
+      <div class="aprob-pills">
+        <button id="histMarcar" class="${hecha ? "sel" : ""}" data-v="Aprobado">✓ Ya está al aire</button>
+      </div>
+    </section>`;
+
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+
+  const cbAuto = drawer.querySelector("#histAuto");
+  cbAuto.onchange = () => {
+    if (cbAuto.checked) {
+      h.prog[k] = h.prog[k] || { auto: true, red: "ambas", hora: "12:00", img: null };
+      h.prog[k].auto = true;
+    } else {
+      delete h.prog[k];
+    }
+    marcarPendiente(); save(); renderHistorias();
+    openHistoria(iso, mk, txt);
+  };
+  const bImg = drawer.querySelector("#histSubirImg");
+  if (bImg) bImg.onclick = () => { if (h.prog[k]) pedirImgHistoria(k); };
+  const bQ = drawer.querySelector("#histQuitarImg");
+  if (bQ) bQ.onclick = () => { if (h.prog[k]) { h.prog[k].img = null; marcarPendiente(); save(); renderHistorias(); openHistoria(iso, mk, txt); } };
+  const inHora = drawer.querySelector("#histHora");
+  if (inHora) inHora.onchange = () => { if (h.prog[k]) { h.prog[k].hora = inHora.value || "12:00"; marcarPendiente(); save(); renderHistorias(); } };
+  drawer.querySelectorAll("#histRed button").forEach(b => {
+    b.onclick = () => {
+      if (!h.prog[k]) return;
+      h.prog[k].red = b.dataset.red;
+      marcarPendiente(); save();
+      drawer.querySelectorAll("#histRed button").forEach(x => x.classList.toggle("sel", x === b));
+    };
+  });
+  drawer.querySelector("#histMarcar").onclick = () => {
+    if (h.hechas[k]) delete h.hechas[k]; else h.hechas[k] = true;
+    marcarPendiente(); save(); renderHistorias();
+    openHistoria(iso, mk, txt);
+  };
+}
+
+// Hoja para agregar una historia extra a un día (con ideas tocables)
+function abrirExtraHistoria(iso, mk) {
+  const h = historiasStore();
+  const { dia, num } = fmtFecha(iso);
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <h2>Historia extra</h2>
+    <div class="sub">${MARCAS[mk].nombre} · ${dia.toLowerCase()} ${num}</div>
+    <section>
+      <h4>¿Qué vas a subir?</h4>
+      <input id="extraTxt" class="edit-input" placeholder="Escribe la historia…" autocomplete="off">
+    </section>
+    <section>
+      <h4>O toca una idea</h4>
+      <div class="hist-ideas">
+        ${(IDEAS_HISTORIA[mk] || []).map(idea => {
+          const t = tipoHistoria(idea);
+          return `<button class="hist-idea" data-idea="${esc(idea)}">
+            <span class="hist-badge" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
+            <span>${esc(t.resto)}</span>
+          </button>`;
+        }).join("")}
+      </div>
+    </section>
+    <button class="btn-primary" id="extraAgregar" style="width:100%">Agregar al día</button>`;
+  if (!drawer.classList.contains("open")) posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  const input = drawer.querySelector("#extraTxt");
+  let elegida = null; // conserva el símbolo del tipo aunque en pantalla no se vea
+  drawer.querySelectorAll(".hist-idea").forEach(b => {
+    b.onclick = () => {
+      elegida = b.dataset.idea;
+      input.value = tipoHistoria(elegida).resto;
+      drawer.querySelectorAll(".hist-idea").forEach(x => x.classList.toggle("sel", x === b));
+    };
+  });
+  input.oninput = () => {
+    if (elegida && input.value.trim() !== tipoHistoria(elegida).resto) elegida = null;
+    drawer.querySelectorAll(".hist-idea").forEach(x => x.classList.remove("sel"));
+  };
+  const agregar = () => {
+    const txt = (elegida || input.value).trim();
+    if (!txt) { input.focus(); return; }
+    const key = iso + "|" + mk;
+    (h.extras[key] = h.extras[key] || []).push(txt);
+    marcarPendiente(); save();
+    closeDrawer();
+    renderHistorias();
+    toastVivo(`Historia agregada al ${num} · ${MARCAS[mk].nombre}`);
+  };
+  drawer.querySelector("#extraAgregar").onclick = agregar;
+  input.onkeydown = e => { if (e.key === "Enter") agregar(); };
+  if (matchMedia("(hover: hover)").matches) setTimeout(() => input.focus(), 120);
 }
 function abrirEditorHistorias() {
   const h = historiasStore();
