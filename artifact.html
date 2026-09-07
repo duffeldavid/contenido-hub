@@ -5371,15 +5371,17 @@ function openHistoria(iso, mk, txt, medioVista) {
           ${pr && pr.img ? `<img src="${pr.img}" alt="">` : `<span>9:16</span>`}
         </div>
         <div class="hist-prog-campos">
-          <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen (referencia)"}</button>
+          <button class="btn-primary" id="histSubirImg">${pr && pr.img ? "Cambiar imagen" : "Subir la imagen final"}</button>
           <div class="hist-fecha-hora">
             <div><label class="hist-lbl">Día</label>
             <input type="date" id="histFecha" class="edit-input" value="${iso}"></div>
             <div><label class="hist-lbl">Hora del aviso</label>
             <input type="time" id="histHora" class="edit-input" value="${(pr && pr.hora) || "12:00"}"></div>
           </div>
-          <button class="hist-abrir-ig" id="histAbrirIG">${ICOL.musica} Abrir Instagram ahora</button>
-          <p class="hist-abrir-hint">Desde el celular abre la cámara de historias de Instagram.</p>
+          <button class="hist-abrir-ig" id="histAbrirIG">${ICOL.musica} ${pr && pr.img ? "Enviar a Instagram con la imagen" : "Abrir Instagram ahora"}</button>
+          <p class="hist-abrir-hint">${pr && pr.img
+            ? "En el celular: elige Instagram → Historias y la imagen llega lista, solo agrégale la música."
+            : "Desde el celular abre la cámara de historias. Sube la imagen y te la envía lista."}</p>
         </div>
       </div>`
       : `
@@ -5442,12 +5444,29 @@ function openHistoria(iso, mk, txt, medioVista) {
     };
   });
   const bIG = drawer.querySelector("#histAbrirIG");
-  if (bIG) bIG.onclick = () => {
-    location.href = "instagram://story-camera";
-    setTimeout(() => {
-      if (!document.hidden) toastVivo("Este botón funciona en el celular: ahí abre la cámara de historias");
-    }, 1200);
-  };
+  if (bIG) {
+    // La imagen se prepara al abrir la hoja: el toque debe llamar a compartir
+    // de inmediato (iOS solo abre el menú dentro del gesto del usuario).
+    let archivoIG = null;
+    if (pr && pr.img && navigator.canShare) {
+      fetch(pr.img).then(r => r.blob()).then(b => {
+        const f = new File([b], "historia.jpg", { type: b.type || "image/jpeg" });
+        if (navigator.canShare({ files: [f] })) archivoIG = f;
+      }).catch(() => {});
+    }
+    bIG.onclick = async () => {
+      if (archivoIG) {
+        // Menú de compartir con la imagen adjunta: Instagram → Historias
+        // la abre lista en el editor, solo falta ponerle la música.
+        try { await navigator.share({ files: [archivoIG] }); return; }
+        catch (e) { if (e && e.name === "AbortError") return; }
+      }
+      location.href = "instagram://story-camera";
+      setTimeout(() => {
+        if (!document.hidden) toastVivo("Este botón funciona en el celular: ahí abre la cámara de historias");
+      }, 1200);
+    };
+  }
   // Título editable: renombra conservando ícono, programación y estado
   const inTit = drawer.querySelector("#histTitulo");
   inTit.onchange = () => {
@@ -5733,6 +5752,13 @@ if (MODO_CLIENTE) {
   restoreUI();
   renderAll();
   iniciarTiempoReal();
+  // ?historia=<clave>: el aviso del celular (historia con música) abre
+  // directo esa historia con el botón de enviarla a Instagram.
+  const kAviso = new URLSearchParams(location.search).get("historia");
+  if (kAviso && kAviso.length > 11) {
+    activarVista("historias");
+    setTimeout(() => abrirHistoriaClave(kAviso), 350);
+  }
 }
 
 

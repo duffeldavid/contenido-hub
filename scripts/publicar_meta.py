@@ -381,12 +381,14 @@ def procesar_historias(config, estado, ledger, ahora):
         titulo = (texto.split(" ", 1)[-1] if " " in texto else texto)[:70]
         if entrada.get("musica"):
             # El sticker de música solo existe en la app de Instagram: en vez de
-            # publicar, se manda un aviso que al tocarlo abre la cámara de historias.
+            # publicar, se avisa. El toque abre la historia en el Hub, donde el
+            # botón envía la imagen lista al editor de historias de Instagram.
             reg["avisado"] = True
             avisar("🎵 Hora de la historia con música",
-                   f"«{titulo}» ({marca}): toca este aviso y se abre la cámara de "
-                   "historias de Instagram. Elige la foto y ponle su música.",
-                   "musical_note", click="instagram://story-camera")
+                   f"«{titulo}» ({marca}): toca este aviso, se abre tu historia y "
+                   "con un botón la envías a Instagram con la imagen lista — solo ponle la música.",
+                   "musical_note",
+                   click=f"{PAGES_BASE}/?historia={urllib.parse.quote(k)}")
             log(f"historia con música: aviso enviado ({titulo})")
             continue
         es_video = bool(entrada.get("video"))
