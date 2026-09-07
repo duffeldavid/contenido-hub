@@ -3046,6 +3046,38 @@ function renderHistorias() {
       quitarHistoria(b.dataset.quitarHist);
     };
   });
+  // Al pasar el cursor por una historia con video, se reproduce sola
+  // (silenciosa, estilo Pinterest). El sonido va en el play de la hoja.
+  if (matchMedia("(hover: hover)").matches) {
+    el.querySelectorAll(".hist-story").forEach(card => {
+      const k = card.dataset.hist;
+      const pr = h.prog[k];
+      if (!pr || !pr.video) return;
+      let timer = null, vivo = null;
+      card.addEventListener("mouseenter", () => {
+        timer = setTimeout(async () => {
+          let url = videoURLs[k] || await cargarVideoLocal(pr.video);
+          if (!url || !card.matches(":hover")) return;
+          videoURLs[k] = url;
+          if (vivo) return;
+          vivo = document.createElement("video");
+          vivo.className = "hs-video-hover";
+          vivo.src = url;
+          vivo.muted = true;
+          vivo.loop = true;
+          vivo.playsInline = true;
+          card.appendChild(vivo);
+          card.classList.add("hover-video");
+          vivo.play().catch(() => {});
+        }, 150);
+      });
+      card.addEventListener("mouseleave", () => {
+        clearTimeout(timer);
+        if (vivo) { vivo.remove(); vivo = null; }
+        card.classList.remove("hover-video");
+      });
+    });
+  }
 }
 
 // ---------- Programar una historia por API (imagen tal cual, sin stickers) ----------

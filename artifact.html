@@ -1213,12 +1213,22 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 .hs-ring.vista { background: rgba(255,255,255,.32); }
 .hist-story {
-  position: relative; width: 200px; aspect-ratio: 9 / 16;
+  position: relative; width: 252px; aspect-ratio: 9 / 16;
   border-radius: 21px; overflow: hidden; cursor: pointer;
   background: #FFFDFA;
   transition: transform .2s cubic-bezier(.32,.72,.28,1), box-shadow .2s;
   box-shadow: 0 8px 24px -10px rgba(0,0,0,.5);
 }
+/* Video reproduciéndose al pasar el cursor (silencioso, estilo Pinterest) */
+.hs-video-hover {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: cover; z-index: 1;
+}
+.hist-story .hs-grad, .hist-story .hs-txt, .hist-story .hs-hora,
+.hist-story .hs-check, .hist-story .hs-quitar { z-index: 2; }
+.hist-story.hover-video .hs-play-centro,
+.hist-story.hover-video .hist-play { opacity: 0; pointer-events: none; }
+.hist-story .hs-play-centro { transition: opacity .2s; z-index: 2; }
 .hist-story:hover { transform: translateY(-3px); box-shadow: 0 16px 36px -12px rgba(0,0,0,.6); }
 .hist-story:active { transform: scale(.98); }
 .hs-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
@@ -1296,7 +1306,7 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   transition: all .18s;
 }
 .hs-mas:hover { border-color: #E9C46A; color: #E9C46A; background: rgba(255,255,255,.1); }
-@media (max-width: 640px) { .hist-story { width: 172px; } }
+@media (max-width: 640px) { .hist-story { width: 205px; } }
 /* Hoja de historia extra: ideas tocables */
 .hist-ideas { display: flex; flex-direction: column; gap: 7px; }
 .hist-idea {
@@ -5071,6 +5081,38 @@ function renderHistorias() {
       quitarHistoria(b.dataset.quitarHist);
     };
   });
+  // Al pasar el cursor por una historia con video, se reproduce sola
+  // (silenciosa, estilo Pinterest). El sonido va en el play de la hoja.
+  if (matchMedia("(hover: hover)").matches) {
+    el.querySelectorAll(".hist-story").forEach(card => {
+      const k = card.dataset.hist;
+      const pr = h.prog[k];
+      if (!pr || !pr.video) return;
+      let timer = null, vivo = null;
+      card.addEventListener("mouseenter", () => {
+        timer = setTimeout(async () => {
+          let url = videoURLs[k] || await cargarVideoLocal(pr.video);
+          if (!url || !card.matches(":hover")) return;
+          videoURLs[k] = url;
+          if (vivo) return;
+          vivo = document.createElement("video");
+          vivo.className = "hs-video-hover";
+          vivo.src = url;
+          vivo.muted = true;
+          vivo.loop = true;
+          vivo.playsInline = true;
+          card.appendChild(vivo);
+          card.classList.add("hover-video");
+          vivo.play().catch(() => {});
+        }, 150);
+      });
+      card.addEventListener("mouseleave", () => {
+        clearTimeout(timer);
+        if (vivo) { vivo.remove(); vivo = null; }
+        card.classList.remove("hover-video");
+      });
+    });
+  }
 }
 
 // ---------- Programar una historia por API (imagen tal cual, sin stickers) ----------
