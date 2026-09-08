@@ -2587,8 +2587,23 @@ async function publicarCambios() {
 // Aplica un estado completo recibido (adjunto ntfy o estado.json del repo)
 function aplicarEstado(est, avisar) {
   if (!est || !est.ts) return false;
-  if (est.ts <= (store.pubTs || 0)) return false;       // ya tenemos esta versión
-  if (!MODO_CLIENTE && store.pendientePub) return false; // no pisar cambios locales sin guardar
+  // La aprobación de mercadeo entra SIEMPRE — aun con cambios locales sin
+  // guardar o un estado viejo. Solo rellena lo que falte (lo local gana):
+  // así los veredictos jamás quedan atrapados detrás de los guardias.
+  let aprobRecuperada = false;
+  for (const grupo of ["aprob", "checks"]) {
+    const inc = est[grupo];
+    if (!inc) continue;
+    for (const id of Object.keys(inc)) {
+      if (!(id in store[grupo])) { store[grupo][id] = inc[id]; aprobRecuperada = true; }
+    }
+  }
+  const bloqueado = est.ts <= (store.pubTs || 0) ||      // ya tenemos esta versión
+    (!MODO_CLIENTE && store.pendientePub);               // no pisar cambios locales sin guardar
+  if (bloqueado) {
+    if (aprobRecuperada) { save(); renderAll({ keep: true }); }
+    return false;
+  }
   store.ediciones = est.ediciones || {};
   store.fechas = est.fechas || {};
   store.orden = est.orden || {};
