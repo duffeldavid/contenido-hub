@@ -4360,7 +4360,8 @@ async function abrirActividadMeta() {
   }
   const fmt = t => {
     if (!t) return "";
-    const f = new Date(typeof t === "number" ? t * 1000 : t);
+    // Meta manda fechas ISO, horas programadas en segundos y nuestro ts en ms
+    const f = new Date(typeof t === "number" ? (t > 1e12 ? t : t * 1000) : t);
     return f.toLocaleDateString("es-CO", { day: "numeric", month: "short" }) + ", " +
            f.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
   };
