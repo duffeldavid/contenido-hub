@@ -344,6 +344,10 @@ function estadoPublicable(ts) {
     estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
     portadas: store.portadas, horas: store.horas,
     meta: store.meta, historias: store.historias,
+    // La aprobación de mercadeo viaja y se archiva SIEMPRE: es la fuente de
+    // claridad de David sobre veredictos y comentarios (se perdió una vez
+    // por no incluirla aquí — nunca más).
+    aprob: store.aprob, checks: store.checks,
   };
 }
 // Envía el estado como adjunto al canal de datos (sin cuentas ni tokens)
@@ -466,6 +470,10 @@ function aplicarEstado(est, avisar) {
   store.horas = est.horas || {};
   store.meta = est.meta || {};
   store.historias = est.historias || store.historias;
+  // Aprobación y checks se FUSIONAN, nunca se reemplazan: un estado viejo o
+  // incompleto jamás borra un veredicto o comentario de mercadeo ya recibido.
+  if (est.aprob) store.aprob = Object.assign({}, store.aprob, est.aprob);
+  if (est.checks) store.checks = Object.assign({}, store.checks, est.checks);
   hidratarNuevas();
   store.pubTs = est.ts;
   save();
@@ -856,6 +864,7 @@ function renderCalendario() {
         <button data-f="aprobadas" class="${calFiltro === "aprobadas" ? "active" : ""}">✓ Aprobadas (${nAprob})</button>
         <button data-f="programadas" class="${calFiltro === "programadas" ? "active" : ""}">Programadas (${nProg})</button>
       </div>` : ""}
+      ${!MODO_CLIENTE && !EN_ARTIFACT ? `<button class="btn-restaurar" id="btnMetaAct">${icl("rayo")} En Meta</button>` : ""}
       ${!MODO_CLIENTE && Object.keys(store.ocultas).length ? `<button class="btn-restaurar" id="btnQuitados">↩ Quitados (${Object.keys(store.ocultas).length})</button>` : ""}
     </div>`;
 
@@ -932,6 +941,8 @@ function renderCalendario() {
   });
   const bq = el.querySelector("#btnQuitados");
   if (bq) bq.onclick = abrirQuitados;
+  const bMeta = el.querySelector("#btnMetaAct");
+  if (bMeta) bMeta.onclick = abrirActividadMeta;
   el.querySelectorAll("[data-mas]").forEach(b => { b.onclick = e => { e.stopPropagation(); abrirCreador(b.dataset.mas); }; });
   activarDnD(el);
   if (calModo === "flujo") activarDnDEstados(el);
@@ -2199,6 +2210,62 @@ function abrirCreador(fecha) {
 }
 
 // Panel de contenidos quitados: recuperar en un toque
+// ---------- Espejo del calendario de Meta (lo que de verdad está en Meta) ----------
+async function abrirActividadMeta() {
+  drawer.innerHTML = `
+    <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
+    <h2>En Meta ahora</h2>
+    <div class="sub" id="actSub">Cargando lo que Meta tiene programado y al aire…</div>
+    <div id="actCuerpo"></div>`;
+  posicionarDrawer();
+  drawer.classList.add("open");
+  backdrop.classList.add("open");
+  drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  let d = null;
+  try {
+    d = await (await fetch("meta_actividad.json?t=" + Date.now(), { cache: "no-store" })).json();
+  } catch (e) {}
+  const sub = drawer.querySelector("#actSub");
+  if (!d || !d.marcas) {
+    sub.textContent = "El Mac aún no ha sincronizado con Meta — en unos minutos aparece aquí.";
+    return;
+  }
+  const fmt = t => {
+    if (!t) return "";
+    const f = new Date(typeof t === "number" ? t * 1000 : t);
+    return f.toLocaleDateString("es-CO", { day: "numeric", month: "short" }) + ", " +
+           f.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
+  };
+  sub.textContent = "Directo de la API de Meta · sincronizado " + fmt(d.ts);
+  const fila = (icono, cuerpo, extra) => `
+    <div class="act-fila">${icono}<div class="act-txt">${cuerpo}${extra || ""}</div></div>`;
+  let html = "";
+  for (const mk of Object.keys(MARCAS)) {
+    const a = d.marcas[mk];
+    if (!a) continue;
+    html += `<section><h4>${MARCAS[mk].nombre}</h4>`;
+    if ((a.ig_hist || []).length) {
+      html += fila(icl("chispa"),
+        `<b>${a.ig_hist.length} historia${a.ig_hist.length > 1 ? "s" : ""} activa${a.ig_hist.length > 1 ? "s" : ""} en Instagram</b>` +
+        a.ig_hist.map(hh => `<span class="act-det">· ${hh.tipo === "VIDEO" ? "video" : "imagen"}, subida ${fmt(hh.t)}</span>`).join(""));
+    } else {
+      html += fila(icl("chispa"), `<span class="act-apagada">Sin historias activas en Instagram ahora</span>`);
+    }
+    (a.fb_prog || []).forEach(p => {
+      html += fila(icl("calendario"), `<b>Programado en Meta</b> — sale ${fmt(p.t)}<span class="act-det">${esc(p.m || "(sin texto)")}</span>`);
+    });
+    const pubs = [...(a.ig_pub || []).map(p => ({ ...p, red: "IG" })), ...(a.fb_pub || []).map(p => ({ ...p, red: "FB" }))]
+      .sort((x, y) => new Date(y.t) - new Date(x.t)).slice(0, 5);
+    pubs.forEach(p => {
+      html += fila(icl(p.red === "IG" ? "camara" : "caja"),
+        `<b>${p.red === "IG" ? "Instagram" : "Facebook"}</b> · publicado ${fmt(p.t)}<span class="act-det">${esc((p.m || "").slice(0, 90) || "(sin texto)")}</span>`,
+        p.url ? ` <a class="act-ver" href="${p.url}" target="_blank" rel="noopener">Ver ↗</a>` : "");
+    });
+    html += `</section>`;
+  }
+  drawer.querySelector("#actCuerpo").innerHTML = html;
+}
+
 function abrirQuitados() {
   const ocultas = PIEZAS.filter(p => store.ocultas[p.id]);
   drawer.innerHTML = `
@@ -3117,6 +3184,37 @@ function renderHistorias() {
       if (grupoHoy) rail.scrollLeft = Math.max(0, grupoHoy.offsetLeft - rail.offsetLeft - 14);
     });
   }
+  // Seguir deslizando en el borde del carrusel pasa de semana (estilo iOS):
+  // dos dedos en el trackpad o arrastre táctil, sin necesidad de las flechas.
+  el.querySelectorAll(".hist-rail").forEach(rail => {
+    let acum = 0, lock = 0;
+    const alInicio = () => rail.scrollLeft <= 2;
+    const alFinal = () => rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 2;
+    rail.addEventListener("wheel", e => {
+      if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
+      if (!((e.deltaX < 0 && alInicio()) || (e.deltaX > 0 && alFinal()))) { acum = 0; return; }
+      e.preventDefault();
+      const now = performance.now();
+      if (now < lock) return;
+      acum += e.deltaX;
+      if (Math.abs(acum) > 120) {
+        histSemana += acum > 0 ? 1 : -1;
+        acum = 0; lock = now + 700;
+        renderHistorias();
+      }
+    }, { passive: false });
+    let tX = null, tIni = false, tFin = false;
+    rail.addEventListener("touchstart", e => {
+      tX = e.touches[0].clientX; tIni = alInicio(); tFin = alFinal();
+    }, { passive: true });
+    rail.addEventListener("touchend", e => {
+      if (tX == null) return;
+      const dx = e.changedTouches[0].clientX - tX;
+      tX = null;
+      if (dx > 90 && tIni) { histSemana--; renderHistorias(); }
+      else if (dx < -90 && tFin) { histSemana++; renderHistorias(); }
+    }, { passive: true });
+  });
 
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };

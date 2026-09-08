@@ -1175,6 +1175,8 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   padding: 6px 2px 16px; -webkit-overflow-scrolling: touch;
   scroll-snap-type: x proximity; scroll-behavior: smooth;
   scrollbar-width: none;
+  /* en el borde no dispara el gesto de "atrás" del navegador */
+  overscroll-behavior-x: contain;
 }
 .hist-rail::-webkit-scrollbar { display: none; }
 .hist-grupo { flex: none; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; }
@@ -1199,7 +1201,7 @@ body.modo-cliente .aprob-row { cursor: pointer; }
   font-size: 9.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
   color: #fff; background: #B23A2E; border-radius: 999px; padding: 3px 8px;
 }
-.hist-cards { display: flex; gap: 12px; align-items: stretch; }
+.hist-cards { display: flex; gap: 12px; align-items: center; min-height: 46px; }
 /* Anillo estilo Instagram alrededor de cada historia */
 .hs-ring {
   flex: none; padding: 3px; border-radius: 24px;
@@ -1297,16 +1299,16 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 .hist-story:hover .hs-quitar { opacity: 1; }
 @media (hover: none) { .hs-quitar { opacity: .85; } }
-/* Tarjeta fantasma para agregar historia extra al día */
+/* Botón pequeño para agregar historia extra al día (estilo iOS: discreto) */
 .hs-mas {
-  flex: none; width: 74px; align-self: stretch;
-  border: 1.5px dashed rgba(255,255,255,.4); border-radius: 21px;
-  background: rgba(255,255,255,.06); color: rgba(255,255,255,.75);
-  font-size: 22px; font-weight: 300; cursor: pointer;
+  flex: none; width: 46px; height: 46px; align-self: center;
+  border: 1.5px dashed rgba(255,255,255,.4); border-radius: 15px;
+  background: rgba(255,255,255,.06); color: rgba(255,255,255,.8);
+  font-size: 19px; font-weight: 300; line-height: 1; cursor: pointer;
   display: grid; place-items: center;
   transition: all .18s;
 }
-.hs-mas:hover { border-color: #E9C46A; color: #E9C46A; background: rgba(255,255,255,.1); }
+.hs-mas:hover { border-color: #E9C46A; color: #E9C46A; background: rgba(255,255,255,.1); transform: scale(1.06); }
 @media (max-width: 640px) { .hist-story { width: 205px; } }
 /* Hoja de historia extra: ideas tocables */
 .hist-ideas { display: flex; flex-direction: column; gap: 7px; }
@@ -1366,6 +1368,19 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 }
 .hist-titulo-input:hover { border-bottom-color: rgba(255,255,255,.45); }
 .hist-titulo-input:focus { outline: none; border-bottom: 1.5px solid #E9C46A; }
+/* Hoja "En Meta ahora": lo programado y al aire, directo de la API */
+.act-fila {
+  display: flex; gap: 11px; align-items: flex-start;
+  padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.1);
+}
+.act-fila .icl { flex: none; margin-top: 2px; width: 17px; height: 17px; opacity: .8; }
+.act-txt { font-size: 13.5px; line-height: 1.45; min-width: 0; }
+.act-det { display: block; font-size: 12.5px; color: rgba(255,255,255,.6); margin-top: 1px; }
+.act-apagada { color: rgba(255,255,255,.55); }
+.act-ver { color: #E9C46A; font-weight: 700; font-size: 12.5px; text-decoration: none; white-space: nowrap; }
+.act-ver:hover { text-decoration: underline; }
+.cal-barra .btn-restaurar .icl { width: 13px; height: 13px; vertical-align: -2px; margin-right: 3px; }
+
 /* Selector de fecha y hora grande dentro de la hoja de historia */
 .hist-fecha-hora .edit-input { font-size: 15px; padding: 12px 14px; }
 .fecha-btn { text-align: left; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

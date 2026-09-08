@@ -399,6 +399,60 @@ def verificar(config):
     print("✅ Todo listo para publicar." if ok else "⚠️ Corrige lo marcado y vuelve a correr conectar_meta.py.")
 
 
+def sincronizar_actividad(config):
+    """Espejo del calendario de Meta en el Hub: qué quedó programado en Meta,
+    qué se publicó (con hora y enlace) y qué historias están activas ahora.
+    Se escribe en meta_actividad.json (repo público, sin tokens) cada ~15 min
+    y solo se sube si algo cambió."""
+    ruta = os.path.join(REPO, "meta_actividad.json")
+    try:
+        if time.time() - os.path.getmtime(ruta) < 14 * 60:
+            return
+    except OSError:
+        pass
+    marcas = {}
+    for marca, pagina in (config.get("pages") or {}).items():
+        token = pagina.get("page_token")
+        datos = {"fb_prog": [], "fb_pub": [], "ig_pub": [], "ig_hist": []}
+        r, _ = api("GET", f"{pagina['page_id']}/scheduled_posts", token,
+                   fields="message,scheduled_publish_time", limit="25")
+        if r:
+            datos["fb_prog"] = [{"m": (p.get("message") or "")[:120], "t": p.get("scheduled_publish_time")}
+                                for p in r.get("data", [])]
+        r, _ = api("GET", f"{pagina['page_id']}/published_posts", token,
+                   fields="message,created_time,permalink_url", limit="8")
+        if r:
+            datos["fb_pub"] = [{"m": (p.get("message") or "")[:120], "t": p.get("created_time"),
+                                "url": p.get("permalink_url")} for p in r.get("data", [])]
+        ig = pagina.get("ig_id")
+        if ig:
+            r, _ = api("GET", f"{ig}/media", token,
+                       fields="caption,timestamp,media_type,permalink", limit="8")
+            if r:
+                datos["ig_pub"] = [{"m": (p.get("caption") or "")[:120], "t": p.get("timestamp"),
+                                    "tipo": p.get("media_type"), "url": p.get("permalink")}
+                                   for p in r.get("data", [])]
+            r, _ = api("GET", f"{ig}/stories", token, fields="id,media_type,timestamp")
+            if r:
+                datos["ig_hist"] = [{"t": p.get("timestamp"), "tipo": p.get("media_type")}
+                                    for p in r.get("data", [])]
+        marcas[marca] = datos
+    viejo = cargar(ruta, {})
+    if json.dumps(viejo.get("marcas"), sort_keys=True) == json.dumps(marcas, sort_keys=True):
+        if os.path.exists(ruta):
+            os.utime(ruta, None)  # nada nuevo: solo refrescar el reloj del throttle
+        return
+    with open(ruta, "w") as f:
+        json.dump({"ts": int(time.time() * 1000), "marcas": marcas}, f, separators=(",", ":"))
+    git("add", ruta)
+    r = git("commit", "-m", "Espejo del calendario de Meta\n\n"
+            "Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>")
+    if r.returncode == 0:
+        git("push", "origin", "main")
+        git("push", "origin", "main:gh-pages")
+    log("actividad de Meta sincronizada")
+
+
 def main():
     config = cargar(CONFIG, None)
     if not config:
@@ -409,6 +463,7 @@ def main():
         return
 
     git("pull", "--ff-only", "origin", "main")
+    sincronizar_actividad(config)
     estado = cargar(os.path.join(REPO, "estado.json"), {})
     # La cola guardada desde claude.ai llega por el puente como cola.json:
     # si es más nueva que estado.json, sus campos mandan.
