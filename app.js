@@ -2253,8 +2253,15 @@ async function abrirActividadMeta() {
            f.toLocaleTimeString("es-CO", { hour: "numeric", minute: "2-digit" });
   };
   sub.textContent = "Directo de la API de Meta · sincronizado " + fmt(d.ts);
-  const fila = (icono, cuerpo, extra) => `
-    <div class="act-fila">${icono}<div class="act-txt">${cuerpo}${extra || ""}</div></div>`;
+  // Miniatura con el contenido real; si trae video, se reproduce al pasar el cursor
+  const thumb = (p, clase) => {
+    if (!p.img && !p.vid) return "";
+    const dentro = p.img ? `<img src="${p.img}" alt="">` : "";
+    const caja = `<span class="act-thumb ${clase || ""}" ${p.vid ? `data-vid="${esc(p.vid)}"` : ""}>${dentro}</span>`;
+    return p.url ? `<a href="${p.url}" target="_blank" rel="noopener">${caja}</a>` : caja;
+  };
+  const fila = (icono, media, cuerpo, extra) => `
+    <div class="act-fila">${icono}${media}<div class="act-txt">${cuerpo}${extra || ""}</div></div>`;
   let html = "";
   for (const mk of Object.keys(MARCAS)) {
     const a = d.marcas[mk];
@@ -2262,24 +2269,45 @@ async function abrirActividadMeta() {
     html += `<section><h4>${MARCAS[mk].nombre}</h4>`;
     if ((a.ig_hist || []).length) {
       html += fila(icl("chispa"),
+        `<span class="act-hist-tira">${a.ig_hist.map(hh => thumb(hh, "v916")).join("")}</span>`,
         `<b>${a.ig_hist.length} historia${a.ig_hist.length > 1 ? "s" : ""} activa${a.ig_hist.length > 1 ? "s" : ""} en Instagram</b>` +
         a.ig_hist.map(hh => `<span class="act-det">· ${hh.tipo === "VIDEO" ? "video" : "imagen"}, subida ${fmt(hh.t)}</span>`).join(""));
     } else {
-      html += fila(icl("chispa"), `<span class="act-apagada">Sin historias activas en Instagram ahora</span>`);
+      html += fila(icl("chispa"), "", `<span class="act-apagada">Sin historias activas en Instagram ahora</span>`);
     }
     (a.fb_prog || []).forEach(p => {
-      html += fila(icl("calendario"), `<b>Programado en Meta</b> — sale ${fmt(p.t)}<span class="act-det">${esc(p.m || "(sin texto)")}</span>`);
+      html += fila(icl("calendario"), thumb(p), `<b>Programado en Meta</b> — sale ${fmt(p.t)}<span class="act-det">${esc(p.m || "(sin texto)")}</span>`);
     });
     const pubs = [...(a.ig_pub || []).map(p => ({ ...p, red: "IG" })), ...(a.fb_pub || []).map(p => ({ ...p, red: "FB" }))]
       .sort((x, y) => new Date(y.t) - new Date(x.t)).slice(0, 5);
     pubs.forEach(p => {
-      html += fila(icl(p.red === "IG" ? "camara" : "caja"),
+      html += fila(icl(p.red === "IG" ? "camara" : "caja"), thumb(p),
         `<b>${p.red === "IG" ? "Instagram" : "Facebook"}</b> · publicado ${fmt(p.t)}<span class="act-det">${esc((p.m || "").slice(0, 90) || "(sin texto)")}</span>`,
         p.url ? ` <a class="act-ver" href="${p.url}" target="_blank" rel="noopener">Ver ↗</a>` : "");
     });
     html += `</section>`;
   }
   drawer.querySelector("#actCuerpo").innerHTML = html;
+  // Al pasar el cursor por una miniatura con video, se reproduce en silencio
+  if (matchMedia("(hover: hover)").matches) {
+    drawer.querySelectorAll(".act-thumb[data-vid]").forEach(t => {
+      let vivo = null;
+      t.addEventListener("mouseenter", () => {
+        if (vivo) return;
+        vivo = document.createElement("video");
+        vivo.src = t.dataset.vid;
+        vivo.muted = true; vivo.loop = true; vivo.playsInline = true; vivo.autoplay = true;
+        vivo.className = "act-thumb-video";
+        t.appendChild(vivo);
+        // El play se reintenta al terminar de cargar (el CDN puede tardar)
+        vivo.addEventListener("canplay", () => vivo.play().catch(() => {}));
+        vivo.play().catch(() => {});
+      });
+      t.addEventListener("mouseleave", () => {
+        if (vivo) { vivo.remove(); vivo = null; }
+      });
+    });
+  }
 }
 
 function abrirQuitados() {

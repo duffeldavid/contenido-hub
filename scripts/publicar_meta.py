@@ -420,25 +420,40 @@ def sincronizar_actividad(config):
             datos["fb_prog"] = [{"m": (p.get("message") or "")[:120], "t": p.get("scheduled_publish_time")}
                                 for p in r.get("data", [])]
         r, _ = api("GET", f"{pagina['page_id']}/published_posts", token,
-                   fields="message,created_time,permalink_url", limit="8")
+                   fields="message,created_time,permalink_url,full_picture", limit="8")
         if r:
             datos["fb_pub"] = [{"m": (p.get("message") or "")[:120], "t": p.get("created_time"),
-                                "url": p.get("permalink_url")} for p in r.get("data", [])]
+                                "url": p.get("permalink_url"), "img": p.get("full_picture")}
+                               for p in r.get("data", [])]
         ig = pagina.get("ig_id")
         if ig:
             r, _ = api("GET", f"{ig}/media", token,
-                       fields="caption,timestamp,media_type,permalink", limit="8")
+                       fields="caption,timestamp,media_type,permalink,media_url,thumbnail_url", limit="8")
             if r:
                 datos["ig_pub"] = [{"m": (p.get("caption") or "")[:120], "t": p.get("timestamp"),
-                                    "tipo": p.get("media_type"), "url": p.get("permalink")}
+                                    "tipo": p.get("media_type"), "url": p.get("permalink"),
+                                    "img": p.get("thumbnail_url") or p.get("media_url"),
+                                    "vid": p.get("media_url") if p.get("media_type") == "VIDEO" else None}
                                    for p in r.get("data", [])]
-            r, _ = api("GET", f"{ig}/stories", token, fields="id,media_type,timestamp")
+            r, _ = api("GET", f"{ig}/stories", token,
+                       fields="id,media_type,timestamp,media_url,thumbnail_url")
             if r:
-                datos["ig_hist"] = [{"t": p.get("timestamp"), "tipo": p.get("media_type")}
+                datos["ig_hist"] = [{"t": p.get("timestamp"), "tipo": p.get("media_type"),
+                                     "img": p.get("thumbnail_url") or p.get("media_url"),
+                                     "vid": p.get("media_url") if p.get("media_type") == "VIDEO" else None}
                                     for p in r.get("data", [])]
         marcas[marca] = datos
+    def estable(ms):
+        def limpiar(x):
+            if isinstance(x, dict):
+                return {k: limpiar(v) for k, v in x.items() if k not in ("img", "vid")}
+            if isinstance(x, list):
+                return [limpiar(v) for v in x]
+            return x
+        return json.dumps(limpiar(ms), sort_keys=True)
     viejo = cargar(ruta, {})
-    if json.dumps(viejo.get("marcas"), sort_keys=True) == json.dumps(marcas, sort_keys=True):
+    reciente = time.time() - viejo.get("ts", 0) / 1000 < 24 * 3600
+    if reciente and estable(viejo.get("marcas")) == estable(marcas):
         if os.path.exists(ruta):
             os.utime(ruta, None)  # nada nuevo: solo refrescar el reloj del throttle
         return
