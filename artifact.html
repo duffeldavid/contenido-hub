@@ -5313,36 +5313,17 @@ function renderHistorias() {
       if (grupoHoy) rail.scrollLeft = Math.max(0, grupoHoy.offsetLeft - rail.offsetLeft - 14);
     });
   }
-  // Seguir deslizando en el borde del carrusel pasa de semana (estilo iOS):
-  // dos dedos en el trackpad o arrastre táctil, sin necesidad de las flechas.
+  // Los gestos SOLO mueven el carrusel — la semana se cambia únicamente con
+  // las flechas. En el borde, el gesto se absorbe (nada de "atrás" del
+  // navegador ni saltos de semana accidentales): overscroll-behavior en CSS
+  // más este freno para los navegadores que aún propagan la rueda.
   el.querySelectorAll(".hist-rail").forEach(rail => {
-    let acum = 0, lock = 0;
-    const alInicio = () => rail.scrollLeft <= 2;
-    const alFinal = () => rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 2;
     rail.addEventListener("wheel", e => {
       if (Math.abs(e.deltaX) <= Math.abs(e.deltaY)) return;
-      if (!((e.deltaX < 0 && alInicio()) || (e.deltaX > 0 && alFinal()))) { acum = 0; return; }
-      e.preventDefault();
-      const now = performance.now();
-      if (now < lock) return;
-      acum += e.deltaX;
-      if (Math.abs(acum) > 120) {
-        histSemana += acum > 0 ? 1 : -1;
-        acum = 0; lock = now + 700;
-        renderHistorias();
-      }
+      const alInicio = rail.scrollLeft <= 1 && e.deltaX < 0;
+      const alFinal = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1 && e.deltaX > 0;
+      if (alInicio || alFinal) e.preventDefault();
     }, { passive: false });
-    let tX = null, tIni = false, tFin = false;
-    rail.addEventListener("touchstart", e => {
-      tX = e.touches[0].clientX; tIni = alInicio(); tFin = alFinal();
-    }, { passive: true });
-    rail.addEventListener("touchend", e => {
-      if (tX == null) return;
-      const dx = e.changedTouches[0].clientX - tX;
-      tX = null;
-      if (dx > 90 && tIni) { histSemana--; renderHistorias(); }
-      else if (dx < -90 && tFin) { histSemana++; renderHistorias(); }
-    }, { passive: true });
   });
 
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
