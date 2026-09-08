@@ -1173,13 +1173,14 @@ body.modo-cliente .aprob-row { cursor: pointer; }
 .hist-rail {
   display: flex; gap: 18px; overflow-x: auto;
   padding: 6px 2px 16px; -webkit-overflow-scrolling: touch;
-  scroll-snap-type: x proximity; scroll-behavior: smooth;
   scrollbar-width: none;
+  /* SIN scroll-snap ni smooth: el imán devolvía los gestos suaves del
+     trackpad y se sentía pesado — desplazamiento libre con inercia, como iOS */
   /* en el borde no dispara el gesto de "atrás" del navegador */
   overscroll-behavior-x: contain;
 }
 .hist-rail::-webkit-scrollbar { display: none; }
-.hist-grupo { flex: none; scroll-snap-align: start; display: flex; flex-direction: column; gap: 8px; }
+.hist-grupo { flex: none; display: flex; flex-direction: column; gap: 8px; }
 .hist-grupo-head { display: flex; align-items: baseline; gap: 7px; padding: 0 2px; }
 .hist-dow { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: rgba(255,255,255,.65); text-shadow: 0 1px 6px rgba(18,12,9,.5); }
 .hist-numdia {
