@@ -2233,6 +2233,11 @@ body.sin-hero .sheet { mask-image: linear-gradient(to bottom, transparent 0, #00
 .hist-hero { margin-top: 6px; }
 @media (max-width: 640px) { body.sin-hero main { padding-top: 44px; } }
 
+/* Sin héroe: la lámina no lleva fundido (en Safari velaba el contenido cercano al borde) */
+body.sin-hero .sheet { mask-image: none; -webkit-mask-image: none; }
+body.sin-hero main { padding-top: 40px; }
+@media (max-width: 640px) { body.sin-hero main { padding-top: 28px; } }
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
