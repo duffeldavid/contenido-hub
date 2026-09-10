@@ -764,6 +764,9 @@ function activarVista(v) {
   if (v === "finanzas") { finPintarVivo(document.getElementById("view-finanzas")); finPintarFlujo(document.getElementById("view-finanzas")); }
 }
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => activarVista(b.dataset.view));
+// "Contenido Hub" en la barra abre el hub directo en su Home (Contenidos)
+const linkHub = document.getElementById("linkHub");
+if (linkHub) linkHub.href = ENLACE_HUB_CONTENIDOS;
 function renderAll() { renderInicio(); renderProyectos(); renderFinanzas(); }
 
 // ---------- Candado incógnito ----------
