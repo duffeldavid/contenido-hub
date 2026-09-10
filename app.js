@@ -1326,6 +1326,9 @@ function contenidosResumenHtml(todas) {
       <div class="cont-seg">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel" : ""}">${e}</button>`).join("")}</div>
       <button class="cont-btn" data-open="${p.id}">Abrir</button>
     </div>`; };
+  const extraEnMarcha = p => { const a = aprobDe(p); return `
+    ${a.c ? `<p class="cont-nota">“${esc(a.c)}”</p>` : ""}
+    <div class="cont-acc"><span class="cont-marcha">${icl("ok")} Ya en marcha</span><button class="cont-btn" data-open="${p.id}">Abrir</button></div>`; };
   const extraIdea = p => `
     <div class="cont-acc">
       <button class="cont-btn" data-open="${p.id}">Abrir</button>
@@ -1338,9 +1341,11 @@ function contenidosResumenHtml(todas) {
     </section>`;
   return `
   <div class="cont-cols">
-    ${columna("aprobadas", "Aprobadas", porHacer.length,
-      porHacer.length ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") : `<p class="cont-vacio">Nada aprobado pendiente de producir.</p>`,
-      listas.length ? `<p class="cont-pie">${listas.length} más ya listas, programadas o publicadas.</p>` : "")}
+    ${columna("aprobadas", "Aprobadas", porHacer.length + listas.length,
+      (porHacer.length + listas.length)
+        ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") + (listas.length ? `<p class="cont-separador">Ya listas, programadas o publicadas</p>` + listas.map(p => tarjeta(p, extraEnMarcha(p), "en-marcha")).join("") : "")
+        : `<p class="cont-vacio">Mercadeo aún no ha aprobado piezas.</p>`,
+      "")}
     ${columna("ajustes", "Ajustes de mercadeo", ajustes.length,
       ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes.</p>`,
       atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : "")}
