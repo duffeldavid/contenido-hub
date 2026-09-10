@@ -10,6 +10,8 @@ const EN_ARTIFACT = !!(window.claude && typeof window.claude.use === "function")
 const MODO_CLIENTE = false;
 const CLAVE_DAVID = "Duffel21";
 const ENLACE_HUB = window.ENLACE_HUB || "index.html";
+// Enlace al hub que abre directo en Contenidos › Aprobación (ajustes de mercadeo)
+const ENLACE_HUB_CONTENIDOS = ENLACE_HUB + (ENLACE_HUB.includes("?") ? "&" : "?") + "ir=contenidos#contenidos";
 const ES_ACCESO_KEY = "hubAccesoEstudio";
 
 // ---------- Helpers compartidos (mismos nombres que en app.js) ----------
@@ -738,7 +740,7 @@ function renderInicio() {
           <span><b class="${hub.ajustes ? "mal" : ""}">${hub.ajustes}</b> ajustes por atender</span>
           <span><b class="bien">${hub.aprobadas}</b> piezas aprobadas</span>
         </div>
-        <a class="btn-primary" href="${esc(ENLACE_HUB)}">${icl("enlace")} Abrir Contenido Hub</a>
+        <a class="btn-primary" href="${esc(ENLACE_HUB_CONTENIDOS)}">${icl("enlace")} Abrir Contenido Hub</a>
       </section>
     </div>`;
   el.querySelectorAll("[data-ir]").forEach(b => b.onclick = () => activarVista(b.dataset.ir));
@@ -747,7 +749,7 @@ function renderInicio() {
     if (t === "plan") openProyecto(id);
     else if (t === "cobro") openFinItem(id);
     else if (t === "pago") openFinPago(id);
-    else if (t === "hub") location.href = ENLACE_HUB;
+    else if (t === "hub") location.href = ENLACE_HUB_CONTENIDOS;
   });
 }
 

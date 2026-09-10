@@ -4039,6 +4039,13 @@ if (MODO_CLIENTE) {
   pintarGuardar();
   restoreUI();
   renderAll();
+  // ?ir=contenidos (o #contenidos): llegar desde el Estudio directo a los ajustes de mercadeo
+  if (new URLSearchParams(location.search).get("ir") === "contenidos" || location.hash === "#contenidos") {
+    contenidosModo = "aprobacion";
+    activarVista("aprobacion");
+    renderAprobacion();
+    history.replaceState(null, "", location.pathname);
+  }
   iniciarTiempoReal();
   // ?historia=<clave>: el aviso del celular (historia con música) abre
   // directo esa historia con el botón de enviarla a Instagram.
