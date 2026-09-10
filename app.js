@@ -2496,6 +2496,8 @@ const VISTAS_ORDEN = MODO_CLIENTE
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;
+  // El héroe (título + cifras) es el Home: solo se ve en Contenidos.
+  document.body.classList.toggle("sin-hero", v !== "aprobacion");
   // Entrar a Calendario muestra SIEMPRE el Planificador primero
   if (v === "calendario" && previa !== "calendario" && !MODO_CLIENTE && calModo !== "mes") {
     calModo = "mes";

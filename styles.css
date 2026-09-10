@@ -2072,3 +2072,12 @@ main { padding-bottom: 130px; }
 }
 .hist-cambiar:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.55); }
 .hist-cambiar i { font-style: normal; font-size: 18px; line-height: 1; margin-top: -2px; color: #E9C46A; }
+
+/* ═══════════ Héroe solo en Contenidos (Home): en otras secciones se pliega ═══════════ */
+.hero-content, .hero-stats { transition: opacity .25s ease, max-height .35s ease, margin .35s ease, padding .35s ease; overflow: hidden; }
+.hero-content { max-height: 600px; }
+.hero-stats { max-height: 300px; }
+body.sin-hero .hero-content, body.sin-hero .hero-stats {
+  opacity: 0; max-height: 0; margin: 0; padding-top: 0; padding-bottom: 0; border-top: 0; pointer-events: none;
+}
+body.sin-hero .hero { padding-bottom: 22px; }
