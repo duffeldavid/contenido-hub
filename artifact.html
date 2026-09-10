@@ -1837,49 +1837,63 @@ button.hist-play:hover { transform: translate(-50%, -50%) scale(1.1); background
   .fx-mini { width: 120px; }
 }
 
-/* ═══════════ CONTENIDOS (resumen de aprobación para David) ═══════════ */
+/* ═══════════ CONTENIDOS · tres columnas, minimal (Aprobadas | Ajustes | Ideas) ═══════════ */
 [hidden] { display: none !important; }
 .cont-subnav { margin-bottom: 18px; }
-.cont-resumen { display: flex; flex-direction: column; gap: 26px; }
-.cont-grupo h3 {
-  font-family: var(--font-head); font-size: 19px; font-weight: 700; color: #fff;
-  text-shadow: 0 1px 10px rgba(18,12,9,.55); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;
+.cont-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; align-items: start; }
+.cont-col {
+  background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.12); border-radius: 22px;
+  backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+  padding: 8px; min-height: 240px; display: flex; flex-direction: column;
 }
-.cont-grupo h3 .icl { width: 18px; height: 18px; }
-.cont-n { font-size: 12.5px; font-weight: 700; background: rgba(255,255,255,.16); border-radius: 999px; padding: 2px 10px; color: #fff; }
-.cont-grupo.ajustes .cont-n { background: #B23A2E; }
-.cont-grupo.aprobadas .cont-n { background: #2E7D43; }
+.cont-col-head { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px 12px; }
+.cont-col-head h3 { font-family: var(--font-head); font-size: 16px; font-weight: 600; color: #fff; letter-spacing: -.005em; }
+.cont-n { font-size: 12px; font-weight: 700; min-width: 24px; text-align: center; border-radius: 999px; padding: 3px 9px; background: rgba(255,255,255,.14); color: #fff; }
+.cont-col.ajustes .cont-n { background: #E2453A; }
+.cont-col.aprobadas .cont-n { background: #2E9E5B; }
+.cont-col-body { display: flex; flex-direction: column; gap: 8px; }
 .cont-card {
-  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
-  padding: 16px 18px; margin-bottom: 12px; display: flex; gap: 16px; cursor: pointer;
-  transition: transform .2s ease, box-shadow .2s ease;
+  background: rgba(255,255,255,.96); border: 1px solid rgba(255,255,255,.6); border-radius: 18px;
+  padding: 14px; cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+  box-shadow: 0 1px 2px rgba(0,0,0,.06), 0 10px 30px -18px rgba(0,0,0,.5);
+  transition: transform .2s cubic-bezier(.32,.72,.28,1), box-shadow .2s;
 }
-.cont-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-lift); }
-.cont-grupo.ajustes .cont-card { border-left: 4px solid #B23A2E; }
-.cont-grupo.aprobadas .cont-card { border-left: 4px solid #2E7D43; }
-.cont-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
-.cont-meta { font-size: 12.5px; font-weight: 600; color: var(--dim); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.cont-meta .chip.estado { font-size: 10.5px; padding: 2px 9px; }
-.cont-body h4 { font-family: var(--font-head); font-size: 18px; font-weight: 600; line-height: 1.25; }
+.cont-card:hover { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(0,0,0,.06), 0 18px 40px -18px rgba(0,0,0,.55); }
+.cont-row { display: flex; gap: 12px; align-items: flex-start; }
+.cont-thumb { width: 56px; aspect-ratio: 1; border-radius: 12px; border: 0; }
+.cont-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.cont-meta { font-size: 11.5px; font-weight: 500; color: var(--faint); letter-spacing: .01em; }
+.cont-body h4 { font-family: var(--font-head); font-size: 15px; font-weight: 600; line-height: 1.3; color: var(--ink); }
+.cont-estado-chip { align-self: flex-start; font-size: 10.5px; font-weight: 700; letter-spacing: .04em; color: #fff; border-radius: 999px; padding: 2px 9px; margin-top: 2px; }
 .cont-com {
-  margin: 2px 0 4px; padding: 12px 16px; border-radius: 14px;
-  background: #FBF1EE; border: 1px solid #F2D5CE; color: var(--ink);
-  font-size: 15.5px; line-height: 1.5;
+  margin: 0; padding: 11px 13px; border-radius: 14px;
+  background: #F7F3EF; color: var(--ink); font-size: 14.5px; line-height: 1.5;
 }
-.cont-com-autor { display: block; font-size: 11.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #B23A2E; margin-bottom: 4px; }
+.cont-com-autor { display: block; font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #C4493C; margin-bottom: 3px; }
 .cont-com i { color: var(--dim); }
-.cont-nota { font-size: 14px; color: var(--dim); font-style: italic; }
-.cont-acc { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 2px; }
-.cont-acc .btn-primary { background: var(--ink); color: #F7F3EC; }
-.cont-estado button { font-size: 12.5px; padding: 7px 14px; }
-.cont-vacio { color: rgba(255,255,255,.85); font-size: 14px; text-shadow: 0 1px 10px rgba(18,12,9,.55); }
-.cont-vacio b { color: #fff; }
-.cont-nota-grupo { font-size: 13px; color: rgba(255,255,255,.7); margin-top: 4px; text-shadow: 0 1px 10px rgba(18,12,9,.55); }
-.cont-atendidos { margin-top: 6px; color: rgba(255,255,255,.8); font-size: 13px; }
+.cont-nota { font-size: 13.5px; color: var(--dim); line-height: 1.45; }
+.cont-acc { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cont-btn {
+  border: 1px solid var(--line); background: #fff; color: var(--ink);
+  font-family: var(--font-body); font-size: 12.5px; font-weight: 600; padding: 7px 13px; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; transition: all .15s;
+}
+.cont-btn:hover { border-color: var(--dim); }
+.cont-btn.principal { background: var(--ink); border-color: var(--ink); color: #F7F3EC; }
+.cont-btn.principal:hover { background: #000; }
+.cont-seg { display: inline-flex; background: #EFEBE4; border-radius: 999px; padding: 3px; gap: 2px; }
+.cont-seg button { border: 0; background: transparent; color: var(--dim); font-family: var(--font-body); font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 999px; cursor: pointer; transition: all .15s; }
+.cont-seg button.sel { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.cont-vacio { color: rgba(255,255,255,.7); font-size: 13.5px; padding: 12px 12px 18px; }
+.cont-pie { font-size: 12.5px; color: rgba(255,255,255,.62); padding: 12px 12px 6px; line-height: 1.45; }
+.cont-pie b { color: #fff; }
+.cont-atendidos { margin: 8px 12px 6px; color: rgba(255,255,255,.75); font-size: 12.5px; }
 .cont-atendidos summary { cursor: pointer; font-weight: 600; color: #fff; }
 .cont-mini { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid rgba(255,255,255,.12); }
-.cont-grupo.pendientes .btn-ghost { background: rgba(255,255,255,.1); border-color: rgba(255,255,255,.35); color: #fff; margin-top: 8px; }
-@media (max-width: 640px) { .cont-card { flex-direction: column; } .cont-card .cover-thumb { width: 100%; aspect-ratio: 16 / 9; } }
+@media (max-width: 980px) {
+  .cont-cols { display: flex; overflow-x: auto; padding-bottom: 10px; -webkit-overflow-scrolling: touch; }
+  .cont-col { flex: 0 0 min(86vw, 340px); }
+}
 
 /* ═══════════ FICHA MÁS LEGIBLE + ajuste de mercadeo a la vista ═══════════ */
 .drawer { font-size: 15px; }
@@ -3818,48 +3832,55 @@ function contenidosResumenHtml(todas) {
   const porHacer = todas.filter(p => aprobDe(p).v === "Aprobado" && enProduccion.includes(estadoDe(p)));
   const listas = todas.filter(p => aprobDe(p).v === "Aprobado" && !enProduccion.includes(estadoDe(p)));
   const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
-  const tarjeta = (p, extra) => {
+  const tarjeta = (p, extra, clase = "") => {
     const { dia, num } = fmtFecha(fechaDe(p));
     const est = estadoDe(p);
     return `
-    <article class="cont-card" data-id="${p.id}">
-      ${coverHtml(p, "cover-thumb")}
-      <div class="cont-body">
-        <div class="cont-meta">${dia} ${num} · ${MARCAS[p.marca].nombre} · ${p.formato} <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span></div>
-        <h4>${esc(tituloDe(p))}</h4>
-        ${extra}
+    <article class="cont-card ${clase}" data-id="${p.id}">
+      <div class="cont-row">
+        ${coverHtml(p, "cover-thumb cont-thumb")}
+        <div class="cont-body">
+          <div class="cont-meta">${dia.slice(0, 3)} ${num} · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
+          <h4>${esc(tituloDe(p))}</h4>
+          <span class="cont-estado-chip ${ESTADO_CLASS[est]}">${est}</span>
+        </div>
       </div>
+      ${extra}
     </article>`;
   };
   const extraAjuste = p => { const a = aprobDe(p); return `
-    <blockquote class="cont-com"><span class="cont-com-autor">${esc(a.por || AUTOR_CLIENTE)} pide:</span>${a.c ? esc(a.c) : "<i>Sin comentario escrito: confírmalo con mercadeo.</i>"}</blockquote>
+    <blockquote class="cont-com"><span class="cont-com-autor">${esc(a.por || AUTOR_CLIENTE)}</span>${a.c ? esc(a.c) : "<i>Sin comentario escrito: confírmalo con mercadeo.</i>"}</blockquote>
     <div class="cont-acc">
-      <button class="btn-primary" data-ajuste-ok="${p.id}">${icl("ok")} Ajuste aplicado · a producción</button>
-      <button class="btn-ghost" data-open="${p.id}">Abrir pieza</button>
+      <button class="cont-btn principal" data-ajuste-ok="${p.id}">${icl("ok")} Aplicado · a producción</button>
+      <button class="cont-btn" data-open="${p.id}">Abrir</button>
     </div>`; };
   const extraAprobada = p => { const a = aprobDe(p), est = estadoDe(p); return `
     ${a.c ? `<p class="cont-nota">“${esc(a.c)}”</p>` : ""}
     <div class="cont-acc">
-      <div class="estado-select cont-estado">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel " + ESTADO_CLASS[e] : ""}">${e}</button>`).join("")}</div>
-      <button class="btn-ghost" data-open="${p.id}">Abrir pieza</button>
+      <div class="cont-seg">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel" : ""}">${e}</button>`).join("")}</div>
+      <button class="cont-btn" data-open="${p.id}">Abrir</button>
     </div>`; };
+  const extraIdea = p => `
+    <div class="cont-acc">
+      <button class="cont-btn" data-open="${p.id}">Abrir</button>
+    </div>`;
+  const columna = (clase, titulo, n, cuerpo, pie = "") => `
+    <section class="cont-col ${clase}">
+      <header class="cont-col-head"><h3>${titulo}</h3><span class="cont-n">${n}</span></header>
+      <div class="cont-col-body">${cuerpo}</div>
+      ${pie}
+    </section>`;
   return `
-  <div class="cont-resumen">
-    <section class="cont-grupo ajustes">
-      <h3>${icl("ajuste")} Ajustes de mercadeo <span class="cont-n">${ajustes.length}</span></h3>
-      ${ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes: todo lo que pidió mercadeo ya está atendido.</p>`}
-      ${atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : ""}
-    </section>
-    <section class="cont-grupo aprobadas">
-      <h3>${icl("ok")} Aprobadas · para producir <span class="cont-n">${porHacer.length}</span></h3>
-      ${porHacer.length ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") : `<p class="cont-vacio">Nada aprobado pendiente de producir ahora mismo.</p>`}
-      ${listas.length ? `<p class="cont-nota-grupo">${listas.length} aprobadas ya están listas, programadas o publicadas.</p>` : ""}
-    </section>
-    <section class="cont-grupo pendientes">
-      <h3>${icl("reloj")} Pendientes de revisión <span class="cont-n">${pendientes.length}</span></h3>
-      <p class="cont-vacio">${pendientes.length ? `${pendientes.length} ${pendientes.length === 1 ? "pieza espera" : "piezas esperan"} respuesta de mercadeo. Usa <b>Enviar por WhatsApp</b> para recordarlo.` : "Todo revisado."}</p>
-      ${pendientes.length ? `<button class="btn-ghost" id="contVerPendientes">Ver pendientes</button>` : ""}
-    </section>
+  <div class="cont-cols">
+    ${columna("aprobadas", "Aprobadas", porHacer.length,
+      porHacer.length ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") : `<p class="cont-vacio">Nada aprobado pendiente de producir.</p>`,
+      listas.length ? `<p class="cont-pie">${listas.length} más ya listas, programadas o publicadas.</p>` : "")}
+    ${columna("ajustes", "Ajustes de mercadeo", ajustes.length,
+      ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes.</p>`,
+      atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : "")}
+    ${columna("ideas", "Ideas", pendientes.length,
+      pendientes.length ? pendientes.map(p => tarjeta(p, extraIdea(p), "idea")).join("") : `<p class="cont-vacio">Todo revisado.</p>`,
+      pendientes.length ? `<p class="cont-pie">Esperan respuesta de mercadeo. <b>Enviar por WhatsApp</b> las recuerda.</p>` : "")}
   </div>`;
 }
 function renderAprobacion() {
@@ -5030,7 +5051,7 @@ function cambiarVista(dir) {
 }
 // Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
 // más las tarjetas (su deslizado izquierdo ya significa "quitar").
-const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .fx-chart, .fx-range, .fx-controles, .fx-menu";
+const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .cont-cols, .fx-chart, .fx-range, .fx-controles, .fx-menu";
 const mainEl = document.getElementById("main");
 let swX = 0, swY = 0, swOk = false;
 mainEl.addEventListener("touchstart", e => {

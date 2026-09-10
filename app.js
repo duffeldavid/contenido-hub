@@ -1293,48 +1293,55 @@ function contenidosResumenHtml(todas) {
   const porHacer = todas.filter(p => aprobDe(p).v === "Aprobado" && enProduccion.includes(estadoDe(p)));
   const listas = todas.filter(p => aprobDe(p).v === "Aprobado" && !enProduccion.includes(estadoDe(p)));
   const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
-  const tarjeta = (p, extra) => {
+  const tarjeta = (p, extra, clase = "") => {
     const { dia, num } = fmtFecha(fechaDe(p));
     const est = estadoDe(p);
     return `
-    <article class="cont-card" data-id="${p.id}">
-      ${coverHtml(p, "cover-thumb")}
-      <div class="cont-body">
-        <div class="cont-meta">${dia} ${num} · ${MARCAS[p.marca].nombre} · ${p.formato} <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span></div>
-        <h4>${esc(tituloDe(p))}</h4>
-        ${extra}
+    <article class="cont-card ${clase}" data-id="${p.id}">
+      <div class="cont-row">
+        ${coverHtml(p, "cover-thumb cont-thumb")}
+        <div class="cont-body">
+          <div class="cont-meta">${dia.slice(0, 3)} ${num} · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
+          <h4>${esc(tituloDe(p))}</h4>
+          <span class="cont-estado-chip ${ESTADO_CLASS[est]}">${est}</span>
+        </div>
       </div>
+      ${extra}
     </article>`;
   };
   const extraAjuste = p => { const a = aprobDe(p); return `
-    <blockquote class="cont-com"><span class="cont-com-autor">${esc(a.por || AUTOR_CLIENTE)} pide:</span>${a.c ? esc(a.c) : "<i>Sin comentario escrito: confírmalo con mercadeo.</i>"}</blockquote>
+    <blockquote class="cont-com"><span class="cont-com-autor">${esc(a.por || AUTOR_CLIENTE)}</span>${a.c ? esc(a.c) : "<i>Sin comentario escrito: confírmalo con mercadeo.</i>"}</blockquote>
     <div class="cont-acc">
-      <button class="btn-primary" data-ajuste-ok="${p.id}">${icl("ok")} Ajuste aplicado · a producción</button>
-      <button class="btn-ghost" data-open="${p.id}">Abrir pieza</button>
+      <button class="cont-btn principal" data-ajuste-ok="${p.id}">${icl("ok")} Aplicado · a producción</button>
+      <button class="cont-btn" data-open="${p.id}">Abrir</button>
     </div>`; };
   const extraAprobada = p => { const a = aprobDe(p), est = estadoDe(p); return `
     ${a.c ? `<p class="cont-nota">“${esc(a.c)}”</p>` : ""}
     <div class="cont-acc">
-      <div class="estado-select cont-estado">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel " + ESTADO_CLASS[e] : ""}">${e}</button>`).join("")}</div>
-      <button class="btn-ghost" data-open="${p.id}">Abrir pieza</button>
+      <div class="cont-seg">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel" : ""}">${e}</button>`).join("")}</div>
+      <button class="cont-btn" data-open="${p.id}">Abrir</button>
     </div>`; };
+  const extraIdea = p => `
+    <div class="cont-acc">
+      <button class="cont-btn" data-open="${p.id}">Abrir</button>
+    </div>`;
+  const columna = (clase, titulo, n, cuerpo, pie = "") => `
+    <section class="cont-col ${clase}">
+      <header class="cont-col-head"><h3>${titulo}</h3><span class="cont-n">${n}</span></header>
+      <div class="cont-col-body">${cuerpo}</div>
+      ${pie}
+    </section>`;
   return `
-  <div class="cont-resumen">
-    <section class="cont-grupo ajustes">
-      <h3>${icl("ajuste")} Ajustes de mercadeo <span class="cont-n">${ajustes.length}</span></h3>
-      ${ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes: todo lo que pidió mercadeo ya está atendido.</p>`}
-      ${atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : ""}
-    </section>
-    <section class="cont-grupo aprobadas">
-      <h3>${icl("ok")} Aprobadas · para producir <span class="cont-n">${porHacer.length}</span></h3>
-      ${porHacer.length ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") : `<p class="cont-vacio">Nada aprobado pendiente de producir ahora mismo.</p>`}
-      ${listas.length ? `<p class="cont-nota-grupo">${listas.length} aprobadas ya están listas, programadas o publicadas.</p>` : ""}
-    </section>
-    <section class="cont-grupo pendientes">
-      <h3>${icl("reloj")} Pendientes de revisión <span class="cont-n">${pendientes.length}</span></h3>
-      <p class="cont-vacio">${pendientes.length ? `${pendientes.length} ${pendientes.length === 1 ? "pieza espera" : "piezas esperan"} respuesta de mercadeo. Usa <b>Enviar por WhatsApp</b> para recordarlo.` : "Todo revisado."}</p>
-      ${pendientes.length ? `<button class="btn-ghost" id="contVerPendientes">Ver pendientes</button>` : ""}
-    </section>
+  <div class="cont-cols">
+    ${columna("aprobadas", "Aprobadas", porHacer.length,
+      porHacer.length ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") : `<p class="cont-vacio">Nada aprobado pendiente de producir.</p>`,
+      listas.length ? `<p class="cont-pie">${listas.length} más ya listas, programadas o publicadas.</p>` : "")}
+    ${columna("ajustes", "Ajustes de mercadeo", ajustes.length,
+      ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes.</p>`,
+      atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : "")}
+    ${columna("ideas", "Ideas", pendientes.length,
+      pendientes.length ? pendientes.map(p => tarjeta(p, extraIdea(p), "idea")).join("") : `<p class="cont-vacio">Todo revisado.</p>`,
+      pendientes.length ? `<p class="cont-pie">Esperan respuesta de mercadeo. <b>Enviar por WhatsApp</b> las recuerda.</p>` : "")}
   </div>`;
 }
 function renderAprobacion() {
@@ -2505,7 +2512,7 @@ function cambiarVista(dir) {
 }
 // Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
 // más las tarjetas (su deslizado izquierdo ya significa "quitar").
-const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .fx-chart, .fx-range, .fx-controles, .fx-menu";
+const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .cont-cols, .fx-chart, .fx-range, .fx-controles, .fx-menu";
 const mainEl = document.getElementById("main");
 let swX = 0, swY = 0, swOk = false;
 mainEl.addEventListener("touchstart", e => {
