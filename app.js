@@ -3244,6 +3244,7 @@ const SVG_LLAMA = '<path d="M12 21.5c-3.9 0-6.7-2.6-6.7-6.2 0-2.5 1.4-4.4 2.9-6.
 const SVG_LAPIZ = '<path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/>';
 const SVG_CHECK = '<path d="M5.5 12.5l4.2 4.2L18.5 8"/>';
 
+let histMarcaVista = "forestal"; // en "Ambas" se ve UNA fila por vez; el botón › cambia de marca
 function renderHistorias() {
   const el = document.getElementById("view-historias");
   if (!el || MODO_CLIENTE) return;
@@ -3251,7 +3252,8 @@ function renderHistorias() {
   const h = historiasStore();
   const lunes = lunesDe(histSemana);
   const hoy = hoyISO();
-  const marcas = marcaActiva === "todas" ? ["forestal", "manzanares"] : [marcaActiva];
+  const todasMarcas = ["forestal", "manzanares"];
+  const marcas = marcaActiva === "todas" ? [histMarcaVista] : [marcaActiva];
   const fechas = Array.from({ length: 7 }, (_, i) => { const d = new Date(lunes); d.setDate(lunes.getDate() + i); return d; });
   const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
   const rango = `${fechas[0].getDate()} ${MESES[fechas[0].getMonth()]} – ${fechas[6].getDate()} ${MESES[fechas[6].getMonth()]}`;
@@ -3269,7 +3271,7 @@ function renderHistorias() {
         <button class="hist-flecha" id="histDespues" aria-label="Semana siguiente">›</button>
       </div>
       <div class="hist-rachas">
-        ${marcas.map(mk => {
+        ${(marcaActiva === "todas" ? todasMarcas : marcas).map(mk => {
           const r = rachaDe(mk);
           return `<span class="hist-racha ${r > 0 ? "viva" : ""}" style="--brand-color:${MARCAS[mk].color}">
             ${iconoHist(SVG_LLAMA, MARCAS[mk].color, "hist-ic hist-llama")}
@@ -3287,6 +3289,7 @@ function renderHistorias() {
       <div class="hist-marca" style="--brand-color:${m.color}">
         <div class="hist-marca-head">
           <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${mk === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"}">${m.nombre} · ${m.handle}</span>
+          ${marcaActiva === "todas" ? (() => { const otra = mk === "forestal" ? "manzanares" : "forestal"; return `<button class="hist-cambiar" data-hist-marca="${otra}" style="--brand-color:${MARCAS[otra].color}" aria-label="Ver historias de ${nombreCorto[otra]}">${nombreCorto[otra]} <i>›</i></button>`; })() : ""}
           <div class="hist-semaforo" title="${diasCubiertos}/7 días con historias">
             ${fechas.map((d, i) => {
               const cubierto = historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)]);
@@ -3383,6 +3386,7 @@ function renderHistorias() {
     }, { passive: false });
   });
 
+  el.querySelectorAll("[data-hist-marca]").forEach(b => b.onclick = () => { histMarcaVista = b.dataset.histMarca; renderHistorias(); });
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;

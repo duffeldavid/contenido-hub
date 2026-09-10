@@ -2062,3 +2062,13 @@ main { padding-bottom: 130px; }
   .tab-ico .icl { width: 28px; height: 28px; }
   .guardar-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* Historias: una fila por marca; botón para pasar a la otra marca */
+.hist-cambiar {
+  display: inline-flex; align-items: center; gap: 6px; cursor: pointer;
+  border: 1px solid rgba(255,255,255,.28); background: rgba(255,255,255,.1); color: #fff;
+  font-family: var(--font-body); font-size: 13px; font-weight: 600; padding: 7px 10px 7px 14px; border-radius: 999px;
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: background .15s, border-color .15s;
+}
+.hist-cambiar:hover { background: rgba(255,255,255,.18); border-color: rgba(255,255,255,.55); }
+.hist-cambiar i { font-style: normal; font-size: 18px; line-height: 1; margin-top: -2px; color: #E9C46A; }
