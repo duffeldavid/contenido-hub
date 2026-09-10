@@ -334,3 +334,26 @@ select.edit-input { cursor: pointer; color-scheme: dark; }
 
 /* El atributo hidden siempre oculta (aunque la clase fije display) */
 [hidden] { display: none !important; }
+
+/* ═══════════ Legibilidad: fondo más sereno, tarjetas más oscuras, cifras grandes ═══════════ */
+.blob { opacity: .58; filter: blur(10px) saturate(1); }
+.blob.b2 { opacity: .32; }
+.veil { background: linear-gradient(to bottom, rgba(5,5,5,.8) 0%, rgba(5,5,5,.45) 30%, rgba(5,5,5,.38) 60%, rgba(5,5,5,.7) 100%); }
+.es-card, .es-stat, .cli-card, .pro-card, .es-fin .fx-card, .es-fin .fin-panel, .es-fin .fx-suma, .es-fin .fx-obj-card {
+  background: rgba(10,10,10,.66); border-color: rgba(255,255,255,.12);
+}
+.es-stat-lbl { font-size: 12.5px; color: rgba(255,255,255,.6); }
+.es-stat-num { font-size: clamp(38px, 4.2vw, 54px); letter-spacing: -.02em; }
+.es-stat-sub { font-size: 14px; color: rgba(255,255,255,.7); }
+.es-stat-sub b { font-size: 15px; }
+.es-card h3 { font-size: 22px; }
+.es-card-txt { font-size: 15px; }
+.es-hub-stats { font-size: 15px; }
+.es-hub-stats b { font-size: 34px; }
+.es-accion-txt b { font-size: 16px; }
+.es-accion-txt small { font-size: 13.5px; }
+.es-fin .fx-card-num { font-size: clamp(34px, 3.6vw, 46px); }
+.es-fin .fx-suma-num { font-size: clamp(22px, 2.6vw, 30px); }
+.es-fin .fx-obj-num { font-size: clamp(26px, 2.8vw, 34px); }
+.cli-nom { font-size: 24px; }
+@media (max-width: 640px) { .es-stat-num { font-size: 40px; } .es-hub-stats b { font-size: 30px; } }
