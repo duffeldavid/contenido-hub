@@ -3262,7 +3262,29 @@ function renderHistorias() {
   const nombreCorto = { forestal: "Forestal", manzanares: "Manzanares" };
 
   let html = `
-    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. <b>Toca una historia para planificarla</b> — cargas la imagen o el video, eliges día y hora, y a esa hora te llega el aviso al celular con todo listo para subirla tú desde Instagram o Meta Business. El círculo la marca publicada; la racha cuenta los días seguidos al aire.</p>
+    ${(() => { const mk = marcas[0], m = MARCAS[mk]; const COPY = {
+      forestal: { t: "Historias con aroma a café,<br>todos los días.", s: "Que @forestalcafea nunca pase un día apagada." },
+      manzanares: { t: "Historias con sabor a parrilla,<br>todos los días.", s: "Que @carnesmanzanares nunca pase un día apagada." },
+    }[mk]; return `
+    <div class="hist-hero">
+      <div class="hist-cuenta" style="--brand-color:${m.color};--brand-fuerte:${m.colorFuerte}">
+        <span class="hist-avatar"><b>${m.nombre[0]}</b></span>
+        <button type="button" class="hist-cuenta-nom" id="histCuentaBtn" ${marcaActiva === "todas" ? "" : "disabled"} aria-haspopup="menu" aria-expanded="false">
+          <span class="hist-cuenta-nombre">${m.nombre}${marcaActiva === "todas" ? `<i class="hist-chev" aria-hidden="true"></i>` : ""}</span>
+          <span class="hist-cuenta-handle">${m.handle}</span>
+        </button>
+        ${marcaActiva === "todas" ? `
+        <div class="hist-cuenta-menu" id="histCuentaMenu" role="menu" hidden>
+          ${todasMarcas.map(k => `<button type="button" role="menuitem" data-hist-marca="${k}" class="${k === mk ? "sel" : ""}" style="--brand-color:${MARCAS[k].color};--brand-fuerte:${MARCAS[k].colorFuerte}">
+            <span class="hist-avatar chico"><b>${MARCAS[k].nombre[0]}</b></span>
+            <span class="hist-menu-txt"><b>${MARCAS[k].nombre}</b><small>${MARCAS[k].handle}</small></span>
+            ${k === mk ? `<span class="hist-menu-ok">${icl("ok")}</span>` : ""}
+          </button>`).join("")}
+        </div>` : ""}
+      </div>
+      <h2 class="hist-copy">${COPY.t}</h2>
+      <p class="hist-copy-sub">${COPY.s} Toca una historia para planificarla; el círculo la marca publicada.</p>
+    </div>`; })()}
     <div class="hist-barra">
       <div class="hist-nav">
         <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">‹</button>
@@ -3290,8 +3312,6 @@ function renderHistorias() {
     html += `
       <div class="hist-marca" style="--brand-color:${m.color}">
         <div class="hist-marca-head">
-          <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${mk === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"}">${m.nombre} · ${m.handle}</span>
-          ${marcaActiva === "todas" ? (() => { const otra = mk === "forestal" ? "manzanares" : "forestal"; return `<button class="hist-cambiar" data-hist-marca="${otra}" style="--brand-color:${MARCAS[otra].color}" aria-label="Ver historias de ${nombreCorto[otra]}">${nombreCorto[otra]} <i>›</i></button>`; })() : ""}
           <div class="hist-semaforo" title="${diasCubiertos}/7 días con historias">
             ${fechas.map((d, i) => {
               const cubierto = historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)]);
@@ -3388,7 +3408,18 @@ function renderHistorias() {
     }, { passive: false });
   });
 
-  el.querySelectorAll("[data-hist-marca]").forEach(b => b.onclick = () => { histMarcaVista = b.dataset.histMarca; renderHistorias(); });
+  el.querySelectorAll("[data-hist-marca]").forEach(b => b.onclick = e => { e.stopPropagation(); histMarcaVista = b.dataset.histMarca; renderHistorias(); });
+  const cuentaBtn = el.querySelector("#histCuentaBtn"), cuentaMenu = el.querySelector("#histCuentaMenu");
+  if (cuentaBtn && cuentaMenu) {
+    cuentaBtn.onclick = e => {
+      e.stopPropagation();
+      const abrir = cuentaMenu.hidden;
+      cuentaMenu.hidden = !abrir;
+      cuentaBtn.setAttribute("aria-expanded", abrir ? "true" : "false");
+      cuentaBtn.classList.toggle("abierto", abrir);
+      if (abrir) setTimeout(() => document.addEventListener("click", function cerrar() { cuentaMenu.hidden = true; cuentaBtn.classList.remove("abierto"); cuentaBtn.setAttribute("aria-expanded", "false"); document.removeEventListener("click", cerrar); }), 0);
+    };
+  }
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;

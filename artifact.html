@@ -2087,6 +2087,69 @@ body.sin-hero .hero-content, body.sin-hero .hero-stats {
 }
 body.sin-hero .hero { padding-bottom: 22px; }
 
+/* ═══════════ Historias: cabecera de cuenta estilo Instagram ═══════════ */
+.hist-nota { font-size: 13px; color: rgba(255,255,255,.62); max-width: 60ch; margin-bottom: 16px; }
+.hist-nota b { color: rgba(255,255,255,.8); font-weight: 500; }
+.hist-marca-head { gap: 18px; margin-bottom: 16px; }
+.hist-cuenta { position: relative; display: flex; align-items: center; gap: 14px; }
+.hist-avatar {
+  width: 64px; height: 64px; border-radius: 50%; flex: none; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand-color), var(--brand-fuerte));
+  box-shadow: 0 0 0 3px #171210, 0 0 0 5.5px var(--brand-color), 0 10px 26px -10px rgba(0,0,0,.7);
+}
+.hist-avatar b { font-family: var(--font-head); font-size: 26px; font-weight: 700; color: #fff; }
+.hist-avatar.chico { width: 40px; height: 40px; box-shadow: 0 0 0 2px #1a1614, 0 0 0 3.5px var(--brand-color); }
+.hist-avatar.chico b { font-size: 17px; }
+.hist-cuenta-nom { background: none; border: 0; padding: 0; text-align: left; cursor: pointer; color: #fff; display: flex; flex-direction: column; gap: 2px; font-family: var(--font-body); }
+.hist-cuenta-nom:disabled { cursor: default; }
+.hist-cuenta-nombre { display: inline-flex; align-items: center; gap: 8px; font-family: var(--font-head); font-size: 24px; font-weight: 700; line-height: 1.1; letter-spacing: -.01em; text-shadow: 0 1px 10px rgba(18,12,9,.55); }
+.hist-cuenta-handle { font-size: 14px; color: rgba(255,255,255,.72); }
+.hist-chev { width: 11px; height: 11px; border-right: 2.5px solid #fff; border-bottom: 2.5px solid #fff; transform: rotate(45deg) translateY(-3px); transition: transform .2s; margin-left: 2px; }
+.hist-cuenta-nom.abierto .hist-chev { transform: rotate(-135deg) translateY(-3px); }
+.hist-cuenta-menu {
+  position: absolute; left: 0; top: calc(100% + 10px); z-index: 40; min-width: 300px;
+  background: rgba(22,19,17,.96); border: 1px solid rgba(255,255,255,.14); border-radius: 20px; padding: 8px;
+  backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px);
+  box-shadow: 0 30px 80px -20px rgba(0,0,0,.9); display: flex; flex-direction: column; gap: 2px;
+  animation: menuBaja .18s cubic-bezier(.32,.72,.28,1);
+}
+@keyframes menuBaja { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.hist-cuenta-menu button {
+  display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; cursor: pointer;
+  background: transparent; border: 0; border-radius: 14px; padding: 10px 12px; color: #fff; font-family: var(--font-body);
+}
+.hist-cuenta-menu button:hover { background: rgba(255,255,255,.08); }
+.hist-cuenta-menu button.sel { background: rgba(255,255,255,.06); }
+.hist-menu-txt { flex: 1; display: flex; flex-direction: column; }
+.hist-menu-txt b { font-family: var(--font-head); font-size: 15.5px; font-weight: 600; }
+.hist-menu-txt small { font-size: 12.5px; color: rgba(255,255,255,.62); }
+.hist-menu-ok { color: #8FD9A0; }
+.hist-menu-ok .icl { width: 20px; height: 20px; }
+.hist-cambiar { display: none; }
+.hist-semaforo { margin-left: auto; }
+.hist-punto { width: 12px; height: 12px; }
+.hist-cobertura { font-size: 13px; }
+.hist-story { width: 272px; }
+@media (max-width: 640px) {
+  .hist-avatar { width: 56px; height: 56px; }
+  .hist-avatar b { font-size: 22px; }
+  .hist-cuenta-nombre { font-size: 21px; }
+  .hist-semaforo { margin-left: 0; }
+  .hist-story { width: 232px; }
+  .hist-cuenta-menu { min-width: min(300px, 86vw); }
+}
+
+/* Historias: cabecera con cuenta grande + titular publicitario (legible sobre el vidrio) */
+.hist-hero { margin: 0 0 22px; display: flex; flex-direction: column; gap: 14px; }
+.hist-copy {
+  font-family: var(--font-head); font-weight: 700; color: #fff;
+  font-size: clamp(30px, 4.2vw, 50px); line-height: 1.04; letter-spacing: -.015em; text-wrap: balance;
+  text-shadow: 0 2px 18px rgba(18,12,9,.7);
+}
+.hist-copy-sub { font-size: 15.5px; color: rgba(255,255,255,.88); text-shadow: 0 1px 10px rgba(18,12,9,.6); max-width: 62ch; }
+.hist-marca-head { justify-content: flex-end; }
+@media (max-width: 640px) { .hist-copy { font-size: 30px; } .hist-copy-sub { font-size: 14px; } .hist-marca-head { justify-content: flex-start; } }
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
@@ -5900,7 +5963,29 @@ function renderHistorias() {
   const nombreCorto = { forestal: "Forestal", manzanares: "Manzanares" };
 
   let html = `
-    <p class="view-note">El plan semanal de historias: <b>que ninguna cuenta pase un día apagada</b>. <b>Toca una historia para planificarla</b> — cargas la imagen o el video, eliges día y hora, y a esa hora te llega el aviso al celular con todo listo para subirla tú desde Instagram o Meta Business. El círculo la marca publicada; la racha cuenta los días seguidos al aire.</p>
+    ${(() => { const mk = marcas[0], m = MARCAS[mk]; const COPY = {
+      forestal: { t: "Historias con aroma a café,<br>todos los días.", s: "Que @forestalcafea nunca pase un día apagada." },
+      manzanares: { t: "Historias con sabor a parrilla,<br>todos los días.", s: "Que @carnesmanzanares nunca pase un día apagada." },
+    }[mk]; return `
+    <div class="hist-hero">
+      <div class="hist-cuenta" style="--brand-color:${m.color};--brand-fuerte:${m.colorFuerte}">
+        <span class="hist-avatar"><b>${m.nombre[0]}</b></span>
+        <button type="button" class="hist-cuenta-nom" id="histCuentaBtn" ${marcaActiva === "todas" ? "" : "disabled"} aria-haspopup="menu" aria-expanded="false">
+          <span class="hist-cuenta-nombre">${m.nombre}${marcaActiva === "todas" ? `<i class="hist-chev" aria-hidden="true"></i>` : ""}</span>
+          <span class="hist-cuenta-handle">${m.handle}</span>
+        </button>
+        ${marcaActiva === "todas" ? `
+        <div class="hist-cuenta-menu" id="histCuentaMenu" role="menu" hidden>
+          ${todasMarcas.map(k => `<button type="button" role="menuitem" data-hist-marca="${k}" class="${k === mk ? "sel" : ""}" style="--brand-color:${MARCAS[k].color};--brand-fuerte:${MARCAS[k].colorFuerte}">
+            <span class="hist-avatar chico"><b>${MARCAS[k].nombre[0]}</b></span>
+            <span class="hist-menu-txt"><b>${MARCAS[k].nombre}</b><small>${MARCAS[k].handle}</small></span>
+            ${k === mk ? `<span class="hist-menu-ok">${icl("ok")}</span>` : ""}
+          </button>`).join("")}
+        </div>` : ""}
+      </div>
+      <h2 class="hist-copy">${COPY.t}</h2>
+      <p class="hist-copy-sub">${COPY.s} Toca una historia para planificarla; el círculo la marca publicada.</p>
+    </div>`; })()}
     <div class="hist-barra">
       <div class="hist-nav">
         <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">‹</button>
@@ -5928,8 +6013,6 @@ function renderHistorias() {
     html += `
       <div class="hist-marca" style="--brand-color:${m.color}">
         <div class="hist-marca-head">
-          <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${mk === "forestal" ? "var(--forestal-tint)" : "var(--manzanares-tint)"}">${m.nombre} · ${m.handle}</span>
-          ${marcaActiva === "todas" ? (() => { const otra = mk === "forestal" ? "manzanares" : "forestal"; return `<button class="hist-cambiar" data-hist-marca="${otra}" style="--brand-color:${MARCAS[otra].color}" aria-label="Ver historias de ${nombreCorto[otra]}">${nombreCorto[otra]} <i>›</i></button>`; })() : ""}
           <div class="hist-semaforo" title="${diasCubiertos}/7 días con historias">
             ${fechas.map((d, i) => {
               const cubierto = historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)]);
@@ -6026,7 +6109,18 @@ function renderHistorias() {
     }, { passive: false });
   });
 
-  el.querySelectorAll("[data-hist-marca]").forEach(b => b.onclick = () => { histMarcaVista = b.dataset.histMarca; renderHistorias(); });
+  el.querySelectorAll("[data-hist-marca]").forEach(b => b.onclick = e => { e.stopPropagation(); histMarcaVista = b.dataset.histMarca; renderHistorias(); });
+  const cuentaBtn = el.querySelector("#histCuentaBtn"), cuentaMenu = el.querySelector("#histCuentaMenu");
+  if (cuentaBtn && cuentaMenu) {
+    cuentaBtn.onclick = e => {
+      e.stopPropagation();
+      const abrir = cuentaMenu.hidden;
+      cuentaMenu.hidden = !abrir;
+      cuentaBtn.setAttribute("aria-expanded", abrir ? "true" : "false");
+      cuentaBtn.classList.toggle("abierto", abrir);
+      if (abrir) setTimeout(() => document.addEventListener("click", function cerrar() { cuentaMenu.hidden = true; cuentaBtn.classList.remove("abierto"); cuentaBtn.setAttribute("aria-expanded", "false"); document.removeEventListener("click", cerrar); }), 0);
+    };
+  }
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;
