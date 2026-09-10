@@ -2492,7 +2492,7 @@ document.getElementById("main").addEventListener("click", e => {
 let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["aprobacion", "calendario", "rodaje", "historias", "feed"];
+  : ["aprobacion", "historias", "calendario", "rodaje", "feed"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;

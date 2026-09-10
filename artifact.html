@@ -2052,6 +2052,22 @@ main { padding-bottom: 130px; }
   main { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
 }
 
+/* Barra flotante: un poco más pequeña y más arriba */
+.tabs { padding: 7px; bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+.tabs button { padding: 11px 24px; min-width: 90px; }
+.tab-ico .icl { width: 25px; height: 25px; }
+@media (min-width: 1400px) {
+  .tabs { bottom: 36px; }
+  .tabs button { padding: 12px 29px; min-width: 104px; }
+  .tab-ico .icl { width: 27px; height: 27px; }
+}
+@media (max-width: 640px) {
+  .tabs { left: 18px; right: 18px; padding: 5px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .tabs button { padding: 12px 0; min-height: 52px; }
+  .tab-ico .icl { width: 28px; height: 28px; }
+  .guardar-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
@@ -2096,10 +2112,10 @@ main { padding-bottom: 130px; }
   <div class="sheet">
   <nav class="tabs" id="tabs" aria-label="Secciones">
     <button data-view="aprobacion" class="active"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8 12.2l2.6 2.6L16.5 9"/></svg></i><span>Contenidos</span></button>
+    <button data-view="historias"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg></i><span>Historias</span></button>
     <button data-view="calendario"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></i><span>Calendario</span></button>
     <button data-view="rodaje"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="13.5" height="11" rx="3"/><path d="M16 10.5 21 8v8l-5-2.5z"/></svg></i><span>Rodaje</span></button>
     <button data-view="pipeline"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg></i><span>Pipeline</span></button>
-    <button data-view="historias"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg></i><span>Historias</span></button>
     <button data-view="feed"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg></i><span>Feed</span></button>
   </nav>
 
@@ -5095,7 +5111,7 @@ document.getElementById("main").addEventListener("click", e => {
 let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["aprobacion", "calendario", "rodaje", "historias", "feed"];
+  : ["aprobacion", "historias", "calendario", "rodaje", "feed"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;

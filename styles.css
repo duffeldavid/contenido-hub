@@ -2046,3 +2046,19 @@ main { padding-bottom: 130px; }
   .toast-live { bottom: calc(100px + env(safe-area-inset-bottom, 0px)); }
   main { padding-bottom: calc(120px + env(safe-area-inset-bottom, 0px)); }
 }
+
+/* Barra flotante: un poco más pequeña y más arriba */
+.tabs { padding: 7px; bottom: calc(30px + env(safe-area-inset-bottom, 0px)); }
+.tabs button { padding: 11px 24px; min-width: 90px; }
+.tab-ico .icl { width: 25px; height: 25px; }
+@media (min-width: 1400px) {
+  .tabs { bottom: 36px; }
+  .tabs button { padding: 12px 29px; min-width: 104px; }
+  .tab-ico .icl { width: 27px; height: 27px; }
+}
+@media (max-width: 640px) {
+  .tabs { left: 18px; right: 18px; padding: 5px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); }
+  .tabs button { padding: 12px 0; min-height: 52px; }
+  .tab-ico .icl { width: 28px; height: 28px; }
+  .guardar-fab { bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+}
