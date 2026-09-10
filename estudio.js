@@ -753,6 +753,32 @@ function renderInicio() {
   });
 }
 
+// ---------- Cifras que cuentan hacia arriba (vida al panel) ----------
+function animarCifras(root) {
+  if (!root || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  root.querySelectorAll(".es-stat-num, .fx-card-num, .fx-suma-num, .fx-obj-num").forEach(el => {
+    if (el.dataset.animado) return;
+    const txt = el.childNodes[0] && el.childNodes[0].nodeType === 3 ? el.childNodes[0].nodeValue : el.textContent;
+    const m = String(txt).match(/^(\s*[-$]*)([\d.]+)(%?)/);
+    if (!m) return;
+    const valor = Number(m[2].replace(/\./g, ""));
+    if (!isFinite(valor) || valor === 0) return;
+    el.dataset.animado = "1";
+    const pre = m[1], suf = m[3];
+    const usaMiles = m[2].includes(".");
+    const nodo = el.childNodes[0].nodeType === 3 ? el.childNodes[0] : el;
+    const t0 = performance.now(), dur = 900;
+    el.classList.add("contando");
+    const paso = t => {
+      const k = Math.min(1, (t - t0) / dur), e = 1 - Math.pow(1 - k, 3);
+      const v = Math.round(valor * e);
+      const s = pre + (usaMiles ? nfCO.format(v) : String(v)) + suf;
+      if (nodo === el) el.textContent = s; else nodo.nodeValue = s;
+      if (k < 1) requestAnimationFrame(paso); else el.classList.remove("contando");
+    };
+    requestAnimationFrame(paso);
+  });
+}
 // ---------- Navegación ----------
 let vistaActiva = "inicio";
 function activarVista(v) {
@@ -762,6 +788,8 @@ function activarVista(v) {
   try { sessionStorage.setItem("estudioUI", v); } catch {}
   window.scrollTo({ top: 0, behavior: "smooth" });
   if (v === "finanzas") { finPintarVivo(document.getElementById("view-finanzas")); finPintarFlujo(document.getElementById("view-finanzas")); }
+  const vista = document.getElementById("view-" + v);
+  if (vista) { vista.querySelectorAll("[data-animado]").forEach(x => delete x.dataset.animado); animarCifras(vista); }
 }
 document.querySelectorAll("#nav button").forEach(b => b.onclick = () => activarVista(b.dataset.view));
 // "Contenido Hub" en la barra abre el hub directo en su Home (Contenidos)

@@ -804,7 +804,7 @@ function renderHero() {
 
 // ---------- Vista: Calendario ----------
 // El planificador (cuadrícula del mes estilo Meta Business) es la primera pantalla
-let calModo = MODO_CLIENTE ? "semanas" : "mes"; // "mes" | "semanas" | "dias" | "flujo"
+let calModo = "semanas"; // "mes" | "semanas" | "dias" | "flujo" — Semanas (L·M·V) es la vista principal
 let calFiltro = "todas"; // "todas" | "aprobadas" | "programadas"
 
 function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
@@ -946,8 +946,12 @@ function renderCalendario() {
       (semanas[wk] = semanas[wk] || []).push(f);
     });
     let wkNum = 1;
+    const MESES_C = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
     for (const wk of Object.keys(semanas).sort()) {
-      html += `<div class="cal-week"><div class="cal-week-label">Semana ${wkNum++}</div><div class="cal-days">`;
+      const lun = new Date(wk + "T12:00:00"), dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+      const esta = hoy >= isoDe(lun) && hoy <= isoDe(dom);
+      const rango = `${lun.getDate()} – ${dom.getDate()} ${MESES_C[dom.getMonth()]}`;
+      html += `<div class="cal-week ${esta ? "actual" : ""}" ${esta ? 'id="semanaActual"' : ""}><div class="cal-week-label"><b>Semana ${wkNum++}</b><span>${rango}</span>${esta ? `<em class="chip-semana">Esta semana</em>` : ""}</div><div class="cal-days">`;
       html += semanas[wk].sort().map(f => bloqueDia(f, porFecha, hoy)).join("");
       html += `</div></div>`;
     }
@@ -2499,9 +2503,10 @@ function activarVista(v, dir) {
   // El héroe (título + cifras) es el Home: solo se ve en Contenidos.
   document.body.classList.toggle("sin-hero", v !== "aprobacion");
   // Entrar a Calendario muestra SIEMPRE el Planificador primero
-  if (v === "calendario" && previa !== "calendario" && !MODO_CLIENTE && calModo !== "mes") {
-    calModo = "mes";
-    renderCalendario();
+  if (v === "calendario" && previa !== "calendario" && !MODO_CLIENTE) {
+    // Entrar a Calendario muestra SIEMPRE las semanas L·M·V y lleva a la semana actual
+    if (calModo !== "semanas") { calModo = "semanas"; renderCalendario(); }
+    setTimeout(() => { const s = document.getElementById("semanaActual"); if (s) s.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
   }
   document.querySelectorAll("#tabs button").forEach(x => x.classList.toggle("active", x.dataset.view === v));
   document.querySelectorAll(".view").forEach(x => x.classList.remove("active", "entra-izq", "entra-der"));

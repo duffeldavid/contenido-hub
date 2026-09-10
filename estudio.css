@@ -359,164 +359,65 @@ select.edit-input { cursor: pointer; color-scheme: dark; }
 @media (max-width: 640px) { .es-stat-num { font-size: 40px; } .es-hub-stats b { font-size: 30px; } }
 
 /* ════════════════════════════════════════════════════════════
-   TEMA CLARO · cremas y grises suaves, limpio y luxury.
-   (Reemplaza el tema oscuro: estas reglas van al final y mandan.)
+   TEMA GRAFITO · oscuro pero en grises, limpio y luxury
+   (David: "retomemos el estilo oscuro pero más hacia los grises")
    ════════════════════════════════════════════════════════════ */
 :root {
-  --bg: #F3F0EA; --txt: #1B1815; --dim: rgba(27,24,21,.62); --faint: rgba(27,24,21,.45);
-  --line: rgba(27,24,21,.09); --card: rgba(255,255,255,.72);
-  --gold: #C9A24C; --gold-2: #E9D6A0; --green: #2E9E5B; --rose: #D65A4A;
+  --bg: #1A1A1D; --txt: #F2F2F3; --dim: rgba(242,242,243,.66); --faint: rgba(242,242,243,.48);
+  --line: rgba(255,255,255,.11); --card: rgba(58,58,64,.42);
+  --gold: #E3C079; --gold-2: #F1DDA4; --green: #5CDB8F; --rose: #F2938A;
 }
-body { background: var(--bg); color: var(--txt); }
-.bien { color: var(--green); } .mal { color: var(--rose); } .acento { color: var(--gold); }
-.bg { background: radial-gradient(120% 80% at 50% 115%, #EEE4CF 0%, #F3F0EA 45%, #F5F3EF 100%); }
-.blob {
-  opacity: .55; filter: blur(22px) saturate(.9);
-  background: radial-gradient(circle at 34% 26%, rgba(255,244,214,1) 0%, rgba(240,214,150,.9) 16%, rgba(214,178,104,.55) 38%, rgba(214,178,104,.18) 58%, rgba(243,240,234,0) 72%);
-}
-.blob.b2 { opacity: .35; mix-blend-mode: multiply; background: radial-gradient(circle at 58% 42%, rgba(190,200,240,.55), rgba(220,190,235,.35) 34%, rgba(230,225,240,.15) 56%, rgba(243,240,234,0) 72%); }
-.stars { display: none; }
-.veil { background: linear-gradient(to bottom, rgba(243,240,234,.55) 0%, rgba(243,240,234,.15) 30%, rgba(243,240,234,.1) 60%, rgba(243,240,234,.6) 100%); }
-
-/* Barra superior */
-.topbar { background: rgba(255,255,255,.62); border-color: rgba(27,24,21,.08); box-shadow: 0 10px 40px -20px rgba(27,24,21,.25); }
-.brand { color: var(--txt); }
-.brand-dot { background: linear-gradient(135deg, #E9D6A0, #C9A24C); box-shadow: 0 0 14px rgba(201,162,76,.55); }
-.pill-nav { background: rgba(27,24,21,.06); }
-.pill-nav button { color: rgba(27,24,21,.62); }
-.pill-nav button:hover { color: var(--txt); }
-.pill-nav button.active { background: #1B1815; color: #fff; }
-.pill-link { color: var(--txt); border-color: rgba(27,24,21,.16); }
-.pill-link:hover { background: rgba(27,24,21,.05); border-color: rgba(27,24,21,.35); }
-
-/* Textos */
-.es-eyebrow { color: var(--faint); }
-.es-h1, .es-h2 { color: var(--txt); }
-.es-h1-dim { color: rgba(27,24,21,.42); }
-.es-lead, .es-card-txt, .es-stat-sub, .es-hub-stats, .cli-marcas, .cli-cobro, .cli-dinero, .pro-tipo, .pro-pie, .fin-hint, .es-accion-txt small, .ec-item-nom small { color: var(--dim); }
-.es-stat-lbl, .cli-sin-plan, .cli-dim, .pro-sig-lbl, .cli-sig-lbl { color: var(--faint); }
-.es-stat-num, .es-card h3, .es-hub-stats b, .es-stat-sub b, .cli-nom, .cli-dinero b, .pro-card-tit h4, .es-accion-txt b, .ec-item-nom b, .ec-item-val, .es-sub h3 { color: var(--txt); }
-.cli-tipo { color: #A8843A; }
-
-/* Tarjetas de vidrio claro */
+body { background: var(--bg); }
+.bg { background: radial-gradient(120% 80% at 50% 115%, #2A2620 0%, #1D1D20 45%, #1A1A1D 100%); }
+.blob { opacity: .5; filter: blur(14px) saturate(.95); }
+.blob.b2 { opacity: .3; }
+.stars { opacity: .35; }
+.veil { background: linear-gradient(to bottom, rgba(26,26,29,.72) 0%, rgba(26,26,29,.3) 30%, rgba(26,26,29,.28) 60%, rgba(26,26,29,.7) 100%); }
+.topbar { background: rgba(40,40,45,.62); border-color: rgba(255,255,255,.12); }
+.pill-nav { background: rgba(0,0,0,.28); }
 .es-card, .es-stat, .cli-card, .pro-card, .es-fin .fx-card, .es-fin .fin-panel, .es-fin .fx-suma, .es-fin .fx-obj-card {
-  background: rgba(255,255,255,.78); border: 1px solid rgba(27,24,21,.08);
-  box-shadow: 0 1px 2px rgba(27,24,21,.04), 0 18px 50px -30px rgba(27,24,21,.28);
+  background: rgba(52,52,58,.55); border-color: rgba(255,255,255,.12);
+  box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 20px 50px -30px rgba(0,0,0,.6);
 }
-.es-stat:hover, .cli-card:hover, .pro-card:hover { border-color: rgba(27,24,21,.18); }
-.es-stat { color: var(--txt); }
-.es-accion { color: var(--txt); border-top-color: var(--line); }
-.es-accion:hover { background: rgba(27,24,21,.04); }
-.es-accion-dot { background: var(--gold); box-shadow: 0 0 8px rgba(201,162,76,.6); }
-.es-accion.hub .es-accion-dot { background: #1B1815; box-shadow: none; }
-.cli-sig { background: rgba(201,162,76,.12); color: var(--txt); }
-.pro-sig { background: rgba(27,24,21,.04); color: var(--txt); }
-.pro-fase.actual { background: rgba(201,162,76,.1); }
-.chip-semana { background: #1B1815; color: #fff; }
-.pro-tipos button { background: #fff; border-color: rgba(27,24,21,.12); color: var(--txt); }
-.pro-tipos button small { color: var(--faint); }
-.pro-tipos button.sel { border-color: var(--gold); box-shadow: 0 0 0 1px var(--gold); background: rgba(201,162,76,.1); }
-.ec-item { background: rgba(27,24,21,.03); border-color: var(--line); color: var(--txt); }
-.ec-item:hover { border-color: rgba(27,24,21,.3); }
-.anillo text { fill: var(--txt); }
-.anillo circle:first-child { stroke: rgba(27,24,21,.1); }
-.fx-obj-bar { background: rgba(27,24,21,.08); }
-.fx-obj-bar i { background: linear-gradient(90deg, var(--gold), #1B1815); }
-
-/* Controles */
-.btn-primary { background: #1B1815; color: #fff; }
-.btn-primary:hover { box-shadow: 0 12px 30px -12px rgba(27,24,21,.6); }
-.btn-ghost { border-color: rgba(27,24,21,.16); background: rgba(255,255,255,.7); color: var(--txt); }
-.btn-ghost:hover { border-color: rgba(27,24,21,.4); }
-.link-btn { color: var(--dim); } .link-btn:hover { color: var(--txt); }
-.edit-input, .aprob-comment { border-color: rgba(27,24,21,.14); color: var(--txt); background: #fff; }
-.edit-input::placeholder, .aprob-comment::placeholder { color: rgba(27,24,21,.38); }
-.edit-input:focus, .aprob-comment:focus { border-color: var(--gold); }
-select.edit-input { color-scheme: light; }
-.aprob-pills button { border-color: rgba(27,24,21,.14); background: #fff; color: var(--dim); }
-.aprob-pills button.sel { background: #1B1815; border-color: #1B1815; color: #fff; }
-.check-item span { color: var(--txt); }
-.check-item input:checked + span { color: var(--faint); }
-.toast-live { background: #1B1815; color: #fff; border-color: rgba(255,255,255,.15); }
-.calp { background: #fff; border-color: rgba(27,24,21,.12); }
-.calp-mes, .calp-dia { color: var(--txt); }
-.calp-nav { background: rgba(27,24,21,.06); color: var(--txt); } .calp-nav:hover { background: rgba(27,24,21,.12); }
-.calp-dow { color: var(--faint); }
-.calp-dia:hover { background: rgba(27,24,21,.07); }
-.calp-dia.hoy { box-shadow: inset 0 0 0 1.5px rgba(201,162,76,.8); }
-.calp-dia.sel { background: #1B1815; color: #fff; }
-
-/* Ficha flotante */
-.drawer-backdrop { background: rgba(27,24,21,.28); }
-.drawer { background: rgba(255,255,255,.9); border-color: rgba(27,24,21,.1); color-scheme: light; color: var(--txt); box-shadow: 0 40px 120px -30px rgba(27,24,21,.45); }
-.drawer .close-btn { background: rgba(27,24,21,.06); border-color: rgba(27,24,21,.1); color: var(--txt); }
-.drawer h2 { color: var(--txt); }
-.drawer .sub { color: var(--dim); }
-.drawer section h4 { color: var(--faint); }
-
-/* Candado */
-.candado-caja { background: rgba(255,255,255,.82); border-color: rgba(27,24,21,.08); color: var(--txt); box-shadow: 0 40px 120px -30px rgba(27,24,21,.35); }
-.candado-tit { color: var(--txt); }
-.candado-txt { color: var(--dim); }
-.candado .edit-input { background: #fff; }
-
-/* Finanzas (módulos fx-*) en claro */
-.es-fin {
-  --fx-acento: #C9A24C; --fx-verde: #2E9E5B; --fx-txt: #1B1815;
-  --fx-dim: rgba(27,24,21,.62); --fx-faint: rgba(27,24,21,.45);
-  --fx-line: rgba(27,24,21,.09); --fx-card: rgba(255,255,255,.78);
-  color: var(--txt);
-}
-.es-fin .mal, .es-fin .fx-card-num.mal, .es-fin .fx-suma-num.acento, .es-fin .fx-met-num.mal, .es-fin .fx-met-sub.mal, .es-fin .fx-fecha.vencido, .es-fin .fx-item.vencido .fx-item-fecha { color: var(--rose); }
-.es-fin .bien, .es-fin .fx-met-num.bien, .es-fin .fx-suma-num.bien, .es-fin .fx-card-num.bien { color: var(--green); }
-.es-fin .fx-met-sub.bien { color: var(--green); }
-.es-fin .fx-met-num, .es-fin .fx-suma-num, .es-fin .fx-val, .es-fin .fx-cli b, .es-fin .fx-item-nom b, .es-fin .fx-item-val, .es-fin .fx-chart-tit, .es-fin .fx-card-num, .es-fin .fx-obj-num, .es-fin .fx-obj-nom, .es-fin .fx-head h3, .es-fin .fin-panel-head h3, .es-fin .fx-card-sub b, .es-fin .fx-obj-sub b, .es-fin .fx-ley-dato b, .es-fin .fin-num, .es-fin .fin-neto, .es-fin .fin-tabla .celda, .es-fin .hoja-celda { color: var(--txt); }
-.es-fin .fx-met { border-left-color: rgba(27,24,21,.12); }
-.es-fin .fx-met-lbl, .es-fin .fx-card-sub, .es-fin .fx-suma-lbl, .es-fin .fx-serv, .es-fin .fx-fecha, .es-fin .fx-item-fecha, .es-fin .fx-leyenda, .es-fin .fx-obj-sub, .es-fin .fx-nota, .es-fin .fx-vacio, .es-fin .fx-tip { color: var(--dim); }
-.es-fin .fx-tip { background: rgba(255,255,255,.96); border-color: rgba(27,24,21,.12); box-shadow: 0 12px 30px -14px rgba(27,24,21,.4); }
-.es-fin .fx-tip b { color: var(--txt); }
-.es-fin .fx-tip-flujo small { color: var(--faint); }
-.es-fin .fx-grid { stroke: rgba(27,24,21,.12); }
-.es-fin .fx-eje { stroke: rgba(27,24,21,.2); }
-.es-fin .fx-ytxt, .es-fin .fx-xtxt, .es-fin .fx-xtit { fill: rgba(27,24,21,.6); }
-.es-fin .fx-guia { stroke: rgba(27,24,21,.3); }
-.es-fin .fx-dot { stroke: #fff; }
-.es-fin .fx-linea-pos { stroke: rgba(27,24,21,.45); }
-.es-fin .fx-sw.pos { border-color: rgba(27,24,21,.45); }
-.es-fin .fx-range { background: linear-gradient(to right, var(--fx-acento) 0, var(--fx-acento) var(--p, 0%), rgba(27,24,21,.12) var(--p, 0%)); }
-.es-fin .fx-range::-webkit-slider-thumb { background: #fff; border-color: var(--fx-acento); box-shadow: 0 2px 8px rgba(27,24,21,.3); }
-.es-fin .fx-input, .es-fin .edit-input { background: #fff; border-color: rgba(27,24,21,.14); color: var(--txt); }
-.es-fin .fx-input::placeholder, .es-fin .edit-input::placeholder { color: rgba(27,24,21,.38); }
-.es-fin .fx-modo button, .es-fin .aprob-pills button { background: #fff; border-color: rgba(27,24,21,.14); color: var(--dim); }
-.es-fin .fx-modo button.sel, .es-fin .aprob-pills button.sel { background: #1B1815; border-color: #1B1815; color: #fff; }
-.es-fin .fx-badge { background: rgba(27,24,21,.04); border-color: rgba(27,24,21,.1); }
-.es-fin .fx-fila { border-top-color: var(--fx-line); }
-.es-fin .fx-fila:hover { background: rgba(27,24,21,.03); }
-.es-fin .fx-fila.fx-cab { color: var(--faint); }
-.es-fin .fx-menu { background: rgba(255,255,255,.98); border-color: rgba(27,24,21,.12); box-shadow: 0 20px 50px -20px rgba(27,24,21,.4); }
-.es-fin .fx-menu button:hover .fx-badge { background: rgba(27,24,21,.06); }
-.es-fin .fx-edit { border-color: var(--fx-line); background: #fff; color: var(--dim); }
-.es-fin .fx-edit:hover { color: var(--txt); border-color: rgba(27,24,21,.35); }
-.es-fin .fx-item:hover { background: rgba(27,24,21,.03); }
-.es-fin .fx-lista { border-top-color: var(--fx-line); }
-.es-fin .fx-pagado { border-color: rgba(46,158,91,.4); background: rgba(46,158,91,.08); color: var(--green); }
-.es-fin .fx-link { color: #A8843A; }
-.es-fin .fx-caja-btn { border-bottom-color: rgba(27,24,21,.28); color: var(--txt); }
-.es-fin .fx-obj-card { color: var(--txt); }
-.es-fin .fx-obj-card:hover { border-color: rgba(27,24,21,.2); }
-.es-fin .fx-obj-tipo, .es-fin .fx-card-lbl, .es-fin .fx-lbl, .es-fin .fin-lbl, .es-fin .fx-suma-lbl small, .es-fin .fx-card-sub small, .es-fin .fx-item-nom small, .es-fin .fx-tipo { color: var(--faint); }
-.es-fin .fx-tipo { color: var(--green); }
-.es-fin .fx-controles { border-top-color: var(--fx-line); }
-.es-fin .fx-vacio { border-color: var(--fx-line); }
-.es-fin .fx-estados button.sel .fx-badge { background: rgba(27,24,21,.06); }
-.es-fin .fin-tabla th, .es-fin .hoja th { color: var(--faint); border-color: var(--fx-line); background: rgba(27,24,21,.03); }
-.es-fin .fin-tabla td, .es-fin .hoja td { border-color: rgba(27,24,21,.07); }
-.es-fin .fin-tabla .celda:hover { background: rgba(27,24,21,.03); }
-.es-fin .fin-tabla .celda:focus, .es-fin .hoja-celda:focus { background: #fff; border-color: var(--gold); outline-color: var(--gold); }
-.es-fin .fin-tabla tfoot td { border-top-color: rgba(27,24,21,.2); }
-.es-fin .fin-neto.rojo { color: var(--rose); }
-.es-fin .hoja-celda.formula { color: #1F5FBF; }
-.es-fin .hoja-celda.error { color: var(--rose); }
-.es-fin .btn-ghost { background: #fff; border-color: rgba(27,24,21,.16); color: var(--txt); }
-.es-fin .fin-card.destacada { background: linear-gradient(135deg, rgba(201,162,76,.18), rgba(201,162,76,.06)); border-color: rgba(201,162,76,.4); }
+.es-stat:hover, .cli-card:hover, .pro-card:hover { border-color: rgba(255,255,255,.24); }
+.es-accion:hover { background: rgba(255,255,255,.06); }
+.pro-sig { background: rgba(255,255,255,.07); }
+.ec-item { background: rgba(255,255,255,.05); }
+.edit-input, .aprob-comment { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.16); }
+.drawer { background: rgba(38,38,43,.9); border-color: rgba(255,255,255,.14); }
+.candado-caja { background: rgba(36,36,41,.7); }
+.es-fin { --fx-acento: #E3C079; --fx-verde: #5CDB8F; --fx-line: rgba(255,255,255,.11); --fx-card: rgba(52,52,58,.55); --fx-dim: rgba(242,242,243,.66); --fx-faint: rgba(242,242,243,.5); }
+.es-fin .fx-tip, .es-fin .fx-menu { background: rgba(40,40,45,.97); }
+.es-fin .fx-dot { stroke: #1A1A1D; }
 .foot { color: var(--faint); }
+
+/* ═══════════ MOVIMIENTO · el panel respira y las cifras cobran vida ═══════════ */
+.blob { animation: morfar 18s ease-in-out infinite alternate, derivarGrande 30s ease-in-out infinite alternate, respirar 9s ease-in-out infinite; }
+.blob.b2 { animation: morfar 22s ease-in-out infinite alternate-reverse, derivarGrande 38s ease-in-out infinite alternate-reverse, respirar 11s ease-in-out infinite; }
+@keyframes derivarGrande {
+  0%   { transform: translate(-56%, -26%) rotate(-8deg) scale(1); }
+  50%  { transform: translate(-44%, -36%) rotate(4deg) scale(1.1); }
+  100% { transform: translate(-50%, -30%) rotate(10deg) scale(1.04); }
+}
+@keyframes respirar { 0%, 100% { opacity: .42; } 50% { opacity: .62; } }
+.view.active .es-hero { animation: subir .7s cubic-bezier(.22,.8,.3,1) both; }
+.view.active .es-stat, .view.active .es-card, .view.active .cli-card, .view.active .pro-card,
+.view.active .es-fin > .fx-liq > .fx-card, .view.active .es-fin > .fin-panel, .view.active .es-head {
+  animation: subir .6s cubic-bezier(.22,.8,.3,1) both;
+}
+.view.active .es-stat:nth-child(1) { animation-delay: .05s; } .view.active .es-stat:nth-child(2) { animation-delay: .12s; }
+.view.active .es-stat:nth-child(3) { animation-delay: .19s; } .view.active .es-stat:nth-child(4) { animation-delay: .26s; }
+.view.active .es-cols .es-card:nth-child(1) { animation-delay: .32s; } .view.active .es-cols .es-card:nth-child(2) { animation-delay: .4s; }
+.view.active .cli-card:nth-child(1), .view.active .pro-card:nth-child(1) { animation-delay: .08s; }
+.view.active .cli-card:nth-child(2), .view.active .pro-card:nth-child(2) { animation-delay: .16s; }
+.view.active .cli-card:nth-child(3), .view.active .pro-card:nth-child(3) { animation-delay: .24s; }
+.view.active .cli-card:nth-child(n+4), .view.active .pro-card:nth-child(n+4) { animation-delay: .3s; }
+.view.active .es-fin > .fx-liq > .fx-card:nth-child(2) { animation-delay: .08s; } .view.active .es-fin > .fx-liq > .fx-card:nth-child(3) { animation-delay: .16s; }
+.view.active .es-fin > .fin-panel { animation-delay: .22s; }
+@keyframes subir { from { opacity: 0; transform: translateY(18px) scale(.985); } to { opacity: 1; transform: none; } }
+.es-stat, .es-card, .cli-card, .pro-card { transition: transform .35s cubic-bezier(.22,.8,.3,1), border-color .3s, box-shadow .35s; }
+.es-stat:hover, .cli-card:hover, .pro-card:hover { transform: translateY(-5px); box-shadow: 0 30px 60px -30px rgba(0,0,0,.8), 0 0 0 1px rgba(255,255,255,.08) inset; }
+.es-accion-dot { animation: pulso 2.4s ease-in-out infinite; }
+@keyframes pulso { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.35); } }
+.es-stat-num.contando { font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .view.active *, .blob, .es-accion-dot { animation: none !important; } }
