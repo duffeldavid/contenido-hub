@@ -820,9 +820,56 @@ function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
         ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
         ${fest ? `<span class="mes-fest ${fest.t}">${esc(fest.n)}</span>` : ""}
       </div>
-      ${grupo.map(p => pieceCard(p, { drag: true })).join("")}
+      ${calModo === "semanas" && grupo.length > 1 ? deckHtml(f, grupo) : grupo.map(p => pieceCard(p, { drag: true })).join("")}
       ${MODO_CLIENTE ? "" : `<button class="btn-mas" data-mas="${f}" title="Agregar contenido">+</button>`}
     </div>`;
+}
+// Mazo con perspectiva: la publicación activa al frente y las demás asomando
+// detrás; se pasan con flechas, puntos, tocando la de atrás o deslizando (táctil).
+const deckIdx = {};
+function deckHtml(f, grupo) {
+  const idx = Math.min(deckIdx[f] || 0, grupo.length - 1);
+  return `
+    <div class="deck" data-deck="${f}" data-idx="${idx}" style="--n:${grupo.length}">
+      <div class="deck-cards">${grupo.map((p, i) => `<div class="deck-card" data-i="${i}">${pieceCard(p, { drag: true })}</div>`).join("")}</div>
+      <div class="deck-nav">
+        <button type="button" class="deck-btn" data-deck-prev aria-label="Anterior">‹</button>
+        <span class="deck-dots">${grupo.map((_, i) => `<i data-deck-dot="${i}" class="${i === idx ? "on" : ""}"></i>`).join("")}</span>
+        <button type="button" class="deck-btn" data-deck-next aria-label="Siguiente">›</button>
+        <span class="deck-cuenta">${idx + 1}/${grupo.length}</span>
+      </div>
+    </div>`;
+}
+function activarDecks(root) {
+  root.querySelectorAll(".deck").forEach(deck => {
+    const f = deck.dataset.deck;
+    const cards = [...deck.querySelectorAll(".deck-card")];
+    const n = cards.length;
+    const pintar = () => {
+      const idx = Number(deck.dataset.idx) || 0;
+      cards.forEach((c, i) => { const k = (i - idx + n) % n; c.dataset.k = Math.min(k, 3); c.classList.toggle("front", k === 0); });
+      deck.querySelectorAll("[data-deck-dot]").forEach(d => d.classList.toggle("on", Number(d.dataset.deckDot) === idx));
+      const cu = deck.querySelector(".deck-cuenta"); if (cu) cu.textContent = `${idx + 1}/${n}`;
+    };
+    const ir = i => { deck.dataset.idx = ((i % n) + n) % n; deckIdx[f] = Number(deck.dataset.idx); pintar(); };
+    pintar();
+    deck.querySelector("[data-deck-prev]").onclick = e => { e.stopPropagation(); ir(Number(deck.dataset.idx) - 1); };
+    deck.querySelector("[data-deck-next]").onclick = e => { e.stopPropagation(); ir(Number(deck.dataset.idx) + 1); };
+    deck.querySelectorAll("[data-deck-dot]").forEach(d => d.onclick = e => { e.stopPropagation(); ir(Number(d.dataset.deckDot)); });
+    // Tocar una tarjeta de atrás la trae al frente (sin abrir la ficha)
+    deck.querySelector(".deck-cards").addEventListener("click", e => {
+      const c = e.target.closest(".deck-card");
+      if (c && !c.classList.contains("front")) { e.stopPropagation(); e.preventDefault(); ir(Number(c.dataset.i)); }
+    }, true);
+    // Deslizar en táctil pasa la tarjeta (en escritorio el arrastre sigue moviendo piezas entre días)
+    let x0 = null;
+    deck.addEventListener("pointerdown", e => { x0 = e.pointerType === "touch" ? e.clientX : null; }, { passive: true });
+    deck.addEventListener("pointerup", e => {
+      if (x0 == null) return;
+      const dx = e.clientX - x0; x0 = null;
+      if (Math.abs(dx) > 40) ir(Number(deck.dataset.idx) + (dx < 0 ? 1 : -1));
+    }, { passive: true });
+  });
 }
 
 // Tarjeta de publicación para el planificador (estilo Meta Business Suite):
@@ -969,6 +1016,7 @@ function renderCalendario() {
   if (bMeta) bMeta.onclick = abrirActividadMeta;
   el.querySelectorAll("[data-mas]").forEach(b => { b.onclick = e => { e.stopPropagation(); abrirCreador(b.dataset.mas); }; });
   activarDnD(el);
+  activarDecks(el);
   if (calModo === "flujo") activarDnDEstados(el);
 }
 
@@ -2537,7 +2585,7 @@ function cambiarVista(dir) {
 }
 // Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
 // más las tarjetas (su deslizado izquierdo ya significa "quitar").
-const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .cont-cols, .fx-chart, .fx-range, .fx-controles, .fx-menu";
+const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .cont-cols, .deck, .fx-chart, .fx-range, .fx-controles, .fx-menu";
 const mainEl = document.getElementById("main");
 let swX = 0, swY = 0, swOk = false;
 mainEl.addEventListener("touchstart", e => {
