@@ -2399,7 +2399,7 @@ function cambiarVista(dir) {
 }
 // Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
 // más las tarjetas (su deslizado izquierdo ya significa "quitar").
-const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail";
+const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .fx-chart, .fx-range, .fx-controles, .fx-menu";
 const mainEl = document.getElementById("main");
 let swX = 0, swY = 0, swOk = false;
 mainEl.addEventListener("touchstart", e => {
@@ -2591,14 +2591,24 @@ function renderFinanzas() {
   const el = document.getElementById("view-finanzas");
   if (!el || MODO_CLIENTE) return;
   // No pisar lo que David esté escribiendo si llega una sincronización
-  if (el.contains(document.activeElement)) return;
+  const _ae = document.activeElement;
+  if (_ae && el.contains(_ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(_ae.tagName)) return;
+  // Módulos nuevos (finanzas.js): completar claves y exigir la clave de David
+  if (typeof finMigrar !== "function") { el.innerHTML = '<p class="view-note">Finanzas no cargó completo (caché vieja). Recarga la página.</p>'; return; }
+  finMigrar();
+  if (!finDesbloqueada()) { finPintarCandado(el); return; }
 
   const tIngreso = finz.cuentas.reduce((s, c) => s + (parseNum(c.ingreso) || 0), 0);
   const tGastos = finz.cuentas.reduce((s, c) => s + (parseNum(c.gastos) || 0), 0);
   const neto = tIngreso - tGastos;
 
   el.innerHTML = `
-    <p class="view-note">Tus cuentas y tu dinero, con claridad total. <b>Privado:</b> esta sección vive solo en este dispositivo — no se publica al equipo ni viaja con "Guardar cambios".</p>
+  <div class="fin-dark">
+    <p class="view-note">Tu dinero con claridad: caja de hoy, lo que entra, lo que sale y cuándo terminas de pagar. <b>Privado, solo tuyo:</b> vive en este navegador con tu clave — no se publica al equipo ni viaja con "Guardar cambios".</p>
+
+    ${finLiquidezHtml()}
+    ${finProyeccionHtml()}
+    ${finPipelineHtml()}
 
     <div class="fin-resumen">
       <div class="fin-card"><span class="fin-lbl">Ingreso mensual</span><span class="fin-num">${fmtMoney(tIngreso)}</span></div>
@@ -2651,8 +2661,12 @@ function renderFinanzas() {
       <div class="fin-hoja-pie">
         <button class="btn-ghost" id="finLimpiarHoja">Limpiar hoja</button>
         <button class="btn-ghost" id="finExportar">${icl("descarga")} Respaldar (JSON)</button>
+        <button class="btn-ghost" id="finRestaurar">Restaurar respaldo</button>
+        <input type="file" id="finRestaurarInput" accept="application/json,.json" hidden>
+        <button class="link-btn fx-bloquear" id="finBloquear">Bloquear Finanzas</button>
       </div>
-    </div>`;
+    </div>
+  </div>`;
 
   // Cuentas: edición en línea
   el.querySelectorAll("tr[data-cta] .celda").forEach(inp => {
@@ -2712,6 +2726,8 @@ function renderFinanzas() {
     a.href = URL.createObjectURL(new Blob([payload], { type: "application/json" }));
     a.download = filename; a.click();
   };
+  el.querySelector("#finBloquear").onclick = finBloquear;
+  finWire(el);
 }
 function esc0(s) { return s; } // los values de la hoja ya vienen formateados
 

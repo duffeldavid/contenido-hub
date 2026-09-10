@@ -11,6 +11,9 @@ index = (ROOT / "index.html").read_text()
 styles = (ROOT / "styles.css").read_text()
 data = (ROOT / "data.js").read_text()
 referentes = (ROOT / "referentes.js").read_text()
+# Finanzas: solo el módulo. La semilla (finanzas.semilla.js) es privada y NO se incrusta:
+# el artifact lo ve el equipo en modo lectura.
+finanzas = (ROOT / "finanzas.js").read_text()
 app = (ROOT / "app.js").read_text()
 
 body = re.search(r"<body[^>]*>\s*([\s\S]*?)\s*<script src=", index).group(1)
@@ -77,6 +80,7 @@ artifact = f"""<title>Contenido Hub</title>
 window.__PRISTINE = "<!doctype html>\\n" + document.documentElement.outerHTML;
 {data}
 {referentes}
+{finanzas}
 {app}
 {SYNC}
 </script>
@@ -101,7 +105,7 @@ import re as _re, time as _time
 _idx = ROOT / "index.html"
 _html = _idx.read_text()
 _v = str(int(_time.time()))
-_html2 = _re.sub(r'((?:styles\.css|data\.js|app\.js))(?:\?v=\d+)?"', rf'\1?v={_v}"', _html)
+_html2 = _re.sub(r'((?:styles\.css|data\.js|finanzas\.js|app\.js))(?:\?v=\d+)?"', rf'\1?v={_v}"', _html)
 if _html2 != _html:
     _idx.write_text(_html2)
     print(f"index.html sellado con v={_v}")

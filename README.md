@@ -12,7 +12,7 @@ Cadencia: **lunes, miércoles y viernes** (3 publicaciones por semana por marca)
 
 **Enlace público (sin iniciar sesión):** https://duffeldavid.github.io/contenido-hub/ — y el formulario de aprobación para clientes: https://duffeldavid.github.io/contenido-hub/?modo=cliente
 
-Tras cambiar `data.js`, `referentes.js`, `app.js` o `styles.css`:
+Tras cambiar `data.js`, `referentes.js`, `finanzas.js`, `app.js` o `styles.css`:
 1. `python3 build_artifact.py` y pedir a Claude republicar `artifact.html` sobre la misma URL de claude.ai.
 2. Publicar en el enlace público: `git push origin main:gh-pages` (GitHub Pages sirve la rama `gh-pages`).
 
@@ -23,6 +23,16 @@ Tras cambiar `data.js`, `referentes.js`, `app.js` o `styles.css`:
 
 El avance (estados y checklists) se guarda en el navegador (localStorage). El botón **Exportar avance** descarga un JSON con el estado del mes.
 
+## Finanzas (privado: solo David)
+
+La pestaña **Finanzas** es personal y no forma parte del contenido que ve el equipo:
+
+- **Qué tiene:** centro de liquidez (caja de hoy, por pagar y por cobrar a 15 días), proyección de una deuda o meta de ahorro (gráfico de área con sliders de abono mensual y tasa EA: recalcula en vivo en cuántos meses el saldo llega a cero) y el pipeline de clientes (cotización → aprobado → en ejecución → facturado → pagado, con sumatorios de dinero seguro, pendiente de cobro y en negociación). Debajo siguen las cuentas fijas y la hoja de cálculo.
+- **Dónde viven los datos:** solo en el navegador (`localStorage`, clave `contenidoHub.finanzas`). Nunca viajan con **Guardar cambios**, ni al `estado.json` público, ni al hub-state del artifact que el equipo abre en modo lectura. Para pasarlos a otro dispositivo: **Respaldar (JSON)** → **Restaurar respaldo**.
+- **Candado:** la vista pide la clave de David (`CLAVE_DAVID`) una vez por navegador (`hubAccesoFinanzas`); el enlace **Bloquear Finanzas** vuelve a cerrarla. Aplica en local, en GitHub Pages y dentro del artifact.
+- **Semilla privada:** `finanzas.semilla.js` (clientes y montos de arranque) está en `.gitignore` y `build_artifact.py` **no** lo incrusta en `artifact.html`. Solo se usa la primera vez que un navegador abre la sección sin datos guardados. En el repo y en Pages ese archivo no existe (el 404 en consola es normal).
+- **Código:** `finanzas.js` (módulo, se carga antes de `app.js`); `renderFinanzas` en `app.js` arma la vista y llama `finWire`. Estilos: bloque `.fin-dark` / `.fx-*` al final de `styles.css`.
+
 ## Estructura
 
 | Archivo | Qué es |
@@ -30,6 +40,8 @@ El avance (estados y checklists) se guarda en el navegador (localStorage). El bo
 | `data.js` | Las piezas del mes (fechas, copys, checklists, equipo, referencias) |
 | `referentes.js` | Cuentas referentes y tácticas |
 | `app.js` | Lógica de la app |
+| `finanzas.js` | Vista Finanzas (privada): liquidez, proyección y pipeline |
+| `finanzas.semilla.js` | Datos privados de arranque de Finanzas (ignorado por git, no va al artifact) |
 | `styles.css` | Diseño |
 
 ## Renovar el mes
