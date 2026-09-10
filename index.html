@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=1789022554">
+  <link rel="stylesheet" href="styles.css?v=1789022898">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 </head>
 <body data-marca="todas">
@@ -52,14 +52,13 @@
 
   <!-- Lámina de vidrio esmerilado con todo el contenido -->
   <div class="sheet">
-  <nav class="tabs" id="tabs">
-    <button data-view="aprobacion" class="active"><span>Contenidos</span></button>
-    <button data-view="calendario"><span>Calendario</span></button>
-    <button data-view="rodaje"><span>Plan de rodaje</span></button>
-    <button data-view="pipeline"><span>Pipeline</span></button>
-    <button data-view="historias"><span>Historias</span></button>
-    <button data-view="feed"><span>Feed</span></button>
-    <button data-view="referentes"><span>Referentes</span></button>
+  <nav class="tabs" id="tabs" aria-label="Secciones">
+    <button data-view="aprobacion" class="active"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8 12.2l2.6 2.6L16.5 9"/></svg></i><span>Contenidos</span></button>
+    <button data-view="calendario"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></i><span>Calendario</span></button>
+    <button data-view="rodaje"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="13.5" height="11" rx="3"/><path d="M16 10.5 21 8v8l-5-2.5z"/></svg></i><span>Rodaje</span></button>
+    <button data-view="pipeline"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg></i><span>Pipeline</span></button>
+    <button data-view="historias"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg></i><span>Historias</span></button>
+    <button data-view="feed"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg></i><span>Feed</span></button>
   </nav>
 
   <main id="main">
@@ -87,8 +86,8 @@
 
   <!-- Generador de PDF (aprobación para cliente) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="data.js?v=1789022554"></script>
+  <script src="data.js?v=1789022898"></script>
   <script src="referentes.js"></script>
-  <script src="app.js?v=1789022554"></script>
+  <script src="app.js?v=1789022898"></script>
 </body>
 </html>

@@ -285,6 +285,7 @@ function cerrarCampanita() { document.getElementById("notiPanel").hidden = true;
 const bellBtn = document.getElementById("bellBtn");
 if (bellBtn) {
   document.body.appendChild(document.getElementById("notiPanel"));
+  document.body.appendChild(document.getElementById("tabs"));
   bellBtn.onclick = e => {
     e.stopPropagation();
     const panel = document.getElementById("notiPanel");
@@ -1351,22 +1352,28 @@ function renderAprobacion() {
   const conAjustes = todas.filter(p => aprobDe(p).v === "Ajustar").length;
   const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => aprobDe(p).v === aprobFiltro);
   const resumen = !MODO_CLIENTE && contenidosModo === "aprobacion";
+  const referencias = !MODO_CLIENTE && contenidosModo === "referencias";
+  // Referentes se embebe dentro de Contenidos: devolverlo a <main> antes de repintar
+  const refEl = document.getElementById("view-referentes");
+  if (refEl && refEl.parentElement !== document.getElementById("main")) document.getElementById("main").appendChild(refEl);
+  if (refEl) refEl.classList.remove("embebida");
   let html = `
     <p class="view-note">${MODO_CLIENTE
       ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
       : `Lo que pide mercadeo y lo que ya está aprobado para producir, en un solo lugar. En <b>Todas</b> está la lista completa con filtros y comentarios.`}</p>
     ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
       <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
-      <button data-modo="todas" class="${resumen ? "" : "active"}">${icl("lista")} Todas (${todas.length})</button>
+      <button data-modo="todas" class="${!resumen && !referencias ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
+      <button data-modo="referencias" class="${referencias ? "active" : ""}">${icl("chispa")} Referencias</button>
     </div>`}
-    <div class="aprob-toolbar">
+    ${referencias ? `<div id="contRefSlot"></div>` : `<div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">${icl("enviar")} ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">${icl("descarga")} PDF cliente (${todas.filter(p => store.pdf[p.id] !== false).length})</button>`}
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">${icl("copiar")} Link cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${todas.length} aprobadas</span>
-    </div>
-    ${resumen ? "" : `<div class="cal-toggle aprob-filtros">
+    </div>`}
+    ${resumen || referencias ? "" : `<div class="cal-toggle aprob-filtros">
       <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
       <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">${icl("ok")} Aprobadas (${aprobadas})</button>
       <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">${icl("ajuste")} Con ajustes (${conAjustes})</button>
@@ -1374,7 +1381,7 @@ function renderAprobacion() {
     </div>
     ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`}`;
   if (resumen) html += contenidosResumenHtml(todas);
-  for (const p of (resumen ? [] : piezas)) {
+  for (const p of (resumen || referencias ? [] : piezas)) {
     const { dia, num } = fmtFecha(fechaDe(p));
     const a = aprobDe(p);
     const img = portadaDe(p);
@@ -1403,6 +1410,11 @@ function renderAprobacion() {
       </div>`;
   }
   el.innerHTML = html;
+  if (referencias && refEl) {
+    refEl.classList.add("embebida");
+    el.querySelector("#contRefSlot").appendChild(refEl);
+    renderReferentes();
+  }
 
   // Contenidos (solo David): sub-navegación y acciones del resumen
   el.querySelectorAll(".cont-subnav button").forEach(b => b.onclick = () => { contenidosModo = b.dataset.modo; renderAprobacion(); });
@@ -1474,7 +1486,8 @@ function renderAprobacion() {
   el.querySelectorAll(".aprob-filtros button").forEach(b => {
     b.onclick = () => { aprobFiltro = b.dataset.f; renderAprobacion(); };
   });
-  el.querySelector("#btnWhatsApp").addEventListener("click", function () {
+  const btnWa = el.querySelector("#btnWhatsApp");
+  if (btnWa) btnWa.addEventListener("click", function () {
     const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
     const revisadas = todas.filter(p => aprobDe(p).v !== "Pendiente");
     if (MODO_CLIENTE) {
@@ -2479,7 +2492,7 @@ document.getElementById("main").addEventListener("click", e => {
 let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["aprobacion", "calendario", "rodaje", "pipeline", "historias", "feed", "referentes"];
+  : ["aprobacion", "calendario", "rodaje", "historias", "feed"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;

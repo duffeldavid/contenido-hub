@@ -1987,6 +1987,47 @@ button.hist-play:hover { transform: translate(-50%, -50%) scale(1.1); background
 body.modo-cliente .estudio-link { display: none; }
 @media (max-width: 640px) { .nav-right { display: flex; } .nav-right .month-pill, .nav-right .sync-badge { display: none; } }
 
+/* ═══════════ BARRA FLOTANTE estilo Instagram (píldora oscura con íconos) ═══════════ */
+.tabs {
+  position: fixed; top: auto; bottom: 18px; left: 50%; transform: translateX(-50%);
+  z-index: 60; width: auto; max-width: min(620px, 94vw);
+  padding: 6px; gap: 2px; border-radius: 999px; overflow: visible; justify-content: center;
+  background: rgba(20,18,17,.74); border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(24px) saturate(1.3); -webkit-backdrop-filter: blur(24px) saturate(1.3);
+  box-shadow: 0 24px 60px -20px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.tabs button {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 9px 20px; border-radius: 999px; border-bottom: 0; transition: background .2s, transform .15s;
+}
+.tabs button:hover { transform: none; background: rgba(255,255,255,.07); }
+.tabs button.active { background: rgba(255,255,255,.17); border-bottom-color: transparent; }
+.tabs button span {
+  background: none; -webkit-background-clip: initial; background-clip: initial;
+  color: rgba(255,255,255,.72); -webkit-text-fill-color: rgba(255,255,255,.72);
+  animation: none; filter: none; opacity: 1;
+  font-family: var(--font-body); font-size: 10.5px; font-weight: 600; letter-spacing: .02em;
+}
+.tabs button.active span { color: #fff; -webkit-text-fill-color: #fff; filter: none; }
+.tab-ico { display: block; line-height: 0; }
+.tab-ico .icl { width: 24px; height: 24px; stroke-width: 1.7; color: rgba(255,255,255,.85); vertical-align: 0; }
+.tabs button.active .tab-ico .icl { color: #fff; stroke-width: 2.1; }
+body:not(.modo-cliente) .tabs button[data-view="pipeline"] { display: none; }
+main { padding-bottom: 130px; }
+.footer { padding-bottom: 120px; }
+.guardar-fab { bottom: 98px; }
+.toast-live { bottom: 104px; }
+@media (max-width: 640px) {
+  .tabs { bottom: 12px; padding: 5px; gap: 0; justify-content: center; }
+  .tabs button { padding: 10px 14px; }
+  .tabs button span { display: none; }
+  .tab-ico .icl { width: 26px; height: 26px; }
+  .guardar-fab { bottom: 84px; }
+  .toast-live { bottom: 92px; }
+}
+/* Referentes embebido dentro de Contenidos */
+.view.embebida { display: block; animation: none; }
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
@@ -2029,14 +2070,13 @@ body.modo-cliente .estudio-link { display: none; }
 
   <!-- Lámina de vidrio esmerilado con todo el contenido -->
   <div class="sheet">
-  <nav class="tabs" id="tabs">
-    <button data-view="aprobacion" class="active"><span>Contenidos</span></button>
-    <button data-view="calendario"><span>Calendario</span></button>
-    <button data-view="rodaje"><span>Plan de rodaje</span></button>
-    <button data-view="pipeline"><span>Pipeline</span></button>
-    <button data-view="historias"><span>Historias</span></button>
-    <button data-view="feed"><span>Feed</span></button>
-    <button data-view="referentes"><span>Referentes</span></button>
+  <nav class="tabs" id="tabs" aria-label="Secciones">
+    <button data-view="aprobacion" class="active"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="4"/><path d="M8 12.2l2.6 2.6L16.5 9"/></svg></i><span>Contenidos</span></button>
+    <button data-view="calendario"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="4"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></i><span>Calendario</span></button>
+    <button data-view="rodaje"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="2.5" y="6.5" width="13.5" height="11" rx="3"/><path d="M16 10.5 21 8v8l-5-2.5z"/></svg></i><span>Rodaje</span></button>
+    <button data-view="pipeline"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="11" rx="1.5"/><rect x="16" y="4" width="5" height="7" rx="1.5"/></svg></i><span>Pipeline</span></button>
+    <button data-view="historias"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="5.5"/><circle cx="12" cy="12" r="4.2"/><circle cx="17.3" cy="6.7" r="1" fill="currentColor" stroke="none"/></svg></i><span>Historias</span></button>
+    <button data-view="feed"><i class="tab-ico"><svg class="icl" viewBox="0 0 24 24"><rect x="3" y="3" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="3" width="7.5" height="7.5" rx="2"/><rect x="3" y="13.5" width="7.5" height="7.5" rx="2"/><rect x="13.5" y="13.5" width="7.5" height="7.5" rx="2"/></svg></i><span>Feed</span></button>
   </nav>
 
   <main id="main">
@@ -2824,6 +2864,7 @@ function cerrarCampanita() { document.getElementById("notiPanel").hidden = true;
 const bellBtn = document.getElementById("bellBtn");
 if (bellBtn) {
   document.body.appendChild(document.getElementById("notiPanel"));
+  document.body.appendChild(document.getElementById("tabs"));
   bellBtn.onclick = e => {
     e.stopPropagation();
     const panel = document.getElementById("notiPanel");
@@ -3890,22 +3931,28 @@ function renderAprobacion() {
   const conAjustes = todas.filter(p => aprobDe(p).v === "Ajustar").length;
   const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => aprobDe(p).v === aprobFiltro);
   const resumen = !MODO_CLIENTE && contenidosModo === "aprobacion";
+  const referencias = !MODO_CLIENTE && contenidosModo === "referencias";
+  // Referentes se embebe dentro de Contenidos: devolverlo a <main> antes de repintar
+  const refEl = document.getElementById("view-referentes");
+  if (refEl && refEl.parentElement !== document.getElementById("main")) document.getElementById("main").appendChild(refEl);
+  if (refEl) refEl.classList.remove("embebida");
   let html = `
     <p class="view-note">${MODO_CLIENTE
       ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
       : `Lo que pide mercadeo y lo que ya está aprobado para producir, en un solo lugar. En <b>Todas</b> está la lista completa con filtros y comentarios.`}</p>
     ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
       <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
-      <button data-modo="todas" class="${resumen ? "" : "active"}">${icl("lista")} Todas (${todas.length})</button>
+      <button data-modo="todas" class="${!resumen && !referencias ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
+      <button data-modo="referencias" class="${referencias ? "active" : ""}">${icl("chispa")} Referencias</button>
     </div>`}
-    <div class="aprob-toolbar">
+    ${referencias ? `<div id="contRefSlot"></div>` : `<div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">${icl("enviar")} ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnPdf">${icl("descarga")} PDF cliente (${todas.filter(p => store.pdf[p.id] !== false).length})</button>`}
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">${icl("copiar")} Link cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${todas.length} aprobadas</span>
-    </div>
-    ${resumen ? "" : `<div class="cal-toggle aprob-filtros">
+    </div>`}
+    ${resumen || referencias ? "" : `<div class="cal-toggle aprob-filtros">
       <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
       <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">${icl("ok")} Aprobadas (${aprobadas})</button>
       <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">${icl("ajuste")} Con ajustes (${conAjustes})</button>
@@ -3913,7 +3960,7 @@ function renderAprobacion() {
     </div>
     ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`}`;
   if (resumen) html += contenidosResumenHtml(todas);
-  for (const p of (resumen ? [] : piezas)) {
+  for (const p of (resumen || referencias ? [] : piezas)) {
     const { dia, num } = fmtFecha(fechaDe(p));
     const a = aprobDe(p);
     const img = portadaDe(p);
@@ -3942,6 +3989,11 @@ function renderAprobacion() {
       </div>`;
   }
   el.innerHTML = html;
+  if (referencias && refEl) {
+    refEl.classList.add("embebida");
+    el.querySelector("#contRefSlot").appendChild(refEl);
+    renderReferentes();
+  }
 
   // Contenidos (solo David): sub-navegación y acciones del resumen
   el.querySelectorAll(".cont-subnav button").forEach(b => b.onclick = () => { contenidosModo = b.dataset.modo; renderAprobacion(); });
@@ -4013,7 +4065,8 @@ function renderAprobacion() {
   el.querySelectorAll(".aprob-filtros button").forEach(b => {
     b.onclick = () => { aprobFiltro = b.dataset.f; renderAprobacion(); };
   });
-  el.querySelector("#btnWhatsApp").addEventListener("click", function () {
+  const btnWa = el.querySelector("#btnWhatsApp");
+  if (btnWa) btnWa.addEventListener("click", function () {
     const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
     const revisadas = todas.filter(p => aprobDe(p).v !== "Pendiente");
     if (MODO_CLIENTE) {
@@ -5018,7 +5071,7 @@ document.getElementById("main").addEventListener("click", e => {
 let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["aprobacion", "calendario", "rodaje", "pipeline", "historias", "feed", "referentes"];
+  : ["aprobacion", "calendario", "rodaje", "historias", "feed"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;
