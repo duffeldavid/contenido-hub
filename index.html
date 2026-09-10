@@ -7,7 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=1789002873">
+  <link rel="stylesheet" href="styles.css?v=1789022102">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 </head>
 <body data-marca="todas">
@@ -36,6 +36,7 @@
       <div class="nav-right">
         <span class="sync-badge" id="syncBadge" hidden></span>
         <span class="month-pill" id="monthPill"></span>
+        <a class="estudio-link" id="linkEstudio" href="estudio.html" title="Tu espacio privado: proyectos, objetivos y finanzas">Estudio</a>
       </div>
       <div class="noti-panel" id="notiPanel" hidden></div>
     </header>
@@ -52,26 +53,22 @@
   <!-- Lámina de vidrio esmerilado con todo el contenido -->
   <div class="sheet">
   <nav class="tabs" id="tabs">
-    <button data-view="calendario" class="active"><span>Calendario</span></button>
+    <button data-view="aprobacion" class="active"><span>Contenidos</span></button>
+    <button data-view="calendario"><span>Calendario</span></button>
     <button data-view="rodaje"><span>Plan de rodaje</span></button>
     <button data-view="pipeline"><span>Pipeline</span></button>
     <button data-view="historias"><span>Historias</span></button>
     <button data-view="feed"><span>Feed</span></button>
-    <button data-view="aprobacion"><span>Aprobación</span></button>
-    <button data-view="finanzas"><span>Finanzas</span></button>
-    <button data-view="proyectos"><span>Proyectos</span></button>
     <button data-view="referentes"><span>Referentes</span></button>
   </nav>
 
   <main id="main">
-    <section id="view-calendario" class="view active"></section>
+    <section id="view-calendario" class="view"></section>
     <section id="view-pipeline" class="view"></section>
     <section id="view-rodaje" class="view"></section>
     <section id="view-feed" class="view"></section>
     <section id="view-historias" class="view"></section>
-    <section id="view-aprobacion" class="view"></section>
-    <section id="view-finanzas" class="view"></section>
-    <section id="view-proyectos" class="view"></section>
+    <section id="view-aprobacion" class="view active"></section>
     <section id="view-referentes" class="view"></section>
   </main>
 
@@ -90,11 +87,8 @@
 
   <!-- Generador de PDF (aprobación para cliente) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="data.js?v=1789002873"></script>
+  <script src="data.js?v=1789022102"></script>
   <script src="referentes.js"></script>
-  <!-- Finanzas (privado): la semilla con tus datos NO está en el repo ni en el artifact -->
-  <script src="finanzas.semilla.js"></script>
-  <script src="finanzas.js?v=1789002873"></script>
-  <script src="app.js?v=1789002873"></script>
+  <script src="app.js?v=1789022102"></script>
 </body>
 </html>

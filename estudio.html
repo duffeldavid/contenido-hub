@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Estudio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="finanzas.css?v=1789022057">
+  <link rel="stylesheet" href="estudio.css?v=1789022057">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><circle cx='50' cy='50' r='36' fill='%23E9C46A'/></svg>">
+</head>
+<body>
+  <!-- Fondo: negro profundo con una forma dorada líquida en movimiento -->
+  <div class="bg" aria-hidden="true">
+    <div class="stars"></div>
+    <div class="blob"></div>
+    <div class="blob b2"></div>
+    <div class="veil"></div>
+  </div>
+
+  <!-- Candado: nada de lo que hay detrás se ve hasta entrar -->
+  <div class="candado" id="candado" hidden>
+    <div class="candado-caja">
+      <span class="brand-dot grande"></span>
+      <h1 class="candado-tit">Acceso privado</h1>
+      <p class="candado-txt">Escribe la clave para entrar.</p>
+      <input type="password" id="claveInput" class="edit-input" placeholder="Clave" autocomplete="off">
+      <button class="btn-primary" id="claveBtn">Entrar</button>
+      <p class="candado-error" id="claveError" hidden>Clave incorrecta, inténtalo de nuevo.</p>
+    </div>
+  </div>
+
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="brand-dot"></span><span class="brand-txt">Estudio</span></div>
+      <nav class="pill-nav" id="nav">
+        <button data-view="inicio" class="active">Inicio</button>
+        <button data-view="proyectos">Proyectos</button>
+        <button data-view="finanzas">Finanzas</button>
+      </nav>
+      <a class="pill-link" id="linkHub" href="index.html">Contenido Hub</a>
+    </header>
+
+    <main id="main">
+      <section id="view-inicio" class="view active"></section>
+      <section id="view-proyectos" class="view"></section>
+      <section id="view-finanzas" class="view"></section>
+    </main>
+
+    <footer class="foot">
+      <span>Privado · vive solo en este navegador</span>
+      <button class="link-btn" id="btnBloquear">Bloquear</button>
+    </footer>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer"></aside>
+
+  <script>
+    // Semilla privada: solo existe en el Mac (evita un 404 en GitHub Pages)
+    if (location.protocol === "file:" || /^(localhost|127\.0\.0\.1)$/.test(location.hostname)) {
+      document.write('<script src="finanzas.semilla.js"><\/script>');
+    }
+    window.ENLACE_HUB = "index.html";
+  </script>
+  <script src="finanzas.js?v=1789022057"></script>
+  <script src="estudio.js?v=1789022057"></script>
+</body>
+</html>

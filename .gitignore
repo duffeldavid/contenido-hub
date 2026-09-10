@@ -1,3 +1,8 @@
 # Finanzas personales de David: nunca al repo (es público)
 finanzas.semilla.js
 .DS_Store
+
+# URLs de los artifacts (privados): se usan solo al construir
+hub.url
+estudio.url
+estudio-artifact.html

@@ -12,7 +12,7 @@ Cadencia: **lunes, miércoles y viernes** (3 publicaciones por semana por marca)
 
 **Enlace público (sin iniciar sesión):** https://duffeldavid.github.io/contenido-hub/ — y el formulario de aprobación para clientes: https://duffeldavid.github.io/contenido-hub/?modo=cliente
 
-Tras cambiar `data.js`, `referentes.js`, `finanzas.js`, `app.js` o `styles.css`:
+Tras cambiar `data.js`, `referentes.js`, `app.js` o `styles.css` (el Estudio tiene su propio `build_estudio.py`):
 1. `python3 build_artifact.py` y pedir a Claude republicar `artifact.html` sobre la misma URL de claude.ai.
 2. Publicar en el enlace público: `git push origin main:gh-pages` (GitHub Pages sirve la rama `gh-pages`).
 
@@ -23,15 +23,21 @@ Tras cambiar `data.js`, `referentes.js`, `finanzas.js`, `app.js` o `styles.css`:
 
 El avance (estados y checklists) se guarda en el navegador (localStorage). El botón **Exportar avance** descarga un JSON con el estado del mes.
 
-## Finanzas (privado: solo David)
+## Estudio (privado: solo David)
 
-La pestaña **Finanzas** es personal y no forma parte del contenido que ve el equipo:
+Los proyectos, los objetivos y las finanzas viven **aparte del Contenido Hub**, en `estudio.html` (diseño propio: negro, forma dorada en movimiento, tarjetas de vidrio). El hub queda solo para el flujo de contenidos con el equipo.
 
-- **Qué tiene:** centro de liquidez (caja de hoy, por pagar y por cobrar a 15 días), proyección de una deuda o meta de ahorro (gráfico de área con sliders de abono mensual y tasa EA: recalcula en vivo en cuántos meses el saldo llega a cero) y el pipeline de clientes (cotización → aprobado → en ejecución → facturado → pagado, con sumatorios de dinero seguro, pendiente de cobro y en negociación). Debajo siguen las cuentas fijas y la hoja de cálculo.
-- **Dónde viven los datos:** solo en el navegador (`localStorage`, clave `contenidoHub.finanzas`). Nunca viajan con **Guardar cambios**, ni al `estado.json` público, ni al hub-state del artifact que el equipo abre en modo lectura. Para pasarlos a otro dispositivo: **Respaldar (JSON)** → **Restaurar respaldo**.
-- **Candado:** la vista pide la clave de David (`CLAVE_DAVID`) una vez por navegador (`hubAccesoFinanzas`); el enlace **Bloquear Finanzas** vuelve a cerrarla. Aplica en local, en GitHub Pages y dentro del artifact.
-- **Semilla privada:** `finanzas.semilla.js` (clientes y montos de arranque) está en `.gitignore` y `build_artifact.py` **no** lo incrusta en `artifact.html`. Solo se usa la primera vez que un navegador abre la sección sin datos guardados. En el repo y en Pages ese archivo no existe (el 404 en consola es normal).
-- **Código:** `finanzas.js` (módulo, se carga antes de `app.js`); `renderFinanzas` en `app.js` arma la vista y llama `finWire`. Estilos: bloque `.fin-dark` / `.fx-*` al final de `styles.css`.
+- **Inicio:** caja, por cobrar, objetivo del mes, proyectos y las siguientes acciones (planes, cobros, pagos y ajustes de mercadeo pendientes del hub).
+- **Proyectos:** un espacio por cliente (Grupo Empresarial Manzanares → abre el Contenido Hub; Enzo & Ríos, Aryliz…) con su dinero en el pipeline y sus planes de 4 semanas (plantillas de diseño, audiovisual, contenido y personal).
+- **Finanzas:** centro de liquidez (caja, por pagar y por cobrar a 15 días), objetivos con avance real, flujo de caja proyectado a 12 meses (retainers y proyectos entran, obligaciones y gastos fijos salen; cotizaciones en línea punteada), pipeline de clientes, simulador de metas, cuentas fijas y hoja de cálculo.
+- **Dónde viven los datos:** solo en el navegador (`localStorage`: `contenidoHub.finanzas` y `contenidoHub.proyectos`). Nunca viajan con **Guardar cambios**, ni al `estado.json` público, ni al hub-state del artifact del equipo. Para pasarlos a otro dispositivo: **Respaldar (JSON)** → **Restaurar respaldo**.
+- **Candado:** pide la clave de David una vez por navegador (`hubAccesoEstudio`); **Bloquear** vuelve a cerrarla. El candado es incógnito: no muestra nombres ni lo que hay detrás.
+- **Semilla privada:** `finanzas.semilla.js` (clientes, montos, objetivos de arranque) está en `.gitignore`; solo se carga en local y no se incrusta en ningún artifact.
+- **Código:** `estudio.html` + `estudio.css` + `estudio.js` (helpers, clientes/proyectos, inicio) y `finanzas.js` + `finanzas.css` (módulos financieros). Artifact propio: `python3 build_estudio.py` → `estudio-artifact.html` (privado, sin compartir).
+
+## Contenidos (pestaña principal del hub)
+
+La primera pestaña es **Contenidos**. Para David tiene dos modos: **Aprobación** (ajustes de mercadeo con el comentario grande y el botón *Ajuste aplicado · a producción*, aprobadas para producir con cambio rápido de estado, y pendientes de revisión) y **Todas** (la lista completa con filtros y comentarios, tal como la usa el equipo). En el link del cliente la pestaña sigue llamándose **Aprobación** y no cambia nada. El ajuste atendido se guarda como `ok` dentro de la aprobación de la pieza; si mercadeo vuelve a comentar, se reabre solo.
 
 ## Estructura
 
@@ -40,8 +46,9 @@ La pestaña **Finanzas** es personal y no forma parte del contenido que ve el eq
 | `data.js` | Las piezas del mes (fechas, copys, checklists, equipo, referencias) |
 | `referentes.js` | Cuentas referentes y tácticas |
 | `app.js` | Lógica de la app |
-| `finanzas.js` | Vista Finanzas (privada): liquidez, proyección y pipeline |
-| `finanzas.semilla.js` | Datos privados de arranque de Finanzas (ignorado por git, no va al artifact) |
+| `estudio.html` / `estudio.css` / `estudio.js` | Estudio (privado): proyectos por cliente, objetivos y finanzas |
+| `finanzas.js` / `finanzas.css` | Módulos financieros del Estudio |
+| `finanzas.semilla.js` | Datos privados de arranque del Estudio (ignorado por git, no va a los artifacts) |
 | `styles.css` | Diseño |
 
 ## Renovar el mes

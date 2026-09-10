@@ -252,14 +252,17 @@ function renderCampanita() {
       const p = PIEZAS.find(x => x.id === n.piezaId);
       const icono = n.v === "Aprobado" ? icl("ok") : n.v === "Ajustar" ? icl("ajuste") : icl("reloj");
       const tinte = n.v === "Aprobado" ? "#2E7D43" : n.v === "Ajustar" ? "#B23A2E" : "#C98F2D";
+      const autor = n.autor || AUTOR_CLIENTE;
+      const iniciales = autor.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
       return `
         <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
-          <span class="noti-ico" style="color:${tinte}">${icono}</span>
+          <span class="noti-av" style="--c:${tinte}">${esc(iniciales)}<i>${icono}</i></span>
           <span class="noti-cuerpo">
-            <span class="noti-txt"><b>${esc(n.autor || AUTOR_CLIENTE)} ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustes en" : "revisó"}:</b> ${p ? esc(tituloDe(p)) : n.piezaId}</span>
-            ${n.c ? `<span class="noti-com">💬 "${esc(n.c.slice(0, 120))}"</span>` : ""}
-            <span class="noti-tiempo">${tiempoRelativo(n.ts)}</span>
+            <span class="noti-txt"><b>${esc(autor)}</b> ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustar" : "revisó"} <b>${p ? esc(tituloDe(p)) : n.piezaId}</b></span>
+            ${n.c ? `<span class="noti-com">${esc(n.c)}</span>` : ""}
+            <span class="noti-tiempo">${tiempoRelativo(n.ts)}${p ? ` · ${MARCAS[p.marca].nombre}` : ""}</span>
           </span>
+          ${p && portadaDe(p) ? `<img class="noti-thumb" src="${portadaDe(p)}" alt="">` : ""}
         </button>`;
     }).join("") : `<div class="noti-vacio">Sin notificaciones aún.<br>Aquí verás cada aprobación y comentario de tus clientes.</div>`}`;
   panel.querySelectorAll(".noti-item").forEach(b => {
@@ -281,6 +284,7 @@ function abrirCampanita() {
 function cerrarCampanita() { document.getElementById("notiPanel").hidden = true; }
 const bellBtn = document.getElementById("bellBtn");
 if (bellBtn) {
+  document.body.appendChild(document.getElementById("notiPanel"));
   bellBtn.onclick = e => {
     e.stopPropagation();
     const panel = document.getElementById("notiPanel");
@@ -1268,16 +1272,86 @@ function conectarComentario(cont, p, refrescar) {
   const btnEditar = cont.querySelector(`[data-editar="${p.id}"]`);
   if (btnEditar) btnEditar.onclick = () => { comentarioEditando[p.id] = true; refrescar(); };
 }
+let contenidosModo = "aprobacion"; // "aprobacion" (resumen claro) | "todas" (lista con filtros)
+// Ajuste de mercadeo atendido: queda registrado en la aprobación y la pieza pasa a producción
+function marcarAjusteAplicado(id) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p) return;
+  store.aprob[id] = { ...aprobDe(p), ok: Date.now() };
+  if (estadoDe(p) === "Idea") {
+    store.estados[id] = "Por grabar";
+    emitirContenido({ tipo: "estado", id, v: "Por grabar" });
+  }
+  save();
+  toastVivo(`${tituloDe(p)}: ajuste aplicado, pasa a producción`);
+  renderAll({ keep: "aprobacion" });
+}
+function contenidosResumenHtml(todas) {
+  const enProduccion = ["Idea", "Por grabar", "En edición"];
+  const ajustes = todas.filter(p => aprobDe(p).v === "Ajustar" && !aprobDe(p).ok);
+  const atendidos = todas.filter(p => aprobDe(p).v === "Ajustar" && aprobDe(p).ok);
+  const porHacer = todas.filter(p => aprobDe(p).v === "Aprobado" && enProduccion.includes(estadoDe(p)));
+  const listas = todas.filter(p => aprobDe(p).v === "Aprobado" && !enProduccion.includes(estadoDe(p)));
+  const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
+  const tarjeta = (p, extra) => {
+    const { dia, num } = fmtFecha(fechaDe(p));
+    const est = estadoDe(p);
+    return `
+    <article class="cont-card" data-id="${p.id}">
+      ${coverHtml(p, "cover-thumb")}
+      <div class="cont-body">
+        <div class="cont-meta">${dia} ${num} · ${MARCAS[p.marca].nombre} · ${p.formato} <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span></div>
+        <h4>${esc(tituloDe(p))}</h4>
+        ${extra}
+      </div>
+    </article>`;
+  };
+  const extraAjuste = p => { const a = aprobDe(p); return `
+    <blockquote class="cont-com"><span class="cont-com-autor">${esc(a.por || AUTOR_CLIENTE)} pide:</span>${a.c ? esc(a.c) : "<i>Sin comentario escrito: confírmalo con mercadeo.</i>"}</blockquote>
+    <div class="cont-acc">
+      <button class="btn-primary" data-ajuste-ok="${p.id}">${icl("ok")} Ajuste aplicado · a producción</button>
+      <button class="btn-ghost" data-open="${p.id}">Abrir pieza</button>
+    </div>`; };
+  const extraAprobada = p => { const a = aprobDe(p), est = estadoDe(p); return `
+    ${a.c ? `<p class="cont-nota">“${esc(a.c)}”</p>` : ""}
+    <div class="cont-acc">
+      <div class="estado-select cont-estado">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel " + ESTADO_CLASS[e] : ""}">${e}</button>`).join("")}</div>
+      <button class="btn-ghost" data-open="${p.id}">Abrir pieza</button>
+    </div>`; };
+  return `
+  <div class="cont-resumen">
+    <section class="cont-grupo ajustes">
+      <h3>${icl("ajuste")} Ajustes de mercadeo <span class="cont-n">${ajustes.length}</span></h3>
+      ${ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes: todo lo que pidió mercadeo ya está atendido.</p>`}
+      ${atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : ""}
+    </section>
+    <section class="cont-grupo aprobadas">
+      <h3>${icl("ok")} Aprobadas · para producir <span class="cont-n">${porHacer.length}</span></h3>
+      ${porHacer.length ? porHacer.map(p => tarjeta(p, extraAprobada(p))).join("") : `<p class="cont-vacio">Nada aprobado pendiente de producir ahora mismo.</p>`}
+      ${listas.length ? `<p class="cont-nota-grupo">${listas.length} aprobadas ya están listas, programadas o publicadas.</p>` : ""}
+    </section>
+    <section class="cont-grupo pendientes">
+      <h3>${icl("reloj")} Pendientes de revisión <span class="cont-n">${pendientes.length}</span></h3>
+      <p class="cont-vacio">${pendientes.length ? `${pendientes.length} ${pendientes.length === 1 ? "pieza espera" : "piezas esperan"} respuesta de mercadeo. Usa <b>Enviar por WhatsApp</b> para recordarlo.` : "Todo revisado."}</p>
+      ${pendientes.length ? `<button class="btn-ghost" id="contVerPendientes">Ver pendientes</button>` : ""}
+    </section>
+  </div>`;
+}
 function renderAprobacion() {
   const el = document.getElementById("view-aprobacion");
   const todas = piezasVisibles();
   const aprobadas = todas.filter(p => aprobDe(p).v === "Aprobado").length;
   const conAjustes = todas.filter(p => aprobDe(p).v === "Ajustar").length;
   const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => aprobDe(p).v === aprobFiltro);
+  const resumen = !MODO_CLIENTE && contenidosModo === "aprobacion";
   let html = `
     <p class="view-note">${MODO_CLIENTE
       ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
-      : `Revisión de mercadeo: marca cada pieza como <b>Aprobado</b> o <b>Ajustar</b> y deja tu comentario. Los cambios se guardan solos; el botón confirma la sincronización.`}</p>
+      : `Lo que pide mercadeo y lo que ya está aprobado para producir, en un solo lugar. En <b>Todas</b> está la lista completa con filtros y comentarios.`}</p>
+    ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
+      <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
+      <button data-modo="todas" class="${resumen ? "" : "active"}">${icl("lista")} Todas (${todas.length})</button>
+    </div>`}
     <div class="aprob-toolbar">
       ${MODO_CLIENTE ? "" : `<button class="btn-primary" id="btnGuardarRevision">Guardar revisión</button>`}
       <a class="${MODO_CLIENTE ? "btn-primary" : "btn-ghost"}" id="btnWhatsApp" href="https://wa.me/" target="_blank" rel="noopener">${icl("enviar")} ${MODO_CLIENTE ? "Enviar mis respuestas por WhatsApp" : "Enviar por WhatsApp para aprobación"}</a>
@@ -1285,14 +1359,15 @@ function renderAprobacion() {
       ${MODO_CLIENTE ? "" : `<button class="btn-ghost" id="btnLinkCliente">${icl("copiar")} Link cliente</button>`}
       <span class="aprob-saved" id="aprobSaved">${aprobadas}/${todas.length} aprobadas</span>
     </div>
-    <div class="cal-toggle aprob-filtros">
+    ${resumen ? "" : `<div class="cal-toggle aprob-filtros">
       <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
       <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">${icl("ok")} Aprobadas (${aprobadas})</button>
       <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">${icl("ajuste")} Con ajustes (${conAjustes})</button>
       <button data-f="Pendiente" class="${aprobFiltro === "Pendiente" ? "active" : ""}">${icl("reloj")} Pendientes (${todas.length - aprobadas - conAjustes})</button>
     </div>
-    ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`;
-  for (const p of piezas) {
+    ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`}`;
+  if (resumen) html += contenidosResumenHtml(todas);
+  for (const p of (resumen ? [] : piezas)) {
     const { dia, num } = fmtFecha(fechaDe(p));
     const a = aprobDe(p);
     const img = portadaDe(p);
@@ -1321,6 +1396,24 @@ function renderAprobacion() {
       </div>`;
   }
   el.innerHTML = html;
+
+  // Contenidos (solo David): sub-navegación y acciones del resumen
+  el.querySelectorAll(".cont-subnav button").forEach(b => b.onclick = () => { contenidosModo = b.dataset.modo; renderAprobacion(); });
+  el.querySelectorAll("[data-ajuste-ok]").forEach(b => b.onclick = () => marcarAjusteAplicado(b.dataset.ajusteOk));
+  el.querySelectorAll("[data-ajuste-reabrir]").forEach(b => b.onclick = () => {
+    const id = b.dataset.ajusteReabrir;
+    const ap = { ...aprobDe({ id }) }; delete ap.ok; store.aprob[id] = ap;
+    save(); renderAll({ keep: "aprobacion" });
+  });
+  el.querySelectorAll("[data-estado-quick]").forEach(b => b.onclick = () => {
+    const id = b.dataset.id, v = b.dataset.estadoQuick;
+    store.estados[id] = v; save();
+    emitirContenido({ tipo: "estado", id, v });
+    renderAll({ keep: "aprobacion" });
+  });
+  const verPend = el.querySelector("#contVerPendientes");
+  if (verPend) verPend.onclick = () => { contenidosModo = "todas"; aprobFiltro = "Pendiente"; renderAprobacion(); };
+  el.querySelectorAll(".cont-card").forEach(c => c.addEventListener("click", e => { if (e.target.closest("button, a")) return; openDrawer(c.dataset.id); }));
 
   el.querySelectorAll(".aprob-row").forEach(row => {
     const id = row.dataset.id;
@@ -1792,6 +1885,16 @@ function openDrawer(id) {
       ${a.v === "Aprobado" ? `<span class="chip aprobado">✓ Aprobado${a.por ? ` por ${esc(a.por)}` : ""}</span>` : ""}
       ${a.v === "Ajustar" ? `<span class="chip ajustar">${a.por ? esc(a.por) : "Mercadeo GM"} pide ajustes</span>` : ""}
     </div>
+    ${a.v === "Ajustar" ? `
+    <div class="ajuste-banner ${a.ok ? "atendido" : ""}">
+      <span class="ajuste-lbl">${icl("ajuste")} ${esc(a.por || AUTOR_CLIENTE)} pide ajustar${a.ok ? " · ya atendido" : ""}</span>
+      <p class="ajuste-txt">${a.c ? esc(a.c) : "Sin comentario escrito: confírmalo con mercadeo."}</p>
+      ${a.ok ? "" : `<button class="btn-primary" id="btnAjusteListo">${icl("ok")} Ajuste aplicado · a producción</button>`}
+    </div>` : a.v === "Aprobado" ? `
+    <div class="ajuste-banner ok">
+      <span class="ajuste-lbl">${icl("ok")} Aprobada${a.por ? ` por ${esc(a.por)}` : ""} · lista para producir</span>
+      ${a.c ? `<p class="ajuste-txt">${esc(a.c)}</p>` : ""}
+    </div>` : ""}
 
     <section>
       <h4>Portada para el feed</h4>
@@ -1866,6 +1969,8 @@ function openDrawer(id) {
   backdrop.classList.add("open");
 
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
+  const btnAj = drawer.querySelector("#btnAjusteListo");
+  if (btnAj) btnAj.onclick = () => { marcarAjusteAplicado(p.id); openDrawer(p.id); };
   drawer.querySelector("#btnPortada").onclick = () => pedirPortada(p.id);
   drawer.querySelector("#btnIrPublicar").onclick = () => openPublicar(p.id);
 
@@ -2338,6 +2443,7 @@ function abrirQuitados() {
 }
 
 function closeDrawer() {
+  if (drawer.contains(document.activeElement)) document.activeElement.blur();
   drawer.classList.remove("open");
   backdrop.classList.remove("open");
   piezaAbierta = null;
@@ -2363,10 +2469,10 @@ document.getElementById("main").addEventListener("click", e => {
 });
 
 // ---------- Navegación (gestos estilo iOS entre secciones) ----------
-let vistaActiva = MODO_CLIENTE ? "aprobacion" : "calendario";
+let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["aprobacion", "pipeline"]
-  : ["calendario", "rodaje", "pipeline", "historias", "feed", "aprobacion", "finanzas", "proyectos", "referentes"];
+  : ["aprobacion", "calendario", "rodaje", "pipeline", "historias", "feed", "referentes"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;
@@ -3818,10 +3924,12 @@ function pedirClaveAcceso({ clave, texto, guardado }) {
   const velo = document.createElement("div");
   velo.className = "candado";
   velo.innerHTML = `
+    <div class="candado-bg" aria-hidden="true"><div class="candado-blob"></div><div class="candado-blob b2"></div></div>
     <div class="candado-caja">
-      <div class="logo" style="justify-content:center"><span class="logo-dot"></span><span class="logo-text">Contenido<b>Hub</b></span></div>
+      <span class="candado-dot"></span>
+      <h1 class="candado-tit">Acceso privado</h1>
       <p class="candado-txt">${texto}</p>
-      <input type="password" id="claveInput" class="edit-input" placeholder="Clave de acceso" autocomplete="off">
+      <input type="password" id="claveInput" class="edit-input" placeholder="Clave" autocomplete="off">
       <button class="btn-primary" id="claveBtn">Entrar</button>
       <p class="candado-error" id="claveError" hidden>Clave incorrecta, inténtalo de nuevo.</p>
     </div>`;
@@ -3845,11 +3953,13 @@ document.body.dataset.marca = marcaActiva;
 if (MODO_CLIENTE) {
   // Formulario de aprobación para cliente: solo la vista Aprobación
   document.body.classList.add("modo-cliente");
+  const tabAprob = document.querySelector('#tabs button[data-view="aprobacion"] span');
+  if (tabAprob) tabAprob.textContent = "Aprobación";
   renderAll();
   activarVista("aprobacion");
   pedirClaveAcceso({
     clave: CLAVE_ACCESO,
-    texto: "Acceso <b>Mercadeo GM</b> · escribe la clave para revisar y aprobar los contenidos del mes",
+    texto: "Escribe la clave para revisar y aprobar los contenidos.",
     guardado: "hubAccesoEquipo",
   });
   iniciarTiempoReal();
@@ -3858,7 +3968,7 @@ if (MODO_CLIENTE) {
   const esPublico = location.protocol.startsWith("http") && !location.hostname.includes("localhost") && !(window.claude && typeof window.claude.use === "function");
   if (esPublico) pedirClaveAcceso({
     clave: CLAVE_DAVID,
-    texto: "Plataforma de trabajo de <b>David</b> · acceso privado. Escribe tu clave para entrar.",
+    texto: "Escribe la clave para entrar.",
     guardado: "hubAccesoDavid",
   });
   // Botón flotante Guardar cambios: publica portadas, textos, fechas y
