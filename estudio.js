@@ -687,7 +687,8 @@ function resumenHub() {
       mes = k; ajustes = 0; aprobadas = 0;
       for (const id in s.aprob) {
         const a = s.aprob[id];
-        if (a.v === "Ajustar" && !a.ok) ajustes++;
+        if (s.ocultas && s.ocultas[id]) continue;
+        if ((a.v === "Ajustar" || (a.v !== "Aprobado" && a.ajuste)) && !a.ok) ajustes++;
         if (a.v === "Aprobado") aprobadas++;
       }
     }

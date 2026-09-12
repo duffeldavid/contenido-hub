@@ -212,14 +212,22 @@ function aplicarEventoCliente(linea, enVivo) {
     if (d.tipo !== "aprob") return false;
     if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado entre sesiones
     const autor = d.autor || AUTOR_CLIENTE;
-    store.aprob[d.id] = { v: d.v || "Pendiente", c: d.c || "", por: autor };
+    const previo = store.aprob[d.id] || {};
+    const nuevo = { v: d.v || "Pendiente", c: d.c || "", por: autor };
+    // Mismo veredicto y mismo comentario (p. ej. reenvío): se conservan las
+    // decisiones de David (ajuste aplicado / comentario tomado como ajuste).
+    if (previo.v === nuevo.v && String(previo.c || "") === nuevo.c) {
+      if (previo.ok) nuevo.ok = previo.ok;
+      if (previo.ajuste) nuevo.ajuste = true;
+    }
+    store.aprob[d.id] = nuevo;
     // Registrar en el buzón de notificaciones de la plataforma
     store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", autor, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
     store.notis = store.notis.slice(0, 60);
     if (enVivo && !MODO_CLIENTE) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
-      toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
+      toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : d.c ? "comentó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
     }
     return true;
   } catch { return false; }
@@ -258,7 +266,7 @@ function renderCampanita() {
         <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
           <span class="noti-av" style="--c:${tinte}">${esc(iniciales)}<i>${icono}</i></span>
           <span class="noti-cuerpo">
-            <span class="noti-txt"><b>${esc(autor)}</b> ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustar" : "revisó"} <b>${p ? esc(tituloDe(p)) : n.piezaId}</b></span>
+            <span class="noti-txt"><b>${esc(autor)}</b> ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustar" : n.c ? "comentó" : "revisó"} <b>${p ? esc(tituloDe(p)) : n.piezaId}</b></span>
             ${n.c ? `<span class="noti-com">${esc(n.c)}</span>` : ""}
             <span class="noti-tiempo">${tiempoRelativo(n.ts)}${p ? ` · ${MARCAS[p.marca].nombre}` : ""}</span>
           </span>
@@ -521,6 +529,64 @@ function cargarPublicado(avisar) {
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
 function checksDe(p) { return store.checks[p.id] || []; }
 function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
+// ---------- Mercadeo GM siempre a la vista ----------
+// Lo que dejó mercadeo en una pieza, en una palabra: "ajustar" (pide cambios),
+// "atendido" (David ya aplicó el ajuste), "aprobado", "comentado" (dejó
+// comentario pero aún no marcó veredicto) o null (nada que mostrar).
+function mercadeoDe(p) {
+  const a = aprobDe(p);
+  // `ajuste`: David tomó un comentario sin veredicto como ajuste (el veredicto
+  // de mercadeo en su link no se toca). `ok`: el ajuste ya se aplicó.
+  if (a.v === "Ajustar" || (!MODO_CLIENTE && a.v !== "Aprobado" && a.ajuste)) return a.ok ? "atendido" : "ajustar";
+  if (a.v === "Aprobado") return "aprobado";
+  return String(a.c || "").trim() ? "comentado" : null;
+}
+// Grupo para filtros y contadores: Aprobado | Ajustar | Pendiente
+function grupoMercadeo(p) {
+  const k = mercadeoDe(p);
+  return k === "aprobado" ? "Aprobado" : (k === "ajustar" || k === "atendido") ? "Ajustar" : "Pendiente";
+}
+// Quién dijo qué, con la matización de cuando fue David quien lo tomó como ajuste
+function mercadeoQuien(a, k) {
+  if (a.ajuste && a.v !== "Ajustar" && (k === "ajustar" || k === "atendido")) return k === "atendido" ? "comentó · lo tomaste como ajuste · ya aplicado" : "comentó · lo tomaste como ajuste";
+  return MERCADEO_TXT[k].quien;
+}
+function sinComentarioTxt(k) { return k === "atendido" ? "Sin comentario escrito." : "Sin comentario escrito: confírmalo con mercadeo."; }
+const MERCADEO_TXT = {
+  ajustar:   { quien: "pide ajustar",                 ic: "ajuste", c: "#B23A2E" },
+  atendido:  { quien: "pidió ajustar · ya aplicado",  ic: "ok",     c: "#8A8378" },
+  aprobado:  { quien: "aprobó",                       ic: "ok",     c: "#2E7D43" },
+  comentado: { quien: "comentó · sin veredicto aún",  ic: "reloj",  c: "#B07A28" },
+};
+function inicialesDe(autor) { return String(autor || AUTOR_CLIENTE).split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase(); }
+// Bloque uniforme del veredicto + comentario de mercadeo (tarjetas claras).
+// El mismo bloque en las tres columnas, en Todas y en las tarjetas grandes:
+// David siempre ve quién dijo qué. `compacta` para columnas angostas.
+function mercadeoHtml(p, { compacta = false } = {}) {
+  const k = mercadeoDe(p);
+  if (!k) return "";
+  const a = aprobDe(p), t = MERCADEO_TXT[k];
+  const autor = String(a.por || AUTOR_CLIENTE);
+  const txt = String(a.c || "").trim();
+  if (!txt && k === "aprobado") return `<div class="mk-linea ${k}">${icl(t.ic)} ${esc(autor)} ${t.quien} esta pieza</div>`;
+  return `
+    <div class="mk-com ${k}${compacta ? " compacta" : ""}">
+      <span class="mk-av" style="--c:${t.c}">${esc(inicialesDe(autor))}<i>${icl(t.ic)}</i></span>
+      <div class="mk-cuerpo">
+        <span class="mk-quien">${esc(autor)} ${mercadeoQuien(a, k)}</span>
+        <p class="mk-txt">${txt ? esc(txt) : `<i>${sinComentarioTxt(k)}</i>`}</p>
+      </div>
+    </div>`;
+}
+// Versión de una línea para las tarjetas del calendario, rodaje y pipeline.
+function mercadeoLineaHtml(p) {
+  if (MODO_CLIENTE) return "";
+  const k = mercadeoDe(p);
+  if (!k) return "";
+  const a = aprobDe(p), txt = String(a.c || "").trim();
+  if (!txt) return ""; // sin comentario, el chip ya lo dice
+  return `<div class="piece-com ${k}">${icl(MERCADEO_TXT[k].ic)}<span><b>${esc(String(a.por || AUTOR_CLIENTE))}:</b> ${esc(txt)}</span></div>`;
+}
 function portadaDe(p) { return store.portadas[p.id] || null; }
 function fechaDe(p) { return store.fechas[p.id] || p.fecha; }
 function horaDe(p) { return store.horas[p.id] || "18:00"; }
@@ -709,6 +775,7 @@ function coverHtml(p, clase = "") {
 function pieceCard(p, { compact = false, drag = false } = {}) {
   const est = estadoDe(p);
   const ap = aprobDe(p).v;
+  const mk = MODO_CLIENTE ? null : mercadeoDe(p);
   const done = est === "Publicado";
   return `
     <article class="piece ${done ? "done" : ""}" style="--brand-color:${brandColor(p)};--brand-tint:${brandTint(p)}" data-id="${p.id}" ${drag ? `draggable="true"` : ""}>
@@ -718,12 +785,14 @@ function pieceCard(p, { compact = false, drag = false } = {}) {
         <span class="chip brand">${MARCAS[p.marca].nombre}</span>
         <span class="chip estado ${ESTADO_CLASS[est]}">${est}</span>
         ${ap === "Aprobado" ? `<span class="chip aprobado">✓ Aprobado</span>` : ""}
-        ${ap === "Ajustar" ? `<span class="chip ajustar">Ajustar</span>` : ""}
+        ${MODO_CLIENTE ? (ap === "Ajustar" ? `<span class="chip ajustar">Ajustar</span>` : "") : (mk === "ajustar" || mk === "atendido") ? `<span class="chip ajustar${mk === "atendido" ? " atendido" : ""}">${mk === "atendido" ? "Ajuste aplicado" : "Ajuste de mercadeo"}</span>` : ""}
+        ${mk === "comentado" ? `<span class="chip comentado">Comentario de mercadeo</span>` : ""}
         ${p.reencauche ? `<span class="chip reencauche">Reencauche</span>` : ""}
         ${editadaDe(p) ? `<span class="chip editada">Editada</span>` : ""}
       </div>
       <div class="piece-title">${esc(tituloDe(p))}</div>
       ${compact ? "" : `<div class="piece-meta">${p.formato} · ${esc(p.mensaje)} · ${esc(p.tono)}</div>`}
+      ${mercadeoLineaHtml(p)}
       ${!MODO_CLIENTE && ["Listo", "Programado"].includes(est) ? `
       <button class="btn-programar ${est === "Programado" ? "ya" : ""}" data-programar="${p.id}">
         ${est === "Programado" ? `${icl("reloj")} ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${horaDe(p)} — abrir` : `${icl("enviar")} Programar publicación`}
@@ -789,11 +858,20 @@ function renderHero() {
   const listas = piezas.filter(p => ["Listo", "Programado", "Publicado"].includes(estadoDe(p))).length;
   const porGrabar = piezas.filter(p => estadoDe(p) === "Por grabar").length;
   const aprobadas = piezas.filter(p => aprobDe(p).v === "Aprobado").length;
+  const porAtender = MODO_CLIENTE ? 0 : piezas.filter(p => ["ajustar", "comentado"].includes(mercadeoDe(p))).length;
   document.getElementById("heroStats").innerHTML = `
     <div class="hstat"><span class="ico">${icl("calendario")}</span><div><div class="num">${pub}/${piezas.length}</div><div class="lbl">publicadas</div></div></div>
     <div class="hstat clicable" id="statAprobadas" role="button" title="Ver los contenidos aprobados"><span class="ico">${icl("ok")}</span><div><div class="num">${aprobadas}/${piezas.length}</div><div class="lbl">aprobadas por Mercadeo GM</div></div></div>
     <div class="hstat"><span class="ico">${icl("camara")}</span><div><div class="num">${porGrabar}</div><div class="lbl">por grabar</div></div></div>
-    <div class="hstat"><span class="ico">${icl("caja")}</span><div><div class="num">${listas}</div><div class="lbl">listas o programadas</div></div></div>`;
+    <div class="hstat"><span class="ico">${icl("caja")}</span><div><div class="num">${listas}</div><div class="lbl">listas o programadas</div></div></div>
+    ${!MODO_CLIENTE && porAtender ? `<div class="hstat clicable atender" id="statAtender" role="button" title="Ver los ajustes y comentarios de mercadeo"><span class="ico">${icl("ajuste")}</span><div><div class="num">${porAtender}</div><div class="lbl">${porAtender === 1 ? "pedido de mercadeo por atender" : "pedidos de mercadeo por atender"}</div></div></div>` : ""}`;
+  const statAtender = document.getElementById("statAtender");
+  if (statAtender) statAtender.onclick = () => {
+    contenidosModo = "aprobacion";
+    renderAprobacion();
+    activarVista("aprobacion");
+    document.getElementById("view-aprobacion").scrollIntoView({ behavior: "smooth", block: "start" });
+  };
   document.getElementById("statAprobadas").onclick = () => {
     aprobFiltro = "Aprobado";
     renderAprobacion();
@@ -834,7 +912,7 @@ function deckHtml(f, grupo) {
       <div class="deck-cards">${grupo.map((p, i) => `<div class="deck-card" data-i="${i}">${pieceCard(p, { drag: true })}</div>`).join("")}</div>
       <div class="deck-nav">
         <button type="button" class="deck-btn" data-deck-prev aria-label="Anterior">‹</button>
-        <span class="deck-dots">${grupo.map((_, i) => `<i data-deck-dot="${i}" class="${i === idx ? "on" : ""}"></i>`).join("")}</span>
+        <span class="deck-dots">${grupo.map((p, i) => { const mk = MODO_CLIENTE ? null : mercadeoDe(p); return `<i data-deck-dot="${i}" class="${i === idx ? "on" : ""}${mk === "ajustar" ? " aj" : mk === "comentado" ? " com" : ""}" title="${mk === "ajustar" ? "Mercadeo pide ajustar" : mk === "comentado" ? "Comentario de mercadeo sin veredicto" : ""}"></i>`; }).join("")}</span>
         <button type="button" class="deck-btn" data-deck-next aria-label="Siguiente">›</button>
         <span class="deck-cuenta">${idx + 1}/${grupo.length}</span>
       </div>
@@ -877,10 +955,11 @@ function activarDecks(root) {
 function chipPieza(p) {
   const est = estadoDe(p);
   const ap = aprobDe(p).v;
+  const mk = MODO_CLIENTE ? null : mercadeoDe(p);
   const img = portadaDe(p) || IMG((p.fotos || [])[0] || "");
   const auto = metaDe(p) && metaDe(p).auto;
   return `
-    <div class="chip-pieza" draggable="true" data-id="${p.id}" title="${esc(tituloDe(p))} · ${est}"
+    <div class="chip-pieza" draggable="true" data-id="${p.id}" title="${esc(tituloDe(p))} · ${est}${!MODO_CLIENTE && String(aprobDe(p).c || "").trim() ? ` · ${esc(String(aprobDe(p).por || AUTOR_CLIENTE))}: ${esc(String(aprobDe(p).c).trim())}` : ""}"
          style="--brand-color:${brandColor(p)}">
       ${img ? `<span class="cp-thumb"><img src="${img}" alt="" loading="lazy"></span>` : `<span class="cp-thumb cp-vacia">${icl(FORMATO_IC[p.formato] || "video")}</span>`}
       <span class="cp-cuerpo">
@@ -888,6 +967,7 @@ function chipPieza(p) {
           <span class="cp-dot ${ESTADO_CLASS[est]}"></span>${horaDe(p)}
           ${auto ? `<span class="cp-auto">Auto</span>` : ""}
           ${ap === "Aprobado" ? `<span class="cp-ok">✓</span>` : ""}
+          ${mk === "ajustar" || mk === "atendido" ? `<span class="cp-aj${mk === "atendido" ? " ok" : ""}" title="${mk === "atendido" ? "Ajuste de mercadeo aplicado" : "Mercadeo pide ajustar"}">${icl("ajuste")}</span>` : mk === "comentado" ? `<span class="cp-aj com" title="Comentario de mercadeo sin veredicto">${icl("reloj")}</span>` : ""}
         </span>
         <span class="cp-txt">${esc(tituloDe(p))}</span>
       </span>
@@ -1024,7 +1104,7 @@ function renderCalendario() {
 // Columnas del flujo real de trabajo. Soltar una pieza en una columna
 // la lleva a ese estado (y en Programados abre la hoja de publicación).
 const FLUJO_COLS = [
-  { id: "crear", n: "Aprobados para crear", ic: "camara", color: "#C98F2D", destino: "Por grabar", hint: "Con el visto bueno de Mercadeo — a producir", match: p => aprobDe(p).v === "Aprobado" && ["Idea", "Por grabar", "En edición"].includes(estadoDe(p)) },
+  { id: "crear", n: "Aprobados para crear", ic: "camara", color: "#C98F2D", destino: "Por grabar", hint: "Con el visto bueno de Mercadeo o con su ajuste ya aplicado — a producir", match: p => (aprobDe(p).v === "Aprobado" || (!MODO_CLIENTE && mercadeoDe(p) === "atendido")) && ["Idea", "Por grabar", "En edición"].includes(estadoDe(p)) },
   { id: "listo", n: "Listos", ic: "ok", color: "#3F9459", destino: "Listo", hint: "Editados y con portada — a un paso de salir", match: p => estadoDe(p) === "Listo" },
   { id: "prog", n: "Programados", ic: "reloj", color: "#8E6BC9", destino: "Programado", hint: "Con fecha y hora en Meta Business Suite", match: p => estadoDe(p) === "Programado" },
   { id: "pub", n: "Publicados", ic: "enviar", color: "#4C8BC2", destino: "Publicado", hint: "Ya están en el feed", match: p => estadoDe(p) === "Publicado" },
@@ -1048,6 +1128,7 @@ function htmlFlujo(piezas) {
             <div class="flujo-item-body">
               <span class="flujo-fecha">${fmtFecha(fechaDe(p)).dia.slice(0, 3)} ${fechaDe(p).slice(8)} · ${MARCAS[p.marca].nombre}</span>
               <span class="flujo-titulo">${esc(tituloDe(p))}</span>
+              ${mercadeoLineaHtml(p)}
               ${col.id === "listo" || col.id === "prog" ? `
               <button class="btn-programar ${col.id === "prog" ? "ya" : ""}" data-programar="${p.id}">
                 ${col.id === "prog" ? `${icl("reloj")} ${horaDe(p)} — abrir` : `${icl("enviar")} Programar`}
@@ -1062,8 +1143,8 @@ function htmlFlujo(piezas) {
   if (fuera.length) {
     html += `
       <div class="flujo-espera">
-        <span class="flujo-espera-txt">⏳ ${fuera.length} contenido${fuera.length > 1 ? "s" : ""} esperando aprobación de Mercadeo — entran al flujo al ser aprobados:</span>
-        ${fuera.map(p => `<button class="chip-espera" data-abrir="${p.id}" style="--brand-color:${brandColor(p)}">${esc(tituloDe(p))}</button>`).join("")}
+        <span class="flujo-espera-txt">⏳ ${fuera.length} contenido${fuera.length > 1 ? "s" : ""} esperando aprobación de Mercadeo — entran al flujo al ser aprobados${!MODO_CLIENTE && fuera.some(p => mercadeoDe(p)) ? "; con lápiz las que traen ajuste de mercadeo y con reloj las que traen comentario" : ""}:</span>
+        ${fuera.map(p => { const mk = MODO_CLIENTE ? null : mercadeoDe(p); const c = String(aprobDe(p).c || "").trim(); return `<button class="chip-espera${mk ? " " + mk : ""}" data-abrir="${p.id}" style="--brand-color:${brandColor(p)}" title="${c ? esc(`${String(aprobDe(p).por || AUTOR_CLIENTE)}: ${c}`) : ""}">${mk === "ajustar" || mk === "atendido" ? icl("ajuste") + " " : mk === "comentado" ? icl("reloj") + " " : ""}${esc(tituloDe(p))}</button>`; }).join("")}
       </div>`;
   }
   return html;
@@ -1268,8 +1349,11 @@ function renderFeed() {
           ${piezas.map(p => {
             const img = portadaDe(p);
             const d = fechaDe(p).slice(8);
+            const mk = MODO_CLIENTE ? null : mercadeoDe(p);
+            const marca = mk === "ajustar" ? { ic: "ajuste", t: "Ajuste de mercadeo" } : mk === "comentado" ? { ic: "reloj", t: "Comentario de mercadeo" } : null;
             return `
-              <button class="cell has-img ${img ? "" : "es-ref"}" data-id="${p.id}" title="${esc(tituloDe(p))}">
+              <button class="cell has-img ${img ? "" : "es-ref"}" data-id="${p.id}" title="${esc(tituloDe(p))}${marca ? ` · ${marca.t}` : ""}">
+                ${marca ? `<span class="cell-mk ${mk}" aria-label="${marca.t}">${icl(marca.ic)}</span>` : ""}
                 ${img
                   ? `<img src="${img}" alt="${esc(tituloDe(p))}">`
                   : `<img src="${IMG((p.fotos || [])[0] || "")}" alt="" loading="lazy">
@@ -1294,7 +1378,15 @@ const comentarioEditando = {};
 function bloqueComentario(p) {
   const a = aprobDe(p);
   if (!MODO_CLIENTE) {
-    return `<textarea class="aprob-comment" placeholder="Comentario para David (opcional)…">${esc(a.c || "")}</textarea>`;
+    // David ve el veredicto y el comentario de mercadeo como un bloque firmado;
+    // solo si quiere anotar algo (p. ej. lo que le dijeron por WhatsApp) abre el campo.
+    const k = mercadeoDe(p);
+    if (k && !comentarioEditando[p.id]) {
+      return `${mercadeoHtml(p, { compacta: true })}
+        <button class="link-btn tinta btn-coment" data-editar="${p.id}">${icl("ajuste")} ${a.c ? "Editar comentario" : "Anotar comentario"}</button>`;
+    }
+    return `<textarea class="aprob-comment" placeholder="Comentario de mercadeo (anótalo si te llegó por WhatsApp)…">${esc(a.c || "")}</textarea>
+      ${k ? `<button class="link-btn tinta btn-coment" data-editar-cerrar="${p.id}">Listo</button>` : ""}`;
   }
   if (a.c && !comentarioEditando[p.id]) {
     return `
@@ -1308,9 +1400,13 @@ function bloqueComentario(p) {
 function conectarComentario(cont, p, refrescar) {
   const ta = cont.querySelector(".aprob-comment");
   if (!MODO_CLIENTE) {
+    const abrir = cont.querySelector(`[data-editar="${p.id}"]`);
+    if (abrir) abrir.onclick = () => { comentarioEditando[p.id] = true; refrescar(); };
+    const cerrar = cont.querySelector(`[data-editar-cerrar="${p.id}"]`);
+    if (cerrar) cerrar.onclick = () => { comentarioEditando[p.id] = false; save(); refrescar(); };
     if (!ta) return;
     ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
-    ta.onchange = () => save();
+    ta.onchange = () => { marcarPendiente(); save(); };
     return;
   }
   const btnEnviar = cont.querySelector(`[data-enviar="${p.id}"]`);
@@ -1331,6 +1427,7 @@ function marcarAjusteAplicado(id) {
   const p = PIEZAS.find(x => x.id === id);
   if (!p) return;
   store.aprob[id] = { ...aprobDe(p), ok: Date.now() };
+  marcarPendiente();
   if (estadoDe(p) === "Idea") {
     store.estados[id] = "Por grabar";
     emitirContenido({ tipo: "estado", id, v: "Por grabar" });
@@ -1341,11 +1438,13 @@ function marcarAjusteAplicado(id) {
 }
 function contenidosResumenHtml(todas) {
   const enProduccion = ["Idea", "Por grabar", "En edición"];
-  const ajustes = todas.filter(p => aprobDe(p).v === "Ajustar" && !aprobDe(p).ok);
-  const atendidos = todas.filter(p => aprobDe(p).v === "Ajustar" && aprobDe(p).ok);
+  const ajustes = todas.filter(p => mercadeoDe(p) === "ajustar");
+  const atendidos = todas.filter(p => mercadeoDe(p) === "atendido");
   const porHacer = todas.filter(p => aprobDe(p).v === "Aprobado" && enProduccion.includes(estadoDe(p)));
   const listas = todas.filter(p => aprobDe(p).v === "Aprobado" && !enProduccion.includes(estadoDe(p)));
-  const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
+  const pendientes = todas.filter(p => grupoMercadeo(p) === "Pendiente");
+  const comentadas = pendientes.filter(p => mercadeoDe(p) === "comentado");
+  const sinRespuesta = pendientes.filter(p => mercadeoDe(p) !== "comentado");
   const tarjeta = (p, extra, clase = "") => {
     const { dia, num } = fmtFecha(fechaDe(p));
     const est = estadoDe(p);
@@ -1362,25 +1461,39 @@ function contenidosResumenHtml(todas) {
       ${extra}
     </article>`;
   };
-  const extraAjuste = p => { const a = aprobDe(p); return `
-    <blockquote class="cont-com"><span class="cont-com-autor">${esc(a.por || AUTOR_CLIENTE)}</span>${a.c ? esc(a.c) : "<i>Sin comentario escrito: confírmalo con mercadeo.</i>"}</blockquote>
+  const segEstado = p => { const est = estadoDe(p); return `<div class="cont-seg">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel" : ""}">${e}</button>`).join("")}</div>`; };
+  const abrir = p => `<button class="cont-btn" data-open="${p.id}">Abrir</button>`;
+  // El comentario de mercadeo va SIEMPRE en la tarjeta: es lo que hay que hacer.
+  const extraAjuste = p => `
+    ${mercadeoHtml(p)}
     <div class="cont-acc">
       <button class="cont-btn principal" data-ajuste-ok="${p.id}">${icl("ok")} Aplicado · a producción</button>
-      <button class="cont-btn" data-open="${p.id}">Abrir</button>
-    </div>`; };
-  const extraAprobada = p => { const a = aprobDe(p), est = estadoDe(p); return `
-    ${a.c ? `<p class="cont-nota">“${esc(a.c)}”</p>` : ""}
-    <div class="cont-acc">
-      <div class="cont-seg">${["Por grabar", "En edición", "Listo"].map(e => `<button data-estado-quick="${e}" data-id="${p.id}" class="${e === est ? "sel" : ""}">${e}</button>`).join("")}</div>
-      <button class="cont-btn" data-open="${p.id}">Abrir</button>
-    </div>`; };
-  const extraEnMarcha = p => { const a = aprobDe(p); return `
-    ${a.c ? `<p class="cont-nota">“${esc(a.c)}”</p>` : ""}
-    <div class="cont-acc"><span class="cont-marcha">${icl("ok")} Ya en marcha</span><button class="cont-btn" data-open="${p.id}">Abrir</button></div>`; };
-  const extraIdea = p => `
-    <div class="cont-acc">
-      <button class="cont-btn" data-open="${p.id}">Abrir</button>
+      ${abrir(p)}
+      ${aprobDe(p).ajuste && aprobDe(p).v !== "Ajustar" ? `<button class="link-btn tinta" data-no-ajuste="${p.id}">No es ajuste</button>` : ""}
     </div>`;
+  const extraAtendido = p => `
+    ${mercadeoHtml(p)}
+    <div class="cont-acc">
+      ${segEstado(p)}
+      ${abrir(p)}
+      <button class="link-btn tinta" data-ajuste-reabrir="${p.id}">Reabrir ajuste</button>
+    </div>`;
+  const extraAprobada = p => `
+    ${mercadeoHtml(p)}
+    <div class="cont-acc">
+      ${segEstado(p)}
+      ${abrir(p)}
+    </div>`;
+  const extraEnMarcha = p => { const a = aprobDe(p), con = String(a.c || "").trim(); return `
+    ${con ? mercadeoHtml(p) : ""}
+    <div class="cont-acc"><span class="cont-marcha">${icl("ok")} ${con ? "Ya en marcha" : `Aprobada por ${esc(String(a.por || AUTOR_CLIENTE))} · ya en marcha`}</span>${abrir(p)}</div>`; };
+  const extraComentada = p => `
+    ${mercadeoHtml(p)}
+    <div class="cont-acc">
+      <button class="cont-btn principal" data-como-ajuste="${p.id}">${icl("ajuste")} Tratar como ajuste</button>
+      ${abrir(p)}
+    </div>`;
+  const extraIdea = p => `<div class="cont-acc">${abrir(p)}</div>`;
   const columna = (clase, titulo, n, cuerpo, pie = "") => `
     <section class="cont-col ${clase}">
       <header class="cont-col-head"><h3>${titulo}</h3><span class="cont-n">${n}</span></header>
@@ -1395,19 +1508,25 @@ function contenidosResumenHtml(todas) {
         : `<p class="cont-vacio">Mercadeo aún no ha aprobado piezas.</p>`,
       "")}
     ${columna("ajustes", "Ajustes de mercadeo", ajustes.length,
-      ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes.</p>`,
-      atendidos.length ? `<details class="cont-atendidos"><summary>Atendidos (${atendidos.length})</summary>${atendidos.map(p => `<div class="cont-mini"><span>${esc(tituloDe(p))}</span><button class="link-btn" data-ajuste-reabrir="${p.id}">Reabrir</button></div>`).join("")}</details>` : "")}
+      (ajustes.length ? ajustes.map(p => tarjeta(p, extraAjuste(p))).join("") : `<p class="cont-vacio">Sin ajustes pendientes.</p>`)
+        + (atendidos.length ? `<p class="cont-separador">Ajustes aplicados · ya en producción</p>` + atendidos.map(p => tarjeta(p, extraAtendido(p), "en-marcha atendida")).join("") : ""),
+      "")}
     ${columna("ideas", "Ideas", pendientes.length,
-      pendientes.length ? pendientes.map(p => tarjeta(p, extraIdea(p), "idea")).join("") : `<p class="cont-vacio">Todo revisado.</p>`,
-      pendientes.length ? `<p class="cont-pie">Esperan respuesta de mercadeo. <b>Enviar por WhatsApp</b> las recuerda.</p>` : "")}
+      pendientes.length
+        ? (comentadas.length ? `<p class="cont-separador con-color">Con comentario de mercadeo · te toca decidir</p>` + comentadas.map(p => tarjeta(p, extraComentada(p), "comentada")).join("") : "")
+          + (comentadas.length && sinRespuesta.length ? `<p class="cont-separador">Sin respuesta todavía</p>` : "")
+          + sinRespuesta.map(p => tarjeta(p, extraIdea(p), "idea")).join("")
+        : `<p class="cont-vacio">Todo revisado.</p>`,
+      sinRespuesta.length ? `<p class="cont-pie">Esperan respuesta de mercadeo. <b>Enviar por WhatsApp</b> las recuerda.</p>` : "")}
   </div>`;
 }
 function renderAprobacion() {
   const el = document.getElementById("view-aprobacion");
   const todas = piezasVisibles();
   const aprobadas = todas.filter(p => aprobDe(p).v === "Aprobado").length;
-  const conAjustes = todas.filter(p => aprobDe(p).v === "Ajustar").length;
-  const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => aprobDe(p).v === aprobFiltro);
+  const conAjustes = todas.filter(p => grupoMercadeo(p) === "Ajustar").length;
+  const ajustesAplicados = MODO_CLIENTE ? 0 : todas.filter(p => mercadeoDe(p) === "atendido").length;
+  const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => grupoMercadeo(p) === aprobFiltro);
   const resumen = !MODO_CLIENTE && contenidosModo === "aprobacion";
   const referencias = !MODO_CLIENTE && contenidosModo === "referencias";
   // Referentes se embebe dentro de Contenidos: devolverlo a <main> antes de repintar
@@ -1417,7 +1536,7 @@ function renderAprobacion() {
   let html = `
     <p class="view-note">${MODO_CLIENTE
       ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
-      : `Lo que pide mercadeo y lo que ya está aprobado para producir, en un solo lugar. En <b>Todas</b> está la lista completa con filtros y comentarios.`}</p>
+      : `Lo que mercadeo aprobó, lo que pide ajustar y cada comentario que dejó, siempre a la vista en cada pieza. En <b>Todas</b> está la lista completa con filtros.`}</p>
     ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
       <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
       <button data-modo="todas" class="${!resumen && !referencias ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
@@ -1433,7 +1552,7 @@ function renderAprobacion() {
     ${resumen || referencias ? "" : `<div class="cal-toggle aprob-filtros">
       <button data-f="todas" class="${aprobFiltro === "todas" ? "active" : ""}">${icl("lista")} Todas (${todas.length})</button>
       <button data-f="Aprobado" class="${aprobFiltro === "Aprobado" ? "active" : ""}">${icl("ok")} Aprobadas (${aprobadas})</button>
-      <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">${icl("ajuste")} Con ajustes (${conAjustes})</button>
+      <button data-f="Ajustar" class="${aprobFiltro === "Ajustar" ? "active" : ""}">${icl("ajuste")} Con ajustes (${MODO_CLIENTE ? conAjustes : `${conAjustes - ajustesAplicados}${ajustesAplicados ? ` + ${ajustesAplicados} aplicado${ajustesAplicados > 1 ? "s" : ""}` : ""}`})</button>
       <button data-f="Pendiente" class="${aprobFiltro === "Pendiente" ? "active" : ""}">${icl("reloj")} Pendientes (${todas.length - aprobadas - conAjustes})</button>
     </div>
     ${!piezas.length ? `<p class="view-note">No hay piezas en este filtro todavía.</p>` : ""}`}`;
@@ -1447,7 +1566,7 @@ function renderAprobacion() {
         <div class="aprob-info">
           ${coverHtml(p, "cover-thumb")}
           <div>
-            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por ? ` · respondió ${esc(a.por)}` : ""}</div>
+            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por && mercadeoDe(p) ? ` · respondió ${esc(String(a.por))}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
             <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
             ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
@@ -1479,7 +1598,20 @@ function renderAprobacion() {
   el.querySelectorAll("[data-ajuste-reabrir]").forEach(b => b.onclick = () => {
     const id = b.dataset.ajusteReabrir;
     const ap = { ...aprobDe({ id }) }; delete ap.ok; store.aprob[id] = ap;
-    save(); renderAll({ keep: "aprobacion" });
+    marcarPendiente(); save(); renderAll({ keep: "aprobacion" });
+  });
+  // Mercadeo comentó sin marcar veredicto: David decide tratarlo como ajuste
+  // (pasa a la columna de Ajustes con el comentario intacto; el veredicto que
+  // marcó mercadeo en su link no se toca: solo se anota la bandera `ajuste`).
+  el.querySelectorAll("[data-como-ajuste]").forEach(b => b.onclick = () => {
+    const id = b.dataset.comoAjuste;
+    const ap = { ...aprobDe({ id }), ajuste: true }; delete ap.ok; store.aprob[id] = ap;
+    marcarPendiente(); save(); renderAll({ keep: "aprobacion" });
+  });
+  el.querySelectorAll("[data-no-ajuste]").forEach(b => b.onclick = () => {
+    const id = b.dataset.noAjuste;
+    const ap = { ...aprobDe({ id }) }; delete ap.ajuste; delete ap.ok; store.aprob[id] = ap;
+    marcarPendiente(); save(); renderAll({ keep: "aprobacion" });
   });
   el.querySelectorAll("[data-estado-quick]").forEach(b => b.onclick = () => {
     const id = b.dataset.id, v = b.dataset.estadoQuick;
@@ -1500,7 +1632,11 @@ function renderAprobacion() {
     });
     row.querySelectorAll(".aprob-pills button").forEach(b => {
       b.onclick = () => {
-        store.aprob[id] = { ...aprobDe({ id }), v: b.dataset.v };
+        const prev = aprobDe({ id });
+        const ap = { ...prev, v: b.dataset.v };
+        if (prev.v !== ap.v) { delete ap.ok; delete ap.ajuste; }
+        store.aprob[id] = ap;
+        marcarPendiente();
         save();
         const pieza = PIEZAS.find(x => x.id === id);
         notiAprobacion(pieza, b.dataset.v);
@@ -1545,8 +1681,8 @@ function renderAprobacion() {
   });
   const btnWa = el.querySelector("#btnWhatsApp");
   if (btnWa) btnWa.addEventListener("click", function () {
-    const pendientes = todas.filter(p => aprobDe(p).v === "Pendiente");
-    const revisadas = todas.filter(p => aprobDe(p).v !== "Pendiente");
+    const pendientes = todas.filter(p => grupoMercadeo(p) === "Pendiente");
+    const revisadas = todas.filter(p => grupoMercadeo(p) !== "Pendiente");
     if (MODO_CLIENTE) {
       // Mensaje corto del cliente: saludo + sus respuestas
       const L = ["¡Hola! Estos son los comentarios de los contenidos:", ""];
@@ -1567,17 +1703,19 @@ function renderAprobacion() {
       pendientes.forEach((p, i) => {
         const f = fmtFecha(fechaDe(p));
         const concepto = conceptoDe(p).slice(0, 180);
+        const com = String(aprobDe(p).c || "").trim();
         L.push("",
           `*${i + 1}️⃣  ${tituloDe(p)}*`,
           `${f.dia} ${f.num}/09 · ${MARCAS[p.marca].nombre} · ${p.formato} ${FORMATO_ICONO[p.formato] || ""}`,
           `💡 ${concepto}`);
+        if (com) L.push(`💬 Tu comentario: "${com}"`);
       });
     }
     if (revisadas.length) {
       L.push("", `— — —`, `*Ya revisadas (${revisadas.length}):*`);
       for (const p of revisadas) {
         const a = aprobDe(p);
-        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)}${a.c ? ` — 💬 ${a.c}` : ""}`);
+        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)}${a.c ? ` — 💬 ${a.c}` : ""}${mercadeoDe(p) === "atendido" ? " · ajuste aplicado" : ""}`);
       }
     }
     L.push("", `👀 Revísalo y aprueba aquí (se abre en cualquier celular): ${ENLACE_PUBLICO}?modo=cliente`);
@@ -1765,7 +1903,10 @@ function construirPdf() {
       const xTexto = img ? M + 27 : M, anchoTexto = ANCHO - (img ? 27 : 0);
       const titulo = doc.setFont("helvetica", "bold").setFontSize(12.5).splitTextToSize(tituloDe(p), anchoTexto);
       const concepto = doc.setFont("helvetica", "normal").setFontSize(10).splitTextToSize(conceptoDe(p), anchoTexto);
-      const altoBloque = Math.max(img ? 32 : 0, 6 + titulo.length * 5.4 + concepto.length * 4.6 + 4);
+      const mk = mercadeoDe(p), ap = aprobDe(p), comTxt = String(ap.c || "").trim();
+      const notaTxt = !mk ? "" : mk === "aprobado" ? `Aprobado por ${String(ap.por || AUTOR_CLIENTE)}${comTxt ? `: ${comTxt}` : ""}` : mk === "ajustar" ? `Ajuste pedido${comTxt ? `: ${comTxt}` : ""}` : mk === "atendido" ? `Ajuste ya aplicado${comTxt ? `: ${comTxt}` : ""}` : `Comentario de ${String(ap.por || AUTOR_CLIENTE)}: ${comTxt}`;
+      const nota = notaTxt ? doc.setFont("helvetica", "italic").setFontSize(9).splitTextToSize(notaTxt, anchoTexto) : [];
+      const altoBloque = Math.max(img ? 32 : 0, 6 + titulo.length * 5.4 + concepto.length * 4.6 + (nota.length ? nota.length * 4.2 + 2 : 0) + 4);
       salto(altoBloque + 6);
 
       if (img) { try { doc.addImage(img, "JPEG", M, y, 22, 29); } catch {} }
@@ -1775,6 +1916,10 @@ function construirPdf() {
       doc.text(titulo, xTexto, y + 10);
       doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...PDF_COLORES.suave);
       doc.text(concepto, xTexto, y + 11 + titulo.length * 5.4);
+      if (nota.length) {
+        doc.setFont("helvetica", "italic").setFontSize(9).setTextColor(...(mk === "aprobado" ? [46, 125, 67] : mk === "ajustar" ? [178, 58, 46] : [138, 92, 20]));
+        doc.text(nota, xTexto, y + 12 + titulo.length * 5.4 + concepto.length * 4.6);
+      }
       y += altoBloque;
       doc.setDrawColor(231, 225, 214).setLineWidth(0.25).line(M, y, W - M, y);
       y += 6;
@@ -1949,6 +2094,7 @@ function openDrawer(id) {
   const est = estadoDe(p);
   const checks = checksDe(p);
   const a = aprobDe(p);
+  const mk = mercadeoDe(p);
   const img = portadaDe(p);
 
   drawer.innerHTML = `
@@ -1959,18 +2105,18 @@ function openDrawer(id) {
     <div class="tag-row">
       <span class="chip">${esc(p.mensaje)}</span>
       <span class="chip">${esc(p.tono)}</span>
-      ${a.v === "Aprobado" ? `<span class="chip aprobado">✓ Aprobado${a.por ? ` por ${esc(a.por)}` : ""}</span>` : ""}
-      ${a.v === "Ajustar" ? `<span class="chip ajustar">${a.por ? esc(a.por) : "Mercadeo GM"} pide ajustes</span>` : ""}
+      ${mk === "aprobado" ? `<span class="chip aprobado">✓ Aprobado por ${esc(String(a.por || AUTOR_CLIENTE))}</span>` : ""}
+      ${mk === "ajustar" || mk === "atendido" ? `<span class="chip ajustar${mk === "atendido" ? " atendido" : ""}">${mk === "atendido" ? "Ajuste aplicado" : `${esc(String(a.por || AUTOR_CLIENTE))} pide ajustes`}</span>` : ""}
+      ${mk === "comentado" ? `<span class="chip comentado">Comentario de mercadeo</span>` : ""}
     </div>
-    ${a.v === "Ajustar" ? `
-    <div class="ajuste-banner ${a.ok ? "atendido" : ""}">
-      <span class="ajuste-lbl">${icl("ajuste")} ${esc(a.por || AUTOR_CLIENTE)} pide ajustar${a.ok ? " · ya atendido" : ""}</span>
-      <p class="ajuste-txt">${a.c ? esc(a.c) : "Sin comentario escrito: confírmalo con mercadeo."}</p>
-      ${a.ok ? "" : `<button class="btn-primary" id="btnAjusteListo">${icl("ok")} Ajuste aplicado · a producción</button>`}
-    </div>` : a.v === "Aprobado" ? `
-    <div class="ajuste-banner ok">
-      <span class="ajuste-lbl">${icl("ok")} Aprobada${a.por ? ` por ${esc(a.por)}` : ""} · lista para producir</span>
-      ${a.c ? `<p class="ajuste-txt">${esc(a.c)}</p>` : ""}
+    ${mk ? `
+    <div class="ajuste-banner ${mk}">
+      <span class="ajuste-lbl">${icl(MERCADEO_TXT[mk].ic)} ${esc(String(a.por || AUTOR_CLIENTE))} ${mercadeoQuien(a, mk)}${mk === "aprobado" ? " · lista para producir" : ""}</span>
+      ${String(a.c || "").trim() ? `<p class="ajuste-txt">${esc(String(a.c).trim())}</p>` : mk === "ajustar" || mk === "atendido" ? `<p class="ajuste-txt">${sinComentarioTxt(mk)}</p>` : ""}
+      ${mk === "ajustar" ? `<button class="btn-primary" id="btnAjusteListo">${icl("ok")} Ajuste aplicado · a producción</button>` : ""}
+      ${mk === "ajustar" && a.ajuste && a.v !== "Ajustar" ? `<button class="link-btn" id="btnNoAjuste">No es ajuste · devolver a Ideas</button>` : ""}
+      ${mk === "atendido" ? `<button class="link-btn" id="btnAjusteReabrir">Reabrir el ajuste</button>` : ""}
+      ${mk === "comentado" ? `<button class="btn-primary" id="btnComoAjuste">${icl("ajuste")} Tratar como ajuste</button>` : ""}
     </div>` : ""}
 
     <section>
@@ -2016,7 +2162,10 @@ function openDrawer(id) {
       <div class="aprob-pills">
         ${APROB.map(v => `<button data-aprob="${v}" class="${a.v === v ? "sel" : ""}" data-v="${v}">${v === "Aprobado" ? ICOL.ok + " " : v === "Ajustar" ? ICOL.ajuste + " " : ""}${v}</button>`).join("")}
       </div>
-      <textarea class="aprob-comment" id="drawerComment" placeholder="Comentario para David (opcional)…" style="margin-top:10px">${esc(a.c || "")}</textarea>
+      ${mk && !comentarioEditando[p.id]
+        ? `<button class="link-btn" id="drawerEditarCom" style="margin-top:10px">${icl("ajuste")} ${String(a.c || "").trim() ? "Editar el comentario" : "Anotar un comentario"}</button>`
+        : `<textarea class="aprob-comment" id="drawerComment" placeholder="Comentario de mercadeo (anótalo si te llegó por WhatsApp)…" style="margin-top:10px">${esc(a.c || "")}</textarea>
+      ${mk ? `<button class="link-btn" id="drawerListoCom" style="margin-top:6px">Listo</button>` : ""}`}
     </section>
 
     <section>
@@ -2048,6 +2197,16 @@ function openDrawer(id) {
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
   const btnAj = drawer.querySelector("#btnAjusteListo");
   if (btnAj) btnAj.onclick = () => { marcarAjusteAplicado(p.id); openDrawer(p.id); };
+  const btnReabrir = drawer.querySelector("#btnAjusteReabrir");
+  if (btnReabrir) btnReabrir.onclick = () => { const ap = { ...aprobDe(p) }; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
+  const btnComo = drawer.querySelector("#btnComoAjuste");
+  if (btnComo) btnComo.onclick = () => { const ap = { ...aprobDe(p), ajuste: true }; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
+  const btnNoAj = drawer.querySelector("#btnNoAjuste");
+  if (btnNoAj) btnNoAj.onclick = () => { const ap = { ...aprobDe(p) }; delete ap.ajuste; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
+  const btnEditarCom = drawer.querySelector("#drawerEditarCom");
+  if (btnEditarCom) btnEditarCom.onclick = () => { comentarioEditando[p.id] = true; openDrawer(p.id); setTimeout(() => { const t = drawer.querySelector("#drawerComment"); if (t) t.focus(); }, 50); };
+  const btnListoCom = drawer.querySelector("#drawerListoCom");
+  if (btnListoCom) btnListoCom.onclick = () => { comentarioEditando[p.id] = false; save(); renderAll({ keep: true }); openDrawer(p.id); };
   drawer.querySelector("#btnPortada").onclick = () => pedirPortada(p.id);
   drawer.querySelector("#btnIrPublicar").onclick = () => openPublicar(p.id);
 
@@ -2084,15 +2243,21 @@ function openDrawer(id) {
   });
   drawer.querySelectorAll("[data-aprob]").forEach(b => {
     b.onclick = () => {
-      store.aprob[p.id] = { ...aprobDe(p), v: b.dataset.aprob };
+      const prev = aprobDe(p);
+      const ap = { ...prev, v: b.dataset.aprob };
+      if (prev.v !== ap.v) { delete ap.ok; delete ap.ajuste; }
+      store.aprob[p.id] = ap;
+      marcarPendiente();
       save();
       openDrawer(p.id);
       renderAll({ keep: true });
     };
   });
   const ta = drawer.querySelector("#drawerComment");
-  ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
-  ta.onchange = () => save();
+  if (ta) {
+    ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
+    ta.onchange = () => { marcarPendiente(); save(); };
+  }
   drawer.querySelectorAll("[data-check]").forEach(cb => {
     cb.onchange = () => {
       const i = Number(cb.dataset.check);
@@ -2523,6 +2688,7 @@ function closeDrawer() {
   if (drawer.contains(document.activeElement)) document.activeElement.blur();
   drawer.classList.remove("open");
   backdrop.classList.remove("open");
+  if (!MODO_CLIENTE && piezaAbierta) delete comentarioEditando[piezaAbierta.id];
   piezaAbierta = null;
 }
 backdrop.addEventListener("click", closeDrawer);
