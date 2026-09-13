@@ -2344,7 +2344,9 @@ body.sin-hero main { padding-top: 40px; }
 .ajuste-banner .link-btn:hover { color: #fff; }
 .ajuste-txt { overflow-wrap: anywhere; }
 /* Mazo: las tarjetas alinean por el fondo, así la de atrás solo asoma por arriba aunque la del frente sea más baja */
-.deck-cards { align-items: end; }
+.deck-cards { align-items: start; }
+/* Las de atrás toman la altura de la del frente (pintar() fija --h): asoman 16/30px arriba y nunca sobresalen abajo */
+.deck-card:not(.front) .piece { height: var(--h, auto); overflow: hidden; }
 /* Flujo, mazo y feed: la señal de mercadeo también ahí */
 .flujo-item .piece-com { font-size: 11.5px; margin-top: 6px; padding: 6px 8px; border-radius: 8px; }
 .deck-dots i.com:not(.on) { background: #C98F2D; }
@@ -2356,6 +2358,12 @@ body.sin-hero main { padding-top: 40px; }
 .cell-mk.comentado { background: #8A5C14; }
 .cell-mk .icl { width: 12px; height: 12px; stroke-width: 2.6; vertical-align: 0; }
 .hstat.atender:hover .num { color: #F2B4AA; }
+/* Mazo: la tarjeta del frente es opaca (una pieza publicada al frente iba al 60 % y dejaba ver la de atrás
+   a través de ella) y las de atrás giran desde arriba, así solo asoman por el borde superior */
+.deck-card .piece { background: #FFFDFA; }
+.deck-card .piece.done { opacity: 1; }
+.deck-card .piece.done > :not(.btn-quitar) { opacity: .72; }
+.deck-card { transform-origin: 50% 0; }
 
 </style>
 
@@ -3834,6 +3842,9 @@ function activarDecks(root) {
     const pintar = () => {
       const idx = Number(deck.dataset.idx) || 0;
       cards.forEach((c, i) => { const k = (i - idx + n) % n; c.dataset.k = Math.min(k, 3); c.classList.toggle("front", k === 0); });
+      // Las tarjetas de atrás se recortan a la altura de la del frente: solo asoman por arriba
+      const fp = cards[idx] && cards[idx].querySelector(".piece");
+      if (fp) deck.style.setProperty("--h", fp.offsetHeight + "px");
       deck.querySelectorAll("[data-deck-dot]").forEach(d => d.classList.toggle("on", Number(d.dataset.deckDot) === idx));
       const cu = deck.querySelector(".deck-cuenta"); if (cu) cu.textContent = `${idx + 1}/${n}`;
     };

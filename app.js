@@ -926,6 +926,9 @@ function activarDecks(root) {
     const pintar = () => {
       const idx = Number(deck.dataset.idx) || 0;
       cards.forEach((c, i) => { const k = (i - idx + n) % n; c.dataset.k = Math.min(k, 3); c.classList.toggle("front", k === 0); });
+      // Las tarjetas de atrás se recortan a la altura de la del frente: solo asoman por arriba
+      const fp = cards[idx] && cards[idx].querySelector(".piece");
+      if (fp) deck.style.setProperty("--h", fp.offsetHeight + "px");
       deck.querySelectorAll("[data-deck-dot]").forEach(d => d.classList.toggle("on", Number(d.dataset.deckDot) === idx));
       const cu = deck.querySelector(".deck-cuenta"); if (cu) cu.textContent = `${idx + 1}/${n}`;
     };
