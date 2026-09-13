@@ -6,7 +6,7 @@ Es una plataforma aparte del Contenido Hub (que es para el equipo y los clientes
 
 ## Cómo usarla
 
-**Mac + iPhone, sincronizados (recomendado):** el artifact privado de claude.ai. Los datos se guardan en la base de datos del artifact con tu cuenta, así lo que anotas en el celular aparece en el Mac y al revés. En el iPhone: Safari → Compartir → **Añadir a pantalla de inicio** y queda como app.
+**Mac + iPhone, sincronizados (recomendado):** el artifact privado de claude.ai: https://claude.ai/code/artifact/d691ba56-8e8b-4a68-b286-6e9cf91f2f86 (solo con tu cuenta). Los datos se guardan en la base de datos del artifact con tu cuenta, así lo que anotas en el celular aparece en el Mac y al revés. En el iPhone: Safari → Compartir → **Añadir a pantalla de inicio** y queda como app.
 
 **En local:** abre `lab/index.html` (doble clic). Sin servidor ni instalación. Ahí los datos viven en el navegador (localStorage); para moverlos a otro dispositivo usa **Más → Exportar / Importar**.
 
