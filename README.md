@@ -62,7 +62,7 @@ Los calendarios originales viven en Notion:
 ## Cómo funciona el tiempo real (no romper)
 
 Ambos lados comparten un canal de eventos (ntfy.sh):
-- **Mercadeo GM → David**: aprobaciones y comentarios (`tipo: "aprob"`), con push al celular por el canal de notificaciones.
+- **Mercadeo GM → David**: aprobaciones y comentarios (`tipo: "aprob"`), con push al celular por el canal de notificaciones. En el link del cliente el comentario se escribe y se fija con **Guardar comentario** (el botón aparece apenas hay texto); lo que va escribiendo queda como borrador en el navegador y sobrevive a cualquier cambio de estado o repintado. Cambiar el estado (Aprobado / Ajustar / Pendiente) nunca toca el comentario: solo se cambia con **Editar comentario** o se quita con **Borrar** (con confirmación; viaja como `borrarC: true`). En la plataforma de David un evento `aprob` con comentario vacío conserva el comentario que ya había: el comentario de mercadeo solo cambia cuando llega uno nuevo o cuando mercadeo lo borra a propósito.
 - **David → Mercadeo GM**: ediciones de título/copy (`edicion`), fechas (`fecha`) y estados (`estado`).
 - Cada lado escucha por SSE + se re-sincroniza cada 60s y al volver a la pestaña.
 - **Regla de oro**: para que las ediciones lleguen en vivo al cliente, David edita desde el **enlace público o local** (el visor de claude.ai bloquea conexiones salientes). Las portadas subidas no viajan por el canal (límite de 4KB): para eso está **Guardar cambios**.

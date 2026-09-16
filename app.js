@@ -92,10 +92,10 @@ function notiComentario(p, texto) {
   if (texto.trim()) notificarDavid(`💬 ${tituloDe(p)}: "${texto.trim().slice(0, 200)}"`);
 }
 // Evento estructurado hacia la plataforma de David (inmediato, sin agrupar)
-function emitirDato(p) {
+function emitirDato(p, extra) {
   if (!MODO_CLIENTE) return;
   const a = aprobDe(p);
-  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", autor: AUTOR_CLIENTE, ts: Date.now() }) }).catch(() => {});
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", autor: AUTOR_CLIENTE, ts: Date.now(), ...(extra || {}) }) }).catch(() => {});
 }
 // Ediciones de contenido de David hacia el link del cliente (tiempo real)
 function emitirContenido(obj) {
@@ -213,7 +213,11 @@ function aplicarEventoCliente(linea, enVivo) {
     if (m.id && store.notis.some(n => n.nid === m.id)) return false; // ya registrado entre sesiones
     const autor = d.autor || AUTOR_CLIENTE;
     const previo = store.aprob[d.id] || {};
-    const nuevo = { v: d.v || "Pendiente", c: d.c || "", por: autor };
+    // El comentario de mercadeo NUNCA se borra por un cambio de estado: solo
+    // cambia cuando llega uno nuevo o cuando mercadeo lo borra a propósito
+    // (evento con borrarC). Un evento con comentario vacío conserva el que había.
+    const cEvento = String(d.c || "").trim();
+    const nuevo = { v: d.v || "Pendiente", c: d.borrarC ? "" : (cEvento || String(previo.c || "")), por: autor };
     // Mismo veredicto y mismo comentario (p. ej. reenvío): se conservan las
     // decisiones de David (ajuste aplicado / comentario tomado como ajuste).
     if (previo.v === nuevo.v && String(previo.c || "") === nuevo.c) {
@@ -222,12 +226,13 @@ function aplicarEventoCliente(linea, enVivo) {
     }
     store.aprob[d.id] = nuevo;
     // Registrar en el buzón de notificaciones de la plataforma
-    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.c || "", autor, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
+    store.notis.unshift({ nid: m.id || String(Date.now()), piezaId: d.id, v: d.v || "Pendiente", c: d.borrarC ? "(borró su comentario)" : cEvento, autor, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
     store.notis = store.notis.slice(0, 60);
     if (enVivo && !MODO_CLIENTE) {
       const p = PIEZAS.find(x => x.id === d.id);
       const icono = d.v === "Aprobado" ? "✅" : d.v === "Ajustar" ? "✏️" : "⏳";
-      toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : d.c ? "comentó" : "revisó"}: ${tituloDe(p)}${d.c ? ` — "${d.c.slice(0, 80)}"` : ""}`);
+      if (d.borrarC) toastVivo(`🗑️ ${autor} borró su comentario en: ${tituloDe(p)}`);
+      else toastVivo(`${icono} ${autor} ${d.v === "Ajustar" ? "pidió ajustes en" : d.v === "Aprobado" ? "aprobó" : cEvento ? "comentó" : "revisó"}: ${tituloDe(p)}${cEvento ? ` — "${cEvento.slice(0, 80)}"` : ""}`);
     }
     return true;
   } catch { return false; }
@@ -739,6 +744,8 @@ const ICOL = {
   ajuste: '<svg class="icl" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5 3.5z"/></svg>',
   reloj: '<svg class="icl" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/></svg>',
   enviar: '<svg class="icl" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2l-7 20-4-9-9-4 20-7z"/></svg>',
+  coment: '<svg class="icl" viewBox="0 0 24 24"><path d="M20 4H4v12h5l4 4v-4h7z"/></svg>',
+  papelera: '<svg class="icl" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6"/><path d="M6 7l1 13h10l1-13"/><path d="M9 7V4h6v3"/></svg>',
   lista: '<svg class="icl" viewBox="0 0 24 24"><path d="M8 6h13M8 12h13M8 18h13"/><path d="M3 6h.01M3 12h.01M3 18h.01"/></svg>',
   calendario: '<svg class="icl" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>',
   video: '<svg class="icl" viewBox="0 0 24 24"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="M15.5 10.5 21 7.5v9l-5.5-3z"/></svg>',
@@ -1375,9 +1382,27 @@ function renderFeed() {
 
 // ---------- Vista: Aprobación ----------
 let aprobFiltro = "todas"; // "todas" | "Aprobado" | "Ajustar" | "Pendiente"
-// En el link de Mercadeo GM el comentario se fija con "Enviar" y solo
-// se cambia con "Editar" — evita borrados accidentales.
+// En el link de Mercadeo GM el comentario se escribe, se GUARDA con un botón y
+// queda fijo: cambiar el estado (Aprobado / Ajustar / Pendiente) nunca lo toca.
+// Lo que va escribiendo y aún no guarda (borrador) sobrevive a cualquier
+// repintado de la vista y a recargas; solo ella lo cambia con Editar o Borrar.
 const comentarioEditando = {};
+const comentarioBorrando = {};
+const BORR_KEY = "contenidoHub.borradores." + MES.clave;
+let borradores = {};
+try { borradores = JSON.parse(localStorage.getItem(BORR_KEY)) || {}; } catch {}
+function guardarBorradores() { try { localStorage.setItem(BORR_KEY, JSON.stringify(borradores)); } catch {} }
+function borradorDe(id) { return Object.prototype.hasOwnProperty.call(borradores, id) ? String(borradores[id]) : null; }
+function ponerBorrador(id, txt, editando) { if (txt.trim() || editando) borradores[id] = txt; else delete borradores[id]; guardarBorradores(); }
+function quitarBorrador(id) { delete borradores[id]; guardarBorradores(); }
+// ¿Hay texto escrito y distinto del comentario guardado?
+function hayBorrador(p) {
+  const bd = borradorDe(p.id);
+  return bd !== null && !!bd.trim() && bd.trim() !== String(aprobDe(p).c || "").trim();
+}
+function avisarBorrador(p) {
+  if (MODO_CLIENTE && hayBorrador(p)) toastVivo("Tu comentario sigue escrito: toca Guardar comentario para enviarlo");
+}
 function bloqueComentario(p) {
   const a = aprobDe(p);
   if (!MODO_CLIENTE) {
@@ -1391,14 +1416,37 @@ function bloqueComentario(p) {
     return `<textarea class="aprob-comment" placeholder="Comentario de mercadeo (anótalo si te llegó por WhatsApp)…">${esc(a.c || "")}</textarea>
       ${k ? `<button class="link-btn tinta btn-coment" data-editar-cerrar="${p.id}">Listo</button>` : ""}`;
   }
-  if (a.c && !comentarioEditando[p.id]) {
+  const c = String(a.c || "").trim();
+  const editando = !!comentarioEditando[p.id];
+  if (c && !editando) {
+    if (comentarioBorrando[p.id]) {
+      return `
+        <div class="coment-fijo">${ICOL.coment} ${esc(c)}</div>
+        <div class="coment-confirma">
+          <span>¿Borrar este comentario? David dejará de verlo.</span>
+          <div class="coment-acciones">
+            <button class="btn-ghost peligro" data-borrar-si="${p.id}">${ICOL.papelera} Sí, borrar</button>
+            <button class="btn-ghost" data-borrar-no="${p.id}">No, dejarlo</button>
+          </div>
+        </div>`;
+    }
     return `
-      <div class="coment-fijo">💬 ${esc(a.c)}</div>
-      <button class="btn-ghost btn-coment" data-editar="${p.id}">${ICOL.ajuste} Editar comentario</button>`;
+      <div class="coment-fijo">${ICOL.coment} ${esc(c)} <span class="coment-ok">${ICOL.ok} Guardado</span></div>
+      <div class="coment-acciones">
+        <button class="btn-ghost" data-editar="${p.id}">${ICOL.ajuste} Editar comentario</button>
+        <button class="btn-ghost" data-borrar="${p.id}">${ICOL.papelera} Borrar</button>
+      </div>`;
   }
+  const bd = borradorDe(p.id);
+  const texto = bd !== null ? bd : (editando ? c : "");
+  const conBorrador = !!texto.trim() && texto.trim() !== c;
   return `
-    <textarea class="aprob-comment" placeholder="Escribe tu comentario o ajuste…">${esc(a.c || "")}</textarea>
-    <button class="btn-primary btn-coment" data-enviar="${p.id}">${ICOL.enviar} Enviar comentario</button>`;
+    <textarea class="aprob-comment" placeholder="${editando ? "Cambia tu comentario…" : "Escribe tu comentario o ajuste…"}">${esc(texto)}</textarea>
+    <div class="coment-guardar${conBorrador ? " on" : ""}">
+      <button class="btn-guardar-com" data-guardar="${p.id}">${ICOL.ok} ${editando ? "Guardar cambios" : "Guardar comentario"}</button>
+      <span class="coment-hint">Sin guardar todavía</span>
+    </div>
+    ${editando ? `<button class="link-btn tinta coment-cancelar" data-cancelar="${p.id}">Cancelar y dejar el comentario como estaba</button>` : ""}`;
 }
 function conectarComentario(cont, p, refrescar) {
   const ta = cont.querySelector(".aprob-comment");
@@ -1412,17 +1460,47 @@ function conectarComentario(cont, p, refrescar) {
     ta.onchange = () => { marcarPendiente(); save(); };
     return;
   }
-  const btnEnviar = cont.querySelector(`[data-enviar="${p.id}"]`);
-  if (btnEnviar) btnEnviar.onclick = () => {
-    store.aprob[p.id] = { ...aprobDe(p), c: ta.value.trim() };
-    comentarioEditando[p.id] = false;
+  const id = p.id;
+  const caja = cont.querySelector(".coment-guardar");
+  if (ta) ta.oninput = () => {
+    // Cada letra queda en el borrador: un cambio de estado o un evento en vivo
+    // repinta la vista, pero el texto vuelve tal cual. El botón Guardar aparece
+    // apenas hay algo escrito distinto de lo ya guardado.
+    ponerBorrador(id, ta.value, !!comentarioEditando[id]);
+    if (caja) caja.classList.toggle("on", !!ta.value.trim() && ta.value.trim() !== String(aprobDe(p).c || "").trim());
+  };
+  const btnGuardar = cont.querySelector(`[data-guardar="${id}"]`);
+  if (btnGuardar) btnGuardar.onclick = () => {
+    const txt = String(ta ? ta.value : (borradorDe(id) || "")).trim();
+    if (!txt) return;
+    store.aprob[id] = { ...aprobDe(p), c: txt };
+    quitarBorrador(id);
+    comentarioEditando[id] = false;
     save();
-    notiComentario(p, ta.value);
+    notiComentario(p, txt);
     emitirDato(p);
+    toastVivo("Comentario guardado: David ya lo ve");
     refrescar();
   };
-  const btnEditar = cont.querySelector(`[data-editar="${p.id}"]`);
-  if (btnEditar) btnEditar.onclick = () => { comentarioEditando[p.id] = true; refrescar(); };
+  const btnEditar = cont.querySelector(`[data-editar="${id}"]`);
+  if (btnEditar) btnEditar.onclick = () => { comentarioEditando[id] = true; delete comentarioBorrando[id]; refrescar(); };
+  const btnCancelar = cont.querySelector(`[data-cancelar="${id}"]`);
+  if (btnCancelar) btnCancelar.onclick = () => { comentarioEditando[id] = false; quitarBorrador(id); refrescar(); };
+  const btnBorrar = cont.querySelector(`[data-borrar="${id}"]`);
+  if (btnBorrar) btnBorrar.onclick = () => { comentarioBorrando[id] = true; refrescar(); };
+  const btnBorrarNo = cont.querySelector(`[data-borrar-no="${id}"]`);
+  if (btnBorrarNo) btnBorrarNo.onclick = () => { delete comentarioBorrando[id]; refrescar(); };
+  const btnBorrarSi = cont.querySelector(`[data-borrar-si="${id}"]`);
+  if (btnBorrarSi) btnBorrarSi.onclick = () => {
+    const anterior = String(aprobDe(p).c || "").trim();
+    store.aprob[id] = { ...aprobDe(p), c: "" };
+    delete comentarioBorrando[id];
+    quitarBorrador(id);
+    save();
+    notificarDavid(`🗑️ ${tituloDe(p)}: ${AUTOR_CLIENTE} borró su comentario ("${anterior.slice(0, 120)}")`);
+    emitirDato(p, { borrarC: true });
+    refrescar();
+  };
 }
 let contenidosModo = "aprobacion"; // "aprobacion" (resumen claro) | "todas" (lista con filtros)
 // Ajuste de mercadeo atendido: queda registrado en la aprobación y la pieza pasa a producción
@@ -1525,6 +1603,11 @@ function contenidosResumenHtml(todas) {
 }
 function renderAprobacion() {
   const el = document.getElementById("view-aprobacion");
+  // Si mercadeo está escribiendo y llega un evento en vivo, el repintado no
+  // le quita el foco ni mueve el cursor (el texto vuelve desde el borrador).
+  const activo = document.activeElement;
+  const fila = activo && activo.classList && activo.classList.contains("aprob-comment") && el.contains(activo) ? activo.closest(".aprob-row") : null;
+  const foco = fila ? { id: fila.dataset.id, s: activo.selectionStart, e: activo.selectionEnd } : null;
   const todas = piezasVisibles();
   const aprobadas = todas.filter(p => aprobDe(p).v === "Aprobado").length;
   const conAjustes = todas.filter(p => grupoMercadeo(p) === "Ajustar").length;
@@ -1538,7 +1621,7 @@ function renderAprobacion() {
   if (refEl) refEl.classList.remove("embebida");
   let html = `
     <p class="view-note">${MODO_CLIENTE
-      ? `Elige la marca arriba, <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo), marca <b>✓ Aprobado</b> o <b>Ajustar</b> con tu comentario, y al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
+      ? `Elige la marca arriba y <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo). Escribe tu comentario y toca <b>Guardar comentario</b>; marca <b>Aprobado</b> o <b>Ajustar</b> cuando quieras: cambiar el estado nunca borra lo que escribiste. Al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
       : `Lo que mercadeo aprobó, lo que pide ajustar y cada comentario que dejó, siempre a la vista en cada pieza. En <b>Todas</b> está la lista completa con filtros.`}</p>
     ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
       <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
@@ -1645,6 +1728,7 @@ function renderAprobacion() {
         notiAprobacion(pieza, b.dataset.v);
         emitirDato(pieza);
         renderAll({ keep: "aprobacion" });
+        avisarBorrador(pieza);
       };
     });
     conectarComentario(row, PIEZAS.find(x => x.id === id), () => renderAprobacion());
@@ -1658,6 +1742,10 @@ function renderAprobacion() {
   });
   const btnPdf = el.querySelector("#btnPdf");
   if (btnPdf) btnPdf.onclick = exportarPdf;
+  if (foco && foco.id) {
+    const t = el.querySelector(`.aprob-row[data-id="${foco.id}"] .aprob-comment`);
+    if (t) { t.focus({ preventScroll: true }); try { t.setSelectionRange(foco.s, foco.e); } catch {} }
+  }
   el.querySelectorAll("[data-open]").forEach(b => { b.onclick = () => openDrawer(b.dataset.open); });
   const btn = el.querySelector("#btnGuardarRevision");
   if (btn) btn.onclick = () => {
@@ -2336,6 +2424,7 @@ function openDrawerCliente(id) {
       emitirDato(p);
       openDrawerCliente(p.id);
       renderAll();
+      avisarBorrador(p);
     };
   });
   conectarComentario(drawer, p, () => { openDrawerCliente(p.id); renderAll(); });
@@ -2692,6 +2781,7 @@ function closeDrawer() {
   drawer.classList.remove("open");
   backdrop.classList.remove("open");
   if (!MODO_CLIENTE && piezaAbierta) delete comentarioEditando[piezaAbierta.id];
+  if (MODO_CLIENTE && piezaAbierta) { delete comentarioBorrando[piezaAbierta.id]; renderAprobacion(); }
   piezaAbierta = null;
 }
 backdrop.addEventListener("click", closeDrawer);

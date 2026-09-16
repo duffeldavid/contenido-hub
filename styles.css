@@ -591,6 +591,38 @@ select.edit-input { cursor: pointer; }
   line-height: 1.45;
 }
 .btn-coment { align-self: flex-start; }
+/* Comentario de mercadeo en el link del cliente: borrador → Guardar → fijo */
+.coment-fijo .icl { vertical-align: -3px; margin-right: 2px; }
+.coment-fijo .coment-ok {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: 8px;
+  font-style: normal; font-size: 11.5px; font-weight: 600; color: #2E7D43; white-space: nowrap;
+}
+.coment-fijo .coment-ok .icl { width: 13px; height: 13px; margin: 0; }
+.coment-acciones { display: flex; gap: 8px; flex-wrap: wrap; }
+.coment-acciones .btn-ghost { padding: 7px 13px; font-size: 12.5px; display: inline-flex; align-items: center; gap: 5px; }
+.btn-ghost.peligro { color: #B23A2E; border-color: rgba(178,58,46,.45); }
+.btn-ghost.peligro:hover { border-color: #B23A2E; }
+.coment-confirma { display: flex; flex-direction: column; gap: 8px; font-size: 12.5px; font-weight: 600; color: var(--dim); }
+.coment-guardar { display: none; align-items: center; gap: 10px; flex-wrap: wrap; }
+.coment-guardar.on { display: flex; }
+.btn-guardar-com {
+  border: 0; background: var(--ink); color: #F7F3EC;
+  font-family: var(--font-head); font-weight: 600; font-size: 13.5px;
+  padding: 10px 20px; border-radius: 999px; cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: transform .15s, box-shadow .15s;
+  animation: guardarPop .22s ease-out;
+}
+.btn-guardar-com:hover { transform: translateY(-1px); box-shadow: var(--shadow-lift); }
+@keyframes guardarPop { from { transform: scale(.94); opacity: 0; } to { transform: none; opacity: 1; } }
+.coment-hint { font-size: 12px; font-weight: 600; color: #8A5C14; }
+.link-btn.tinta.coment-cancelar { align-self: flex-start; font-size: 12.5px; text-align: left; }
+.drawer .btn-guardar-com { background: #fff; color: #141210; }
+.drawer .coment-hint { color: #E9C46A; }
+.drawer .coment-fijo .coment-ok { color: #A9E4B6; }
+.drawer .btn-ghost.peligro { color: #F2B4AA; border-color: rgba(242,180,170,.45); }
+.drawer .btn-ghost.peligro:hover { border-color: #F2B4AA; }
+.drawer .coment-confirma { color: rgba(255,255,255,.7); }
 
 /* ═══════════ REFERENTES ═══════════ */
 .ref-section-title {
