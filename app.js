@@ -880,7 +880,7 @@ function renderHero() {
     document.getElementById("view-aprobacion").scrollIntoView({ behavior: "smooth", block: "start" });
   };
   document.getElementById("statAprobadas").onclick = () => {
-    aprobFiltro = "Aprobado";
+    aprobFiltro = "Aprobado"; aprobFijas = null;
     renderAprobacion();
     activarVista("aprobacion");
     document.getElementById("view-aprobacion").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1382,6 +1382,7 @@ function renderFeed() {
 
 // ---------- Vista: Aprobación ----------
 let aprobFiltro = "todas"; // "todas" | "Aprobado" | "Ajustar" | "Pendiente"
+let aprobFijas = null; // link del cliente: piezas fijadas en la pestaña abierta (ver renderAprobacion)
 // En el link de Mercadeo GM el comentario se escribe, se GUARDA con un botón y
 // queda fijo: cambiar el estado (Aprobado / Ajustar / Pendiente) nunca lo toca.
 // Lo que va escribiendo y aún no guarda (borrador) sobrevive a cualquier
@@ -1400,8 +1401,26 @@ function hayBorrador(p) {
   const bd = borradorDe(p.id);
   return bd !== null && !!bd.trim() && bd.trim() !== String(aprobDe(p).c || "").trim();
 }
-function avisarBorrador(p) {
-  if (MODO_CLIENTE && hayBorrador(p)) toastVivo("Tu comentario sigue escrito: toca Guardar comentario para enviarlo");
+const NOMBRE_FILTRO = { Aprobado: "Aprobadas", Ajustar: "Con ajustes", Pendiente: "Pendientes" };
+// Veredicto en el link del cliente (Aprobado / Ajustar / Pendiente). Si hay un
+// comentario nuevo escrito y aún sin guardar, se guarda y viaja junto con el
+// veredicto: una sola acción. Si está cambiando un comentario ya guardado, el
+// cambio queda como borrador y ella decide con Guardar cambios.
+function veredictoCliente(p, v) {
+  const prev = aprobDe(p);
+  const bd = borradorDe(p.id);
+  const nuevoTexto = bd !== null ? bd.trim() : "";
+  const adjuntar = !!nuevoTexto && !String(prev.c || "").trim() && !comentarioEditando[p.id];
+  store.aprob[p.id] = adjuntar ? { ...prev, v, c: nuevoTexto } : { ...prev, v };
+  if (adjuntar) quitarBorrador(p.id);
+  save();
+  notiAprobacion(p, v);
+  if (adjuntar) notiComentario(p, nuevoTexto);
+  emitirDato(p);
+  const que = v === "Aprobado" ? "Aprobado" : v === "Ajustar" ? "Pedido de ajuste" : "Pendiente";
+  if (adjuntar) toastVivo(`${que} y tu comentario enviados a David`);
+  else if (hayBorrador(p)) toastVivo(`${que} enviado a David. El cambio de tu comentario sigue sin guardar`);
+  else toastVivo(v === "Pendiente" ? "Marcado como pendiente" : `${que} enviado a David`);
 }
 function bloqueComentario(p) {
   const a = aprobDe(p);
@@ -1421,32 +1440,38 @@ function bloqueComentario(p) {
   if (c && !editando) {
     if (comentarioBorrando[p.id]) {
       return `
-        <div class="coment-fijo">${ICOL.coment} ${esc(c)}</div>
-        <div class="coment-confirma">
-          <span>¿Borrar este comentario? David dejará de verlo.</span>
-          <div class="coment-acciones">
+        <div class="com-caja guardado">
+          <div class="com-cab"><span class="com-quien">${ICOL.coment} Tu comentario</span></div>
+          <div class="com-txt">${esc(c)}</div>
+          <div class="com-confirma">¿Borrar este comentario? David dejará de verlo.</div>
+          <div class="com-acciones">
             <button class="btn-ghost peligro" data-borrar-si="${p.id}">${ICOL.papelera} Sí, borrar</button>
             <button class="btn-ghost" data-borrar-no="${p.id}">No, dejarlo</button>
           </div>
         </div>`;
     }
     return `
-      <div class="coment-fijo">${ICOL.coment} ${esc(c)} <span class="coment-ok">${ICOL.ok} Guardado</span></div>
-      <div class="coment-acciones">
-        <button class="btn-ghost" data-editar="${p.id}">${ICOL.ajuste} Editar comentario</button>
-        <button class="btn-ghost" data-borrar="${p.id}">${ICOL.papelera} Borrar</button>
+      <div class="com-caja guardado">
+        <div class="com-cab"><span class="com-quien">${ICOL.coment} Tu comentario</span><span class="com-ok">${ICOL.ok} Guardado · David ya lo ve</span></div>
+        <div class="com-txt">${esc(c)}</div>
+        <div class="com-acciones">
+          <button class="btn-ghost" data-editar="${p.id}">${ICOL.ajuste} Editar</button>
+          <button class="btn-ghost" data-borrar="${p.id}">${ICOL.papelera} Borrar</button>
+        </div>
       </div>`;
   }
   const bd = borradorDe(p.id);
   const texto = bd !== null ? bd : (editando ? c : "");
-  const conBorrador = !!texto.trim() && texto.trim() !== c;
+  const listo = !!texto.trim() && texto.trim() !== c;
   return `
-    <textarea class="aprob-comment" placeholder="${editando ? "Cambia tu comentario…" : "Escribe tu comentario o ajuste…"}">${esc(texto)}</textarea>
-    <div class="coment-guardar${conBorrador ? " on" : ""}">
-      <button class="btn-guardar-com" data-guardar="${p.id}">${ICOL.ok} ${editando ? "Guardar cambios" : "Guardar comentario"}</button>
-      <span class="coment-hint">Sin guardar todavía</span>
-    </div>
-    ${editando ? `<button class="link-btn tinta coment-cancelar" data-cancelar="${p.id}">Cancelar y dejar el comentario como estaba</button>` : ""}`;
+    <div class="com-caja${listo ? " con-texto" : ""}">
+      <div class="com-cab"><span class="com-quien">${ICOL.coment} ${editando ? "Cambia tu comentario" : "Comentario para David"}</span><span class="com-hint">Sin guardar todavía</span></div>
+      <textarea class="aprob-comment" placeholder="${editando ? "Escribe el nuevo texto…" : "Escribe aquí tu comentario o el ajuste que necesitas…"}">${esc(texto)}</textarea>
+      <div class="com-acciones">
+        <button class="btn-guardar-com" data-guardar="${p.id}"${listo ? "" : " disabled"}>${ICOL.ok} ${editando ? "Guardar cambios" : "Guardar comentario"}</button>
+        ${editando ? `<button class="btn-ghost" data-cancelar="${p.id}">Cancelar</button>` : `<span class="com-nota">Se envía cuando toques Guardar o marques un estado</span>`}
+      </div>
+    </div>`;
 }
 function conectarComentario(cont, p, refrescar) {
   const ta = cont.querySelector(".aprob-comment");
@@ -1461,13 +1486,14 @@ function conectarComentario(cont, p, refrescar) {
     return;
   }
   const id = p.id;
-  const caja = cont.querySelector(".coment-guardar");
+  const caja = ta ? ta.closest(".com-caja") : null;
   if (ta) ta.oninput = () => {
     // Cada letra queda en el borrador: un cambio de estado o un evento en vivo
-    // repinta la vista, pero el texto vuelve tal cual. El botón Guardar aparece
-    // apenas hay algo escrito distinto de lo ya guardado.
+    // repinta la vista, pero el texto vuelve tal cual. El botón Guardar se
+    // enciende apenas hay algo escrito distinto de lo ya guardado.
     ponerBorrador(id, ta.value, !!comentarioEditando[id]);
-    if (caja) caja.classList.toggle("on", !!ta.value.trim() && ta.value.trim() !== String(aprobDe(p).c || "").trim());
+    const listo = !!ta.value.trim() && ta.value.trim() !== String(aprobDe(p).c || "").trim();
+    if (caja) { caja.classList.toggle("con-texto", listo); const b = caja.querySelector(".btn-guardar-com"); if (b) b.disabled = !listo; }
   };
   const btnGuardar = cont.querySelector(`[data-guardar="${id}"]`);
   if (btnGuardar) btnGuardar.onclick = () => {
@@ -1612,7 +1638,15 @@ function renderAprobacion() {
   const aprobadas = todas.filter(p => aprobDe(p).v === "Aprobado").length;
   const conAjustes = todas.filter(p => grupoMercadeo(p) === "Ajustar").length;
   const ajustesAplicados = MODO_CLIENTE ? 0 : todas.filter(p => mercadeoDe(p) === "atendido").length;
-  const piezas = aprobFiltro === "todas" ? todas : todas.filter(p => grupoMercadeo(p) === aprobFiltro);
+  let piezas = aprobFiltro === "todas" ? todas : todas.filter(p => grupoMercadeo(p) === aprobFiltro);
+  // Link del cliente: dentro de una pestaña (Aprobadas / Con ajustes / Pendientes)
+  // las piezas NO desaparecen al cambiarles el estado: se quedan donde ella las
+  // está revisando, con una etiqueta de a dónde pasaron. La pestaña se recalcula
+  // cuando vuelve a tocarla.
+  if (MODO_CLIENTE && aprobFiltro !== "todas") {
+    if (!aprobFijas) aprobFijas = new Set(piezas.map(p => p.id));
+    piezas = todas.filter(p => aprobFijas.has(p.id) || grupoMercadeo(p) === aprobFiltro);
+  }
   const resumen = !MODO_CLIENTE && contenidosModo === "aprobacion";
   const referencias = !MODO_CLIENTE && contenidosModo === "referencias";
   // Referentes se embebe dentro de Contenidos: devolverlo a <main> antes de repintar
@@ -1621,7 +1655,7 @@ function renderAprobacion() {
   if (refEl) refEl.classList.remove("embebida");
   let html = `
     <p class="view-note">${MODO_CLIENTE
-      ? `Elige la marca arriba y <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo). Escribe tu comentario y toca <b>Guardar comentario</b>; marca <b>Aprobado</b> o <b>Ajustar</b> cuando quieras: cambiar el estado nunca borra lo que escribiste. Al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
+      ? `Elige la marca arriba y <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo). En cada pieza marca <b>Aprobado</b> o <b>Ajustar</b> y, si quieres, escribe tu comentario para David y toca <b>Guardar comentario</b>. Todo le llega al instante y nada se borra al cambiar el estado. Al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
       : `Lo que mercadeo aprobó, lo que pide ajustar y cada comentario que dejó, siempre a la vista en cada pieza. En <b>Todas</b> está la lista completa con filtros.`}</p>
     ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
       <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
@@ -1662,6 +1696,7 @@ function renderAprobacion() {
           <div class="aprob-pills">
             ${APROB.map(v => `<button data-v="${v}" class="${a.v === v ? "sel" : ""}">${v === "Aprobado" ? (MODO_CLIENTE ? ICOL.ok + " " : "✓ ") : v === "Ajustar" && MODO_CLIENTE ? ICOL.ajuste + " " : ""}${v}</button>`).join("")}
           </div>
+          ${MODO_CLIENTE && aprobFiltro !== "todas" && grupoMercadeo(p) !== aprobFiltro ? `<span class="cont-movida">${ICOL.ok} Ahora está en ${NOMBRE_FILTRO[grupoMercadeo(p)]}</span>` : ""}
           ${bloqueComentario(p)}
           ${MODO_CLIENTE ? "" : `
           <label class="pdf-check">
@@ -1706,18 +1741,19 @@ function renderAprobacion() {
     renderAll({ keep: "aprobacion" });
   });
   const verPend = el.querySelector("#contVerPendientes");
-  if (verPend) verPend.onclick = () => { contenidosModo = "todas"; aprobFiltro = "Pendiente"; renderAprobacion(); };
+  if (verPend) verPend.onclick = () => { contenidosModo = "todas"; aprobFiltro = "Pendiente"; aprobFijas = null; renderAprobacion(); };
   el.querySelectorAll(".cont-card").forEach(c => c.addEventListener("click", e => { if (e.target.closest("button, a")) return; openDrawer(c.dataset.id); }));
 
   el.querySelectorAll(".aprob-row").forEach(row => {
     const id = row.dataset.id;
     // Toda la fila abre la tarjeta de la pieza (salvo los controles)
     row.addEventListener("click", e => {
-      if (e.target.closest("button, textarea, a, input, label")) return;
+      if (e.target.closest("button, textarea, a, input, label, .com-caja")) return;
       openDrawer(id);
     });
     row.querySelectorAll(".aprob-pills button").forEach(b => {
       b.onclick = () => {
+        if (MODO_CLIENTE) { veredictoCliente(PIEZAS.find(x => x.id === id), b.dataset.v); renderAll(); return; }
         const prev = aprobDe({ id });
         const ap = { ...prev, v: b.dataset.v };
         if (prev.v !== ap.v) { delete ap.ok; delete ap.ajuste; }
@@ -1728,7 +1764,6 @@ function renderAprobacion() {
         notiAprobacion(pieza, b.dataset.v);
         emitirDato(pieza);
         renderAll({ keep: "aprobacion" });
-        avisarBorrador(pieza);
       };
     });
     conectarComentario(row, PIEZAS.find(x => x.id === id), () => renderAprobacion());
@@ -1768,7 +1803,7 @@ function renderAprobacion() {
   // El botón de WhatsApp es un enlace real (el visor bloquea window.open);
   // el mensaje se arma justo antes de seguir el enlace.
   el.querySelectorAll(".aprob-filtros button").forEach(b => {
-    b.onclick = () => { aprobFiltro = b.dataset.f; renderAprobacion(); };
+    b.onclick = () => { aprobFiltro = b.dataset.f; aprobFijas = null; renderAprobacion(); };
   });
   const btnWa = el.querySelector("#btnWhatsApp");
   if (btnWa) btnWa.addEventListener("click", function () {
@@ -2418,13 +2453,9 @@ function openDrawerCliente(id) {
   drawer.querySelector("#drawerClose").onclick = closeDrawer;
   drawer.querySelectorAll("[data-aprob]").forEach(b => {
     b.onclick = () => {
-      store.aprob[p.id] = { ...aprobDe(p), v: b.dataset.aprob };
-      save();
-      notiAprobacion(p, b.dataset.aprob);
-      emitirDato(p);
+      veredictoCliente(p, b.dataset.aprob);
       openDrawerCliente(p.id);
       renderAll();
-      avisarBorrador(p);
     };
   });
   conectarComentario(drawer, p, () => { openDrawerCliente(p.id); renderAll(); });
@@ -2880,6 +2911,7 @@ document.getElementById("brandSwitch").addEventListener("click", e => {
   const b = e.target.closest("button");
   if (!b) return;
   marcaActiva = b.dataset.brand;
+  aprobFijas = null;
   hidratarNuevas();
 document.body.dataset.marca = marcaActiva;
   document.querySelectorAll("#brandSwitch button").forEach(x => x.classList.toggle("active", x === b));
