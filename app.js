@@ -44,7 +44,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, meta: {}, historias: null, pubTs: 0, pendientePub: false, niveles: {}, acuerdo: null };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, meta: {}, historias: null, pubTs: 0, pendientePub: false, niveles: {}, acuerdo: null, hrev: {} };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -54,7 +54,7 @@ function load() {
     orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {}, nuevas: s.nuevas || [],
     notis: s.notis || [], horas: s.horas || {},
     meta: s.meta || {}, historias: s.historias || null,
-    niveles: s.niveles || {}, acuerdo: s.acuerdo || null,
+    niveles: s.niveles || {}, acuerdo: s.acuerdo || null, hrev: s.hrev || {},
     pubTs: s.pubTs || 0, pendientePub: !!s.pendientePub,
     updatedAt: s.updatedAt || 0,
   };
@@ -190,6 +190,20 @@ function aplicarEventoCliente(linea, enVivo) {
       }
       return true;
     }
+    // Revisión de historias de mercadeo (aprobada / ajuste + comentario)
+    if (d.tipo === "hrev" && d.k) {
+      if (!store.hrev) store.hrev = {};
+      if (m.id && store.notis.some(n => n.nid === m.id)) return false;
+      const autorH = d.autor || AUTOR_CLIENTE;
+      if (d.v) store.hrev[d.k] = { v: d.v, c: String(d.c || ""), sig: d.sig || "", por: autorH, ts: (m.time ? m.time * 1000 : Date.now()) };
+      else delete store.hrev[d.k];
+      if (!MODO_CLIENTE && d.v) {
+        store.notis.unshift({ nid: m.id || String(Date.now()), hk: d.k, piezaId: "", v: d.v === "Aprobada" ? "Aprobado" : "Ajustar", c: String(d.c || ""), autor: autorH, ts: (m.time ? m.time * 1000 : Date.now()), leida: false });
+        store.notis = store.notis.slice(0, 60);
+        if (enVivo) toastVivo(`${autorH} ${d.v === "Aprobada" ? "aprobó" : "pide ajustar"} la historia: ${tituloHist(d.k)}${d.c ? ` — "${String(d.c).slice(0, 80)}"` : ""}`);
+      }
+      return true;
+    }
     if (!d.id || !PIEZAS.some(p => p.id === d.id)) return false;
     if (d.tipo === "ocultar") {
       if (d.oculta) store.ocultas[d.id] = true; else delete store.ocultas[d.id];
@@ -278,16 +292,16 @@ function renderCampanita() {
     <div class="noti-head">Notificaciones</div>
     ${enArtifact ? `<a class="noti-aviso" href="${ENLACE_PUBLICO}" target="_blank" rel="noopener">⚡ Aquí (claude.ai) las respuestas no entran en vivo.<br><b>Abre el enlace público</b> para verlas llegar al instante →</a>` : ""}
     ${store.notis.length ? store.notis.map(n => {
-      const p = PIEZAS.find(x => x.id === n.piezaId);
+      const p = n.hk ? null : PIEZAS.find(x => x.id === n.piezaId);
       const icono = n.v === "Aprobado" ? icl("ok") : n.v === "Ajustar" ? icl("ajuste") : icl("reloj");
       const tinte = n.v === "Aprobado" ? "#2E7D43" : n.v === "Ajustar" ? "#B23A2E" : "#C98F2D";
       const autor = n.autor || AUTOR_CLIENTE;
       const iniciales = autor.split(/\s+/).map(w => w[0]).join("").slice(0, 2).toUpperCase();
       return `
-        <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}">
+        <button class="noti-item ${n.leida ? "" : "nueva"}" data-pieza="${n.piezaId}"${n.hk ? ` data-hk="${esc(n.hk)}"` : ""}>
           <span class="noti-av" style="--c:${tinte}">${esc(iniciales)}<i>${icono}</i></span>
           <span class="noti-cuerpo">
-            <span class="noti-txt"><b>${esc(autor)}</b> ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustar" : n.c ? "comentó" : "revisó"} <b>${p ? esc(tituloDe(p)) : n.piezaId}</b></span>
+            <span class="noti-txt"><b>${esc(autor)}</b> ${n.v === "Aprobado" ? "aprobó" : n.v === "Ajustar" ? "pide ajustar" : n.c ? "comentó" : "revisó"} <b>${n.hk ? "historia · " + esc(tituloHist(n.hk)) : p ? esc(tituloDe(p)) : n.piezaId}</b></span>
             ${n.c ? `<span class="noti-com">${esc(n.c)}</span>` : ""}
             <span class="noti-tiempo">${tiempoRelativo(n.ts)}${p ? ` · ${MARCAS[p.marca].nombre}` : ""}</span>
           </span>
@@ -295,7 +309,7 @@ function renderCampanita() {
         </button>`;
     }).join("") : `<div class="noti-vacio">Sin notificaciones aún.<br>Aquí verás cada aprobación y comentario de tus clientes.</div>`}`;
   panel.querySelectorAll(".noti-item").forEach(b => {
-    b.onclick = () => { cerrarCampanita(); openDrawer(b.dataset.pieza); };
+    b.onclick = () => { cerrarCampanita(); if (b.dataset.hk) return abrirVisorHistorias(b.dataset.hk); openDrawer(b.dataset.pieza); };
   });
 }
 function abrirCampanita() {
@@ -378,7 +392,7 @@ function estadoPublicable(ts) {
     estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
     portadas: store.portadas, horas: store.horas,
     meta: store.meta, historias: store.historias,
-    niveles: store.niveles, acuerdo: store.acuerdo,
+    niveles: store.niveles, acuerdo: store.acuerdo, hrev: store.hrev,
     // La aprobación de mercadeo viaja y se archiva SIEMPRE: es la fuente de
     // claridad de David sobre veredictos y comentarios (se perdió una vez
     // por no incluirla aquí — nunca más).
@@ -497,7 +511,8 @@ function aplicarEstado(est, avisar) {
   // guardar o un estado viejo. Solo rellena lo que falte (lo local gana):
   // así los veredictos jamás quedan atrapados detrás de los guardias.
   let aprobRecuperada = false;
-  for (const grupo of ["aprob", "checks"]) {
+  if (!store.hrev) store.hrev = {};
+  for (const grupo of ["aprob", "checks", "hrev"]) {
     const inc = est[grupo];
     if (!inc) continue;
     for (const id of Object.keys(inc)) {
@@ -526,6 +541,7 @@ function aplicarEstado(est, avisar) {
   // incompleto jamás borra un veredicto o comentario de mercadeo ya recibido.
   if (est.aprob) store.aprob = Object.assign({}, store.aprob, est.aprob);
   if (est.checks) store.checks = Object.assign({}, store.checks, est.checks);
+  if (est.hrev) store.hrev = Object.assign({}, store.hrev, est.hrev);
   hidratarNuevas();
   store.pubTs = est.ts;
   save();
@@ -638,7 +654,7 @@ function aprobacionAcuerdo(p) {
   return null;
 }
 function nivelChipHtml(p, { editable = false } = {}) {
-  if (!enAcuerdo(p)) return "";
+  if (!enAcuerdo(p) || !acuerdoActivo()) return "";
   const n = nivelDe(p), N = NIVELES[n];
   const base = `<span class="nivel-chip n${n}" title="${esc(N.desc)}">${N.corto} · ${N.nombre}</span>`;
   if (!editable || MODO_CLIENTE) return base;
@@ -656,7 +672,7 @@ function plazoChipHtml(p) {
 }
 // Selector de nivel en la ficha de la pieza (solo David)
 function nivelSelectorHtml(p) {
-  if (MODO_CLIENTE || !enAcuerdo(p)) return "";
+  if (MODO_CLIENTE || !enAcuerdo(p) || !acuerdoActivo()) return "";
   const n = nivelDe(p);
   return `
     <section class="nivel-sel">
@@ -3053,8 +3069,8 @@ document.getElementById("main").addEventListener("click", e => {
 // ---------- Navegación (gestos estilo iOS entre secciones) ----------
 let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
-  ? ["aprobacion", "acuerdo", "pipeline"]
-  : ["aprobacion", "acuerdo", "calendario", "historias", "rodaje", "feed"];
+  ? ["revhist", "aprobacion", "pipeline"]
+  : ["aprobacion", "calendario", "historias", "rodaje", "feed"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;
@@ -3868,7 +3884,8 @@ function renderHistorias() {
         }).join("")}
         <button class="btn-restaurar hist-btn-plan" id="histEditar">${iconoHist(SVG_LAPIZ, "#fff")} Plan semanal</button>
       </div>
-    </div>`;
+    </div>
+    ${marcas.includes(MARCA_REV_HIST) ? revResumenDavidHtml() : ""}`;
 
   for (const mk of marcas) {
     const m = MARCAS[mk];
@@ -3939,6 +3956,7 @@ function renderHistorias() {
                              </div>`}
                         ${pr ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "A esta hora la subes tú — te llega un aviso al celular" : "Aún falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
                         <button class="hist-quitar hs-quitar" data-quitar-hist="${esc(k)}" title="Quitar de este día" aria-label="Quitar de este día">✕</button>
+                        ${revBadgeHist(k, mk)}
                         <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
                       </div>
                     </div>`;
@@ -3987,6 +4005,7 @@ function renderHistorias() {
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;
+  conectarRevDavid(el);
   el.querySelectorAll(".hist-story").forEach(card => {
     const k = card.dataset.hist;
     const alternar = () => {
@@ -4166,6 +4185,11 @@ function openHistoria(iso, mk, txt, medioVista) {
         <div class="sub" style="margin:2px 0 0">${m.nombre} · ${dia.toLowerCase()} ${num}${hecha ? " · publicada" : lista ? ` · planificada para las ${(pr && pr.hora) || "12:00"} — la subes tú` : ""}</div>
       </div>
     </div>
+    ${(() => {
+      if (mk !== MARCA_REV_HIST || !pr || !(pr.img || pr.poster)) return "";
+      const e = revHist(k), com = e.r && String(e.r.c || "").trim();
+      return `<div class="hist-rev-banner rv-${REV_TXT[e.estado].cls}"><b>Mercadeo · ${REV_TXT[e.estado].lbl}</b>${com ? `<p>${esc(com)}</p>` : e.estado === "nueva" ? `<p>Cambiaste la imagen: mercadeo la verá como versión nueva.</p>` : e.estado === "pendiente" ? `<p>Toca "Enviar a revisión" en Historias para que la vea.</p>` : ""}</div>`;
+    })()}
 
     <section class="pub-paso pub-auto" style="margin-top:18px">
       <h4><span class="paso-num auto">A</span> Planificar la historia</h4>
@@ -4523,6 +4547,326 @@ function abrirEditorHistorias() {
 }
 
 // ---------- Init ----------
+// ============================================================
+// REVISIÓN DE HISTORIAS (Café Forestal)
+// David carga sus propuestas en Historias (imagen 1080×1920 o video con
+// portada) y toca "Enviar a revisión". Mercadeo las ve en su link como
+// historias de Instagram: desliza, aprueba con un toque o escribe un
+// comentario si hay que ajustar. Si David cambia la imagen después, la
+// historia vuelve sola a "por revisar" (versión nueva).
+// ============================================================
+const MARCA_REV_HIST = "forestal";
+const DOW_LARGO = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const MES_CORTO = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
+function tituloHist(k) { return tipoHistoria(partesClave(k).txt).resto; }
+function sigHist(pr) {
+  const s = (pr && (pr.img || pr.poster || pr.video)) || "";
+  return s.length + ":" + s.slice(-16);
+}
+// Historias con propuesta cargada, de hoy en adelante, en orden de salida
+function historiasParaRevision() {
+  const h = historiasStore();
+  const hoy = hoyISO();
+  return Object.keys(h.prog || {})
+    .filter(k => {
+      const { iso, mk } = partesClave(k);
+      const pr = h.prog[k];
+      return mk === MARCA_REV_HIST && iso >= hoy && pr && (pr.img || pr.poster) && !h.quitadas[k];
+    })
+    .sort((a, b) => a.slice(0, 10).localeCompare(b.slice(0, 10)) || String(h.prog[a].hora || "12:00").localeCompare(String(h.prog[b].hora || "12:00")) || a.localeCompare(b));
+}
+// Estado de revisión: "Aprobada" | "Ajustar" | "pendiente" | "nueva" (cambió tras revisarla)
+function revHist(k) {
+  const r = (store.hrev || {})[k];
+  const pr = historiasStore().prog[k];
+  if (!r) return { estado: "pendiente", r: null };
+  if (r.sig && pr && r.sig !== sigHist(pr)) return { estado: "nueva", r };
+  return { estado: r.v, r };
+}
+const REV_TXT = {
+  pendiente: { lbl: "Por revisar", cls: "pend" },
+  nueva:     { lbl: "Versión nueva", cls: "nueva" },
+  Aprobada:  { lbl: "Aprobada", cls: "ok" },
+  Ajustar:   { lbl: "Ajuste pedido", cls: "aj" },
+};
+function fechaHistTxt(iso, corta) {
+  const d = new Date(iso + "T12:00:00");
+  return corta ? `${DOW_LARGO[d.getDay()].slice(0, 3).toLowerCase()} ${d.getDate()}` : `${DOW_LARGO[d.getDay()]} ${d.getDate()} de ${["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"][d.getMonth()]}`;
+}
+function guardarRevHist(k, v, c) {
+  if (!MODO_CLIENTE) return;
+  if (!store.hrev) store.hrev = {};
+  const pr = historiasStore().prog[k];
+  if (v) store.hrev[k] = { v, c: c || "", sig: sigHist(pr), por: AUTOR_CLIENTE, ts: Date.now() };
+  else delete store.hrev[k];
+  save();
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "hrev", k, v: v || "", c: c || "", sig: v ? sigHist(pr) : "", autor: AUTOR_CLIENTE, ts: Date.now() }) }).catch(() => {});
+  if (v) notificarDavid(`${v === "Aprobada" ? "✅" : "✏️"} Historia ${fechaHistTxt(k.slice(0, 10), true)} · ${tituloHist(k)} → ${v === "Aprobada" ? "aprobada" : "ajuste"}${c ? `: "${c.slice(0, 160)}"` : ""}`);
+}
+function resumenRev(lista) {
+  const r = { pendiente: 0, Aprobada: 0, Ajustar: 0 };
+  lista.forEach(k => { const e = revHist(k).estado; r[e === "nueva" ? "pendiente" : e]++; });
+  return r;
+}
+function miniHistHtml(k, { boton = true } = {}) {
+  const pr = historiasStore().prog[k];
+  const e = revHist(k);
+  const t = REV_TXT[e.estado];
+  const src = pr.img || pr.poster;
+  return `
+    <${boton ? "button" : "div"} class="rv-story rv-${t.cls}" data-rv="${esc(k)}" ${boton ? `aria-label="Ver historia: ${esc(tituloHist(k))}"` : ""}>
+      <img src="${src}" alt="">
+      <span class="rv-grad"></span>
+      ${pr.video ? `<span class="rv-video">Video</span>` : ""}
+      <span class="rv-hora">${esc(pr.hora || "12:00")}</span>
+      <span class="rv-estado">${t.lbl}</span>
+    </${boton ? "button" : "div"}>`;
+}
+
+// ---------- Vista del link de mercadeo: Historias ----------
+function renderRevHistorias() {
+  const el = document.getElementById("view-revhist");
+  if (!el || !MODO_CLIENTE) return;
+  if (document.getElementById("storyViewer")) return; // no repintar debajo del visor
+  const lista = historiasParaRevision();
+  const res = resumenRev(lista);
+  const porDia = {};
+  lista.forEach(k => { (porDia[k.slice(0, 10)] = porDia[k.slice(0, 10)] || []).push(k); });
+  const primera = lista.find(k => ["pendiente", "nueva"].includes(revHist(k).estado)) || lista[0];
+  const m = MARCAS[MARCA_REV_HIST];
+  const waTxt = encodeURIComponent(`Hola David, ya revisé las historias de Café Forestal: ${res.Aprobada} aprobadas${res.Ajustar ? ` y ${res.Ajustar} con ajuste` : ""}${res.pendiente ? `. Me faltan ${res.pendiente}` : ""}.`);
+  el.innerHTML = `
+    <div class="rv">
+      <header class="rv-head">
+        <div class="rv-cuenta" style="--brand-color:${m.color}">
+          <span class="rv-avatar"><b>F</b></span>
+          <span><b>${m.nombre}</b><small>${m.handle}</small></span>
+        </div>
+        <h2 class="rv-tit">Historias para revisar</h2>
+        <p class="rv-sub">Toca una historia para verla como en Instagram. Apruébala con un toque o escríbele a David si hay que ajustar algo.</p>
+        <div class="rv-conteo">
+          <span class="rv-pill pend">${res.pendiente} por revisar</span>
+          <span class="rv-pill ok">${res.Aprobada} aprobadas</span>
+          <span class="rv-pill aj">${res.Ajustar} con ajuste</span>
+        </div>
+        ${lista.length ? `<div class="rv-acc">
+          <button class="btn-primary rv-empezar" id="rvEmpezar">${res.pendiente ? `Revisar ahora (${res.pendiente})` : "Ver todas"}</button>
+          <a class="btn-ghost rv-wa" href="https://wa.me/573003748788?text=${waTxt}" target="_blank" rel="noopener">${icl("enviar")} Avisar a David</a>
+        </div>` : ""}
+      </header>
+      ${lista.length ? Object.keys(porDia).map(iso => `
+        <section class="rv-dia">
+          <h3>${fechaHistTxt(iso)}${iso === hoyISO() ? ` <span class="rv-hoy">hoy</span>` : ""}</h3>
+          <div class="rv-rail">${porDia[iso].map(k => miniHistHtml(k)).join("")}</div>
+        </section>`).join("")
+      : `<div class="rv-vacio"><b>Todo al día</b><span>No hay historias nuevas por revisar. Cuando David cargue las próximas, aparecen aquí.</span></div>`}
+    </div>`;
+  el.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => abrirVisorHistorias(b.dataset.rv));
+  const emp = el.querySelector("#rvEmpezar");
+  if (emp) emp.onclick = () => abrirVisorHistorias(primera);
+}
+
+// ---------- Visor a pantalla completa (estilo historias de Instagram) ----------
+function abrirVisorHistorias(kInicial) {
+  const lista = historiasParaRevision();
+  if (kInicial && !lista.includes(kInicial)) lista.unshift(kInicial);
+  if (!lista.length) { toastVivo("No hay historias con imagen para revisar todavía"); return; }
+  let i = Math.max(0, lista.indexOf(kInicial));
+  const previo = document.getElementById("storyViewer");
+  if (previo) previo.remove();
+  const sv = document.createElement("div");
+  sv.id = "storyViewer";
+  sv.className = "sv";
+  sv.setAttribute("role", "dialog");
+  sv.setAttribute("aria-modal", "true");
+  sv.setAttribute("aria-label", "Historias para revisar");
+  document.body.appendChild(sv);
+  document.body.classList.add("sv-abierto");
+  const m = MARCAS[MARCA_REV_HIST];
+  let fin = false;
+
+  function pintar() {
+    if (fin) return pintarFin();
+    const k = lista[i];
+    const pr = historiasStore().prog[k] || {};
+    const e = revHist(k);
+    const t = REV_TXT[e.estado];
+    const com = e.r && String(e.r.c || "").trim();
+    sv.innerHTML = `
+      <div class="sv-fondo" style="background-image:url('${pr.img || pr.poster || ""}')"></div>
+      <button class="sv-flecha prev" aria-label="Historia anterior" ${i === 0 ? "disabled" : ""}>‹</button>
+      <div class="sv-col">
+        <div class="sv-marco">
+          <img class="sv-img" src="${pr.img || pr.poster || ""}" alt="${esc(tituloHist(k))}">
+          <div class="sv-top">
+            <div class="sv-barras">${lista.map((x, j) => `<span class="${j < i ? "vista" : j === i ? "actual" : ""}"></span>`).join("")}</div>
+            <div class="sv-head">
+              <span class="sv-avatar" style="--brand-color:${m.color}"><b>F</b></span>
+              <span class="sv-quien"><b>forestalcafea</b><small>${fechaHistTxt(k.slice(0, 10), true)} · ${esc(pr.hora || "12:00")}</small></span>
+              <span class="sv-chip ${t.cls}">${t.lbl}</span>
+              <button class="sv-cerrar" aria-label="Cerrar">✕</button>
+            </div>
+          </div>
+          ${pr.video ? `<span class="sv-video">Video · se ve la portada</span>` : ""}
+          <button class="sv-tap izq" aria-label="Anterior"></button>
+          <button class="sv-tap der" aria-label="Siguiente"></button>
+          ${com ? `<div class="sv-burbuja"><b>${esc(e.r.por || AUTOR_CLIENTE)}</b>${esc(com)}${e.estado === "nueva" ? `<small>David subió una versión nueva después de este comentario</small>` : ""}</div>` : ""}
+          <div class="sv-tema">${esc(tituloHist(k))}</div>
+        </div>
+        ${MODO_CLIENTE ? `
+        <form class="sv-barra" autocomplete="off">
+          <input class="sv-input" name="c" placeholder="${e.estado === "Ajustar" ? "Agrega otro comentario…" : "Escribe un ajuste para David…"}" aria-label="Comentario para David" enterkeyhint="send">
+          <button class="sv-enviar" type="submit" aria-label="Enviar comentario" disabled>${icl("enviar")}</button>
+          <button class="sv-aprobar ${e.estado === "Aprobada" ? "on" : ""}" type="button" aria-pressed="${e.estado === "Aprobada"}">${icl("ok")} ${e.estado === "Aprobada" ? "Aprobada" : "Aprobar"}</button>
+        </form>` : `
+        <div class="sv-barra david">
+          <span class="sv-nota">${e.estado === "pendiente" ? "Así la ve mercadeo. Aún no la revisa." : e.estado === "nueva" ? "Cambiaste la imagen: mercadeo la verá como versión nueva." : e.estado === "Aprobada" ? `${esc(e.r.por || AUTOR_CLIENTE)} la aprobó.` : `${esc(e.r.por || AUTOR_CLIENTE)} pidió un ajuste.`}</span>
+          <button class="sv-aprobar" type="button" data-editar-hist>Abrir en Historias</button>
+        </div>`}
+      </div>
+      <button class="sv-flecha next" aria-label="Historia siguiente">›</button>`;
+    conectar(k);
+  }
+  function pintarFin() {
+    const res = resumenRev(lista);
+    sv.innerHTML = `
+      <div class="sv-col">
+        <div class="sv-marco sv-fin">
+          <span class="sv-fin-ic">${icl("ok")}</span>
+          <h3>Revisaste ${lista.length} ${lista.length === 1 ? "historia" : "historias"}</h3>
+          <p>${res.Aprobada} aprobadas · ${res.Ajustar} con ajuste${res.pendiente ? ` · ${res.pendiente} sin revisar` : ""}</p>
+          <p class="sv-fin-nota">David ya ve tus respuestas en su plataforma.</p>
+          <div class="sv-fin-acc">
+            ${MODO_CLIENTE ? `<a class="sv-aprobar on" href="https://wa.me/573003748788?text=${encodeURIComponent(`Hola David, ya revisé las historias: ${res.Aprobada} aprobadas${res.Ajustar ? ` y ${res.Ajustar} con ajuste` : ""}.`)}" target="_blank" rel="noopener">${icl("enviar")} Avisar por WhatsApp</a>` : ""}
+            <button class="sv-otra" data-volver>Volver a verlas</button>
+            <button class="sv-otra" data-cerrar>Cerrar</button>
+          </div>
+        </div>
+      </div>`;
+    sv.querySelector("[data-volver]").onclick = () => { fin = false; i = 0; pintar(); };
+    sv.querySelector("[data-cerrar]").onclick = cerrar;
+  }
+  function ir(d) {
+    if (d > 0 && i >= lista.length - 1) { fin = true; return pintar(); }
+    i = Math.min(lista.length - 1, Math.max(0, i + d));
+    pintar();
+  }
+  // Después de responder pasa sola a la siguiente que falte revisar
+  function siguientePendiente() {
+    const j = lista.findIndex((x, n) => n > i && ["pendiente", "nueva"].includes(revHist(x).estado));
+    setTimeout(() => { if (j >= 0) { i = j; pintar(); } else ir(1); }, 650);
+  }
+  function conectar(k) {
+    sv.querySelector(".sv-cerrar").onclick = cerrar;
+    sv.querySelector(".sv-tap.izq").onclick = () => ir(-1);
+    sv.querySelector(".sv-tap.der").onclick = () => ir(1);
+    sv.querySelector(".sv-flecha.prev").onclick = () => ir(-1);
+    sv.querySelector(".sv-flecha.next").onclick = () => ir(1);
+    const editar = sv.querySelector("[data-editar-hist]");
+    if (editar) editar.onclick = () => { cerrar(); activarVista("historias"); abrirHistoriaClave(k); };
+    const form = sv.querySelector("form.sv-barra");
+    if (!form) return;
+    const input = form.querySelector(".sv-input");
+    const enviar = form.querySelector(".sv-enviar");
+    input.oninput = () => { enviar.disabled = !input.value.trim(); };
+    form.onsubmit = ev => {
+      ev.preventDefault();
+      const c = input.value.trim();
+      if (!c) return;
+      const prev = (store.hrev || {})[k];
+      const total = prev && prev.v === "Ajustar" && prev.c && revHist(k).estado !== "nueva" ? `${prev.c}\n${c}` : c;
+      guardarRevHist(k, "Ajustar", total);
+      toastVivo("Comentario enviado a David");
+      renderAll();
+      pintar();
+      siguientePendiente();
+    };
+    form.querySelector(".sv-aprobar").onclick = () => {
+      const ya = revHist(k).estado === "Aprobada";
+      if (ya) { guardarRevHist(k, null); toastVivo("Aprobación quitada"); renderAll(); pintar(); return; }
+      guardarRevHist(k, "Aprobada", "");
+      toastVivo("Historia aprobada");
+      renderAll();
+      pintar();
+      siguientePendiente();
+    };
+  }
+  function cerrar() {
+    document.removeEventListener("keydown", teclas, true);
+    sv.remove();
+    document.body.classList.remove("sv-abierto");
+    renderAll();
+  }
+  function teclas(ev) {
+    if (!document.body.contains(sv)) return;
+    if (ev.target && ev.target.matches && ev.target.matches("input, textarea")) {
+      if (ev.key === "Escape") ev.target.blur();
+      return;
+    }
+    if (ev.key === "Escape") { ev.preventDefault(); cerrar(); }
+    else if (ev.key === "ArrowRight") { ev.preventDefault(); ev.stopPropagation(); if (!fin) ir(1); }
+    else if (ev.key === "ArrowLeft") { ev.preventDefault(); ev.stopPropagation(); if (!fin) ir(-1); }
+  }
+  document.addEventListener("keydown", teclas, true);
+  // Deslizar: izquierda/derecha cambia de historia, hacia abajo cierra
+  let x0 = 0, y0 = 0;
+  sv.addEventListener("touchstart", ev => { const t = ev.touches[0]; x0 = t.clientX; y0 = t.clientY; }, { passive: true });
+  sv.addEventListener("touchend", ev => {
+    if (ev.target.closest("form, input, button.sv-aprobar")) return;
+    const t = ev.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0;
+    if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.4 && !fin) ir(dx < 0 ? 1 : -1);
+    else if (dy > 110 && Math.abs(dy) > Math.abs(dx) * 1.4) cerrar();
+  }, { passive: true });
+  pintar();
+}
+
+// ---------- En el Historias de David: cómo va la revisión ----------
+function revResumenDavidHtml() {
+  const lista = historiasParaRevision();
+  const res = resumenRev(lista);
+  return `
+    <div class="rv-david">
+      <div class="rv-david-txt">
+        <b>Revisión de mercadeo · Café Forestal</b>
+        <span>${lista.length
+          ? `${res.Aprobada} aprobadas · ${res.Ajustar} con ajuste · ${res.pendiente} por revisar`
+          : "Sube la imagen de una historia de Forestal y aparece aquí para que mercadeo la revise."}</span>
+      </div>
+      <div class="rv-david-acc">
+        ${lista.length ? `<button class="btn-restaurar" id="rvVerComo">Ver como mercadeo</button>` : ""}
+        <button class="btn-restaurar rv-enviar" id="rvEnviar">${icl("enviar")} Enviar a revisión</button>
+      </div>
+    </div>`;
+}
+function conectarRevDavid(root) {
+  const ver = root.querySelector("#rvVerComo");
+  if (ver) ver.onclick = () => abrirVisorHistorias(historiasParaRevision()[0]);
+  const env = root.querySelector("#rvEnviar");
+  if (env) env.onclick = async () => {
+    const n = historiasParaRevision().length;
+    if (!n) { toastVivo("Primero sube la imagen de al menos una historia de Forestal"); return; }
+    env.disabled = true;
+    await publicarCambios();
+    env.disabled = false;
+    const txt = `Hola, ya están las historias de Café Forestal para revisar (${n}). Desliza, apruébalas con un toque o déjame un comentario si hay que ajustar algo: ${ENLACE_PUBLICO}?modo=cliente`;
+    toastAccion("Historias guardadas. Falta avisarle a mercadeo", "Abrir WhatsApp", () => {
+      const a = document.createElement("a");
+      a.href = "https://wa.me/?text=" + encodeURIComponent(txt); a.target = "_blank"; a.rel = "noopener";
+      document.body.appendChild(a); a.click(); a.remove();
+    });
+  };
+}
+// Marca de revisión sobre cada tarjeta de historia en el Historias de David
+function revBadgeHist(k, mk) {
+  if (mk !== MARCA_REV_HIST) return "";
+  const pr = historiasStore().prog[k];
+  if (!pr || !(pr.img || pr.poster)) return "";
+  const e = revHist(k);
+  const t = REV_TXT[e.estado];
+  const com = e.r && String(e.r.c || "").trim();
+  return `<span class="hs-rev rv-${t.cls}" title="${esc(t.lbl + (com ? ": " + com : ""))}">${e.estado === "Aprobada" ? icl("ok") : e.estado === "Ajustar" ? icl("coment") : icl("reloj")}<i>${t.lbl}</i></span>`;
+}
+
 // ---------- Vista: Acuerdo de revisión (David y mercadeo la ven igual) ----------
 function lunesSemana(offset) {
   const d = new Date(); d.setHours(12, 0, 0, 0);
@@ -4674,6 +5018,7 @@ function renderAcuerdo() {
 function renderAll() {
   renderCampanita();
   renderAcuerdo();
+  renderRevHistorias();
   renderHero();
   renderCalendario();
   renderPipeline();
@@ -4724,9 +5069,10 @@ if (MODO_CLIENTE) {
   // Formulario de aprobación para cliente: solo la vista Aprobación
   document.body.classList.add("modo-cliente");
   const tabAprob = document.querySelector('#tabs button[data-view="aprobacion"] span');
-  if (tabAprob) tabAprob.textContent = "Aprobación";
+  if (tabAprob) tabAprob.textContent = "Publicaciones";
   renderAll();
-  activarVista("aprobacion");
+  // El link de mercadeo abre directo en la revisión de historias
+  activarVista("revhist");
   pedirClaveAcceso({
     clave: CLAVE_ACCESO,
     texto: "Escribe la clave para revisar y aprobar los contenidos.",

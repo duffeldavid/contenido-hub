@@ -39,6 +39,16 @@ Los proyectos, los objetivos y las finanzas viven **aparte del Contenido Hub**, 
 
 La primera pestaña es **Contenidos**. Para David tiene dos modos: **Aprobación** (tres columnas: *Aprobadas* con cambio rápido de estado, *Ajustes de mercadeo* con el botón *Aplicado · a producción* y, debajo, los ajustes ya aplicados, e *Ideas*, donde las que traen comentario de mercadeo van primero con el botón *Tratar como ajuste*) y **Todas** (la lista completa con filtros). **El veredicto y el comentario de Mercadeo GM se ven en cada pieza, en todas partes**: bloque firmado con avatar en las tres columnas y en Todas, banner en la ficha, línea corta en las tarjetas del calendario, rodaje y pipeline, lápiz en el planificador mensual y en la tira del modo Flujo, marca en la casilla del Feed, nota en el PDF y en el WhatsApp para el cliente, y un contador «pedidos de mercadeo por atender» en el héroe. Un comentario que llegó sin veredicto se muestra como *comentó · sin veredicto aún*; si David lo toma como ajuste se guarda la bandera `ajuste`, que solo cuenta en el hub de David (el veredicto y los contadores del link del cliente no se tocan). El ajuste atendido se guarda como `ok`; si mercadeo cambia el veredicto o el comentario, se reabre solo (una respuesta repetida idéntica conserva lo decidido). En el link del cliente la pestaña sigue llamándose **Aprobación** y no cambia nada.
 
+## Revisión de historias (link de mercadeo)
+
+El link `?modo=cliente` abre directo en **Historias**: las historias de Café Forestal con imagen (o portada de video), de hoy en adelante, en tarjetas 9:16. Al tocar una se abre un visor tipo Instagram (barras de progreso, tocar a los lados o deslizar para avanzar, deslizar hacia abajo para cerrar). Abajo: **Aprobar** con un toque (otro toque la quita) o escribir un comentario y enviarlo (queda como *Ajuste pedido*). Tras responder pasa sola a la siguiente por revisar.
+
+- David carga la imagen en su pestaña Historias y toca **Enviar a revisión** (guarda el estado y abre WhatsApp con el link). **Ver como mercadeo** abre el mismo visor.
+- Cada tarjeta de Forestal muestra el estado (Por revisar / Aprobada / Ajuste pedido / Versión nueva) y la ficha muestra el comentario.
+- Si David cambia la imagen después de la revisión, vuelve a *Versión nueva* (firma `sig` de la imagen).
+- Datos: `store.hrev[clave] = { v: "Aprobada" | "Ajustar", c, sig, por, ts }`; viaja como evento `hrev` por ntfy y en `estado.json`; se fusiona como `aprob`. La campanita avisa cada respuesta.
+- El acuerdo por niveles queda en el código pero apagado (sin pestaña); las publicaciones siguen en **Publicaciones**.
+
 ## Acuerdo de revisión (pestaña Acuerdo)
 
 David propone y decide; mercadeo valida y trae la voz de gerencia. La pestaña **Acuerdo** la ven igual David y el link `?modo=cliente`.
