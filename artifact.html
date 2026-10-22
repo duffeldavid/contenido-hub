@@ -2534,6 +2534,9 @@ button.nivel-chip.editable:hover { border-color: currentColor; }
 .motivo-item em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8F3A2D; margin-top: 4px; }
 .motivo-item.sug em { color: #5A4BA3; }
 
+/* Link de mercadeo: solo Café Forestal, sin selector de marca */
+body.modo-cliente .brand-switch { display: none; }
+
 </style>
 
 <!-- Fondo fotográfico de toda la página -->
@@ -3669,6 +3672,9 @@ const MOTIVOS = {
   Gerencia:   { desc: "Gerencia pidió este cambio", obliga: true },
   Sugerencia: { desc: "Una idea o preferencia: David la considera y decide", obliga: false },
 };
+// El acuerdo de revisión aplica solo a estas marcas
+const MARCAS_ACUERDO = ["forestal"];
+function enAcuerdo(p) { p = piezaCompleta(p); return !!p && MARCAS_ACUERDO.includes(p.marca); }
 const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
 const RE_NIVEL3 = /\b(promo|promoci[oó]n|descuento|oferta|precio|precios|lanzamiento|lanzamos|sorteo|concurso|alianza|2x1)\b|%\s*off|\d+\s*%/i;
 function piezaCompleta(p) { return p && p.formato ? p : (PIEZAS.find(x => x.id === (p && p.id)) || p); }
@@ -3712,7 +3718,7 @@ function diasHasta(iso) {
 function aprobacionAcuerdo(p) {
   if (!acuerdoActivo()) return null;
   p = piezaCompleta(p);
-  if (!p || !p.formato) return null;
+  if (!p || !p.formato || !enAcuerdo(p)) return null;
   const n = nivelDe(p);
   if (n === 1) return { v: "Aprobado", c: "", por: "Acuerdo de revisión", auto: "sistema" };
   if (n === 2 && plazoVencido(p)) {
@@ -3722,13 +3728,14 @@ function aprobacionAcuerdo(p) {
   return null;
 }
 function nivelChipHtml(p, { editable = false } = {}) {
+  if (!enAcuerdo(p)) return "";
   const n = nivelDe(p), N = NIVELES[n];
   const base = `<span class="nivel-chip n${n}" title="${esc(N.desc)}">${N.corto} · ${N.nombre}</span>`;
   if (!editable || MODO_CLIENTE) return base;
   return `<button class="nivel-chip n${n} editable" data-nivel-ciclo="${p.id}" title="Cambiar nivel (${esc(N.desc)})">${N.corto} · ${N.nombre}</button>`;
 }
 function plazoChipHtml(p) {
-  if (!acuerdoActivo() || nivelDe(p) === 1) return "";
+  if (!enAcuerdo(p) || !acuerdoActivo() || nivelDe(p) === 1) return "";
   const pl = plazoDe(p);
   if (!pl) return "";
   const raw = store.aprob[p.id];
@@ -3739,7 +3746,7 @@ function plazoChipHtml(p) {
 }
 // Selector de nivel en la ficha de la pieza (solo David)
 function nivelSelectorHtml(p) {
-  if (MODO_CLIENTE) return "";
+  if (MODO_CLIENTE || !enAcuerdo(p)) return "";
   const n = nivelDe(p);
   return `
     <section class="nivel-sel">
@@ -3954,7 +3961,8 @@ function generarIdea(marca) {
 }
 
 // ---------- Filtro de marca ----------
-let marcaActiva = "todas";
+// El link de mercadeo es solo de Café Forestal: sin selector de marca.
+let marcaActiva = MODO_CLIENTE ? "forestal" : "todas";
 function piezasVisibles() {
   return PIEZAS.filter(p => !store.ocultas[p.id] && (marcaActiva === "todas" || p.marca === marcaActiva))
     .slice().sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)));
@@ -4655,7 +4663,7 @@ function veredictoCliente(p, v) {
   // Con el acuerdo activo, un ajuste siempre dice POR QUÉ (Marca, Negocio o
   // Gerencia). Una sugerencia no es ajuste: David la considera y decide.
   const motivo = criterioDe(p.id) || prev.k || "";
-  if (v === "Ajustar" && acuerdoActivo() && !(MOTIVOS[motivo] && MOTIVOS[motivo].obliga)) {
+  if (v === "Ajustar" && acuerdoActivo() && enAcuerdo(p) && !(MOTIVOS[motivo] && MOTIVOS[motivo].obliga)) {
     criterioFalta[p.id] = true;
     toastVivo(motivo === "Sugerencia" ? "Una sugerencia no es un ajuste: elige Marca, Negocio o Gerencia, o márcala Aprobado" : "Para pedir un ajuste, elige el motivo: Marca, Negocio o Gerencia");
     return false;
@@ -4687,7 +4695,7 @@ function ponerCriterio(id, k) {
   try { localStorage.setItem(CRIT_KEY, JSON.stringify(criterios)); } catch {}
 }
 function motivoHtml(p) {
-  if (!MODO_CLIENTE || !acuerdoActivo()) return "";
+  if (!MODO_CLIENTE || !acuerdoActivo() || !enAcuerdo(p)) return "";
   const sel = criterioDe(p.id) || aprobRaw(p).k || "";
   return `
     <div class="motivo-fila${criterioFalta[p.id] ? " falta" : ""}">
@@ -4949,7 +4957,7 @@ function renderAprobacion() {
   if (refEl) refEl.classList.remove("embebida");
   let html = `
     <p class="view-note">${MODO_CLIENTE
-      ? `Elige la marca arriba y <b>toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo). En cada pieza marca <b>Aprobado</b> o <b>Ajustar</b> y, si quieres, escribe tu comentario para David y toca <b>Guardar comentario</b>. Todo le llega al instante y nada se borra al cambiar el estado. Al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
+      ? `Estos son los contenidos de <b>Café Forestal</b>. <b>Toca cualquier pieza para ver de qué trata</b> (con ejemplos del estilo). En cada pieza marca <b>Aprobado</b> o <b>Ajustar</b> y, si quieres, escribe tu comentario para David y toca <b>Guardar comentario</b>. Todo le llega al instante y nada se borra al cambiar el estado. Al final envíanos tus respuestas por WhatsApp. ¡Gracias! 💛`
       : `Lo que mercadeo aprobó, lo que pide ajustar y cada comentario que dejó, siempre a la vista en cada pieza. En <b>Todas</b> está la lista completa con filtros.`}</p>
     ${MODO_CLIENTE ? "" : `<div class="cal-toggle cont-subnav">
       <button data-modo="aprobacion" class="${resumen ? "active" : ""}">${icl("ok")} Aprobación</button>
@@ -7615,7 +7623,7 @@ function paqueteSemana(offset) {
   const lun = lunesSemana(offset), dom = new Date(lun); dom.setDate(lun.getDate() + 6);
   const li = isoLocal(lun), di = isoLocal(dom);
   const pl = new Date(lun); pl.setDate(lun.getDate() - 7 + (acuerdoDe().dia - 1));
-  const piezas = piezasVisibles()
+  const piezas = PIEZAS.filter(p => !store.ocultas[p.id] && enAcuerdo(p))
     .filter(p => { const f = fechaDe(p); return f >= li && f <= di && nivelDe(p) >= 2; })
     .sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)) || porOrden(a, b));
   return { lunes: li, plazo: isoLocal(pl), piezas };
@@ -7633,7 +7641,7 @@ function estadoRevisionHtml(p) {
   return `<span class="rev-est pend">${icl("reloj")} Por revisar</span>`;
 }
 function mensajePaquete(paq) {
-  const L = [`*Paquete de contenidos · semana del ${plazoTexto(paq.lunes)}*`,
+  const L = [`*Café Forestal · paquete de la semana del ${plazoTexto(paq.lunes)}*`,
     `Revisión antes del *${plazoTexto(paq.plazo)}*.`,
     `Las piezas de nivel 2 que no alcances a revisar quedan aprobadas al vencer el plazo. Las de gerencia (nivel 3) esperan tu respuesta.`, ""];
   paq.piezas.forEach((p, i) => {
@@ -7647,7 +7655,7 @@ function renderAcuerdo() {
   const el = document.getElementById("view-acuerdo");
   if (!el) return;
   const ac = acuerdoDe();
-  const todas = piezasVisibles();
+  const todas = PIEZAS.filter(p => !store.ocultas[p.id] && enAcuerdo(p));
   const paq = paqueteSemana(1);
   const hechas = paq.piezas.filter(revisadaPorMercadeo).length;
   const pct = paq.piezas.length ? Math.round(hechas / paq.piezas.length * 100) : 0;
@@ -7668,7 +7676,7 @@ function renderAcuerdo() {
     <div class="acu">
       <header class="acu-head">
         <div>
-          <p class="acu-eyebrow">Cómo revisamos los contenidos</p>
+          <p class="acu-eyebrow">Café Forestal · cómo revisamos los contenidos</p>
           <h2 class="acu-tit">Acuerdo de revisión</h2>
           <p class="acu-sub">Contenido propone y decide. Mercadeo valida la alineación comercial y trae la voz de gerencia.</p>
         </div>

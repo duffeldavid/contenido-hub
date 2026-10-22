@@ -2528,3 +2528,6 @@ button.nivel-chip.editable:hover { border-color: currentColor; }
 .motivo-item span { font-size: 13px; color: var(--dim); }
 .motivo-item em { font-style: normal; font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #8F3A2D; margin-top: 4px; }
 .motivo-item.sug em { color: #5A4BA3; }
+
+/* Link de mercadeo: solo Café Forestal, sin selector de marca */
+body.modo-cliente .brand-switch { display: none; }
