@@ -39,6 +39,18 @@ Los proyectos, los objetivos y las finanzas viven **aparte del Contenido Hub**, 
 
 La primera pestaña es **Contenidos**. Para David tiene dos modos: **Aprobación** (tres columnas: *Aprobadas* con cambio rápido de estado, *Ajustes de mercadeo* con el botón *Aplicado · a producción* y, debajo, los ajustes ya aplicados, e *Ideas*, donde las que traen comentario de mercadeo van primero con el botón *Tratar como ajuste*) y **Todas** (la lista completa con filtros). **El veredicto y el comentario de Mercadeo GM se ven en cada pieza, en todas partes**: bloque firmado con avatar en las tres columnas y en Todas, banner en la ficha, línea corta en las tarjetas del calendario, rodaje y pipeline, lápiz en el planificador mensual y en la tira del modo Flujo, marca en la casilla del Feed, nota en el PDF y en el WhatsApp para el cliente, y un contador «pedidos de mercadeo por atender» en el héroe. Un comentario que llegó sin veredicto se muestra como *comentó · sin veredicto aún*; si David lo toma como ajuste se guarda la bandera `ajuste`, que solo cuenta en el hub de David (el veredicto y los contadores del link del cliente no se tocan). El ajuste atendido se guarda como `ok`; si mercadeo cambia el veredicto o el comentario, se reabre solo (una respuesta repetida idéntica conserva lo decidido). En el link del cliente la pestaña sigue llamándose **Aprobación** y no cambia nada.
 
+## Acuerdo de revisión (pestaña Acuerdo)
+
+David propone y decide; mercadeo valida y trae la voz de gerencia. La pestaña **Acuerdo** la ven igual David y el link `?modo=cliente`.
+
+- **Niveles por pieza** (los decide David en la ficha de cada pieza o tocando el chip N1/N2/N3): **N1 Preaprobado** (historias y formatos del sistema: se aprueban como sistema), **N2 Revisión semanal** (paquete con plazo), **N3 Gerencia** (promos, precios, lanzamientos: nunca se aprueban solas). Sin elección manual: Historia → N1; texto con promo/descuento/precio/lanzamiento → N3; el resto → N2 (`nivelAuto`).
+- **Plazo**: el día acordado (jueves por defecto, se cambia en Acuerdo) de la semana anterior a la publicación (`plazoDe`).
+- **Aprobación por plazo**: con el acuerdo activo, una pieza N2 sin ninguna respuesta de mercadeo queda *Aprobada por plazo* al vencer, solo si su plazo es igual o posterior al día de activación. Es una aprobación calculada (`aprobDe` → `aprobacionAcuerdo`), no se escribe en `store.aprob`; lo que escribe aprobaciones parte de `aprobRaw`.
+- **Motivo del ajuste**: en el link de mercadeo, *Ajustar* exige motivo **Marca**, **Negocio** o **Gerencia**; **Sugerencia** no obliga a cambiar (viaja como `k` en el evento `aprob`).
+- **Paquete semanal**: Acuerdo arma el paquete de la semana siguiente (N2 y N3) y lo envía por WhatsApp con el plazo.
+- Sincronización: eventos `nivel` y `acuerdo` por ntfy, más `niveles`/`acuerdo` en `snap` y en `estado.json`.
+- El acuerdo arranca **pausado**: David lo activa en la pestaña Acuerdo después de pactarlo con mercadeo.
+
 ## Estructura
 
 | Archivo | Qué es |

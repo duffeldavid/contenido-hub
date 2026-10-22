@@ -44,7 +44,7 @@ function load() {
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
-  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, meta: {}, historias: null, pubTs: 0, pendientePub: false };
+  if (!candidatos.length) return { estados: {}, checks: {}, aprob: {}, portadas: {}, fechas: {}, ediciones: {}, orden: {}, pdf: {}, ocultas: {}, nuevas: [], notis: [], horas: {}, meta: {}, historias: null, pubTs: 0, pendientePub: false, niveles: {}, acuerdo: null };
   candidatos.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   const s = candidatos[0];
   return {
@@ -54,6 +54,7 @@ function load() {
     orden: s.orden || {}, pdf: s.pdf || {}, ocultas: s.ocultas || {}, nuevas: s.nuevas || [],
     notis: s.notis || [], horas: s.horas || {},
     meta: s.meta || {}, historias: s.historias || null,
+    niveles: s.niveles || {}, acuerdo: s.acuerdo || null,
     pubTs: s.pubTs || 0, pendientePub: !!s.pendientePub,
     updatedAt: s.updatedAt || 0,
   };
@@ -94,8 +95,8 @@ function notiComentario(p, texto) {
 // Evento estructurado hacia la plataforma de David (inmediato, sin agrupar)
 function emitirDato(p, extra) {
   if (!MODO_CLIENTE) return;
-  const a = aprobDe(p);
-  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", autor: AUTOR_CLIENTE, ts: Date.now(), ...(extra || {}) }) }).catch(() => {});
+  const a = aprobRaw(p);
+  fetch(NTFY_DATOS, { method: "POST", body: JSON.stringify({ tipo: "aprob", id: p.id, v: a.v, c: a.c || "", k: a.k || "", autor: AUTOR_CLIENTE, ts: Date.now(), ...(extra || {}) }) }).catch(() => {});
 }
 // Ediciones de contenido de David hacia el link del cliente (tiempo real)
 function emitirContenido(obj) {
@@ -170,7 +171,15 @@ function aplicarEventoCliente(linea, enVivo) {
       store.estados = Object.assign({}, store.estados, d.estados || {});
       store.ocultas = d.ocultas || {};
       store.nuevas = d.nuevas || store.nuevas;
+      if (d.niveles) store.niveles = d.niveles;
+      if (d.acuerdo !== undefined) store.acuerdo = d.acuerdo;
       hidratarNuevas();
+      return true;
+    }
+    // Acuerdo de revisión (lo activa o pausa David; mercadeo lo ve en su link)
+    if (d.tipo === "acuerdo") {
+      store.acuerdo = d.a || null;
+      if (enVivo && MODO_CLIENTE) toastVivo(store.acuerdo && store.acuerdo.activo ? "David activó el acuerdo de revisión" : "David pausó el acuerdo de revisión");
       return true;
     }
     if (d.tipo === "nueva" && d.pieza && d.pieza.id) {
@@ -203,6 +212,11 @@ function aplicarEventoCliente(linea, enVivo) {
       store.estados[d.id] = d.v;
       return true;
     }
+    // Nivel de revisión de una pieza (solo lo decide David)
+    if (d.tipo === "nivel") {
+      if (d.n) store.niveles[d.id] = d.n; else delete store.niveles[d.id];
+      return true;
+    }
     // El trabajador de Meta publicó una historia: se marca sola como hecha
     if (d.tipo === "historia" && d.k) {
       historiasStore().hechas[d.k] = true;
@@ -218,6 +232,8 @@ function aplicarEventoCliente(linea, enVivo) {
     // (evento con borrarC). Un evento con comentario vacío conserva el que había.
     const cEvento = String(d.c || "").trim();
     const nuevo = { v: d.v || "Pendiente", c: d.borrarC ? "" : (cEvento || String(previo.c || "")), por: autor };
+    // Motivo del comentario (Marca / Negocio / Gerencia / Sugerencia)
+    if (d.k) nuevo.k = d.k; else if (!d.borrarC && !cEvento && previo.k) nuevo.k = previo.k;
     // Mismo veredicto y mismo comentario (p. ej. reenvío): se conservan las
     // decisiones de David (ajuste aplicado / comentario tomado como ajuste).
     if (previo.v === nuevo.v && String(previo.c || "") === nuevo.c) {
@@ -333,7 +349,7 @@ function iniciarTiempoReal() {
   // David re-transmite su estado de contenidos al abrir: el cliente
   // converge siempre a la última versión aunque haya perdido eventos.
   if (!MODO_CLIENTE) setTimeout(() => {
-    const snap = { tipo: "snap", ediciones: store.ediciones, fechas: store.fechas, orden: store.orden, estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas, ts: Date.now() };
+    const snap = { tipo: "snap", ediciones: store.ediciones, fechas: store.fechas, orden: store.orden, estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas, niveles: store.niveles, acuerdo: store.acuerdo, ts: Date.now() };
     const cuerpo = JSON.stringify(snap);
     if (cuerpo.length < 3800) fetch(NTFY_DATOS, { method: "POST", body: cuerpo }).catch(() => {});
   }, 4000);
@@ -362,6 +378,7 @@ function estadoPublicable(ts) {
     estados: store.estados, ocultas: store.ocultas, nuevas: store.nuevas,
     portadas: store.portadas, horas: store.horas,
     meta: store.meta, historias: store.historias,
+    niveles: store.niveles, acuerdo: store.acuerdo,
     // La aprobación de mercadeo viaja y se archiva SIEMPRE: es la fuente de
     // claridad de David sobre veredictos y comentarios (se perdió una vez
     // por no incluirla aquí — nunca más).
@@ -503,6 +520,8 @@ function aplicarEstado(est, avisar) {
   store.horas = est.horas || {};
   store.meta = est.meta || {};
   store.historias = est.historias || store.historias;
+  if (est.niveles) store.niveles = est.niveles;
+  if (est.acuerdo !== undefined) store.acuerdo = est.acuerdo;
   // Aprobación y checks se FUSIONAN, nunca se reemplazan: un estado viejo o
   // incompleto jamás borra un veredicto o comentario de mercadeo ya recibido.
   if (est.aprob) store.aprob = Object.assign({}, store.aprob, est.aprob);
@@ -533,7 +552,143 @@ function cargarPublicado(avisar) {
 
 function estadoDe(p) { return store.estados[p.id] || p.estado; }
 function checksDe(p) { return store.checks[p.id] || []; }
-function aprobDe(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
+// Lo que realmente marcó mercadeo (o David) en la pieza, sin reglas del acuerdo.
+// Todo lo que ESCRIBE una aprobación parte de aquí.
+function aprobRaw(p) { return store.aprob[p.id] || { v: "Pendiente", c: "" }; }
+// Lo que se MUESTRA: lo marcado, o la aprobación que da el acuerdo de revisión
+// (nivel 1 preaprobado / nivel 2 con plazo vencido sin respuesta).
+function aprobDe(p) {
+  const raw = store.aprob[p.id];
+  if (raw) return raw;
+  return aprobacionAcuerdo(p) || { v: "Pendiente", c: "" };
+}
+
+// ============================================================
+// ACUERDO DE REVISIÓN — David propone y decide; mercadeo valida.
+// Nivel 1 · Preaprobado: historias y formatos del sistema acordado.
+// Nivel 2 · Revisión semanal: paquete con plazo; si mercadeo no responde
+//           antes del plazo, la pieza queda aprobada.
+// Nivel 3 · Gerencia: promos, precios, lanzamientos. Nunca se aprueba sola.
+// El nivel de cada pieza lo decide David (hay uno automático por defecto).
+// ============================================================
+const NIVELES = {
+  1: { corto: "N1", nombre: "Preaprobado", desc: "Historias y formatos del sistema acordado. Se publican sin revisión pieza por pieza.", color: "#3F7D58" },
+  2: { corto: "N2", nombre: "Revisión semanal", desc: "Reels, carruseles y piezas con link o venta. Van en el paquete semanal con plazo.", color: "#B07A28" },
+  3: { corto: "N3", nombre: "Gerencia", desc: "Promociones, precios, lanzamientos y temas sensibles. Necesitan aprobación explícita.", color: "#A34A3C" },
+};
+const MOTIVOS = {
+  Marca:      { desc: "Choca con la identidad, el tono o lo visual de la marca", obliga: true },
+  Negocio:    { desc: "Afecta precios, inventario, tiendas o algo comercial", obliga: true },
+  Gerencia:   { desc: "Gerencia pidió este cambio", obliga: true },
+  Sugerencia: { desc: "Una idea o preferencia: David la considera y decide", obliga: false },
+};
+const DIAS_CORTOS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];
+const RE_NIVEL3 = /\b(promo|promoci[oó]n|descuento|oferta|precio|precios|lanzamiento|lanzamos|sorteo|concurso|alianza|2x1)\b|%\s*off|\d+\s*%/i;
+function piezaCompleta(p) { return p && p.formato ? p : (PIEZAS.find(x => x.id === (p && p.id)) || p); }
+function nivelAuto(p) {
+  p = piezaCompleta(p);
+  if (!p || !p.formato) return 2;
+  if (p.formato === "Historia") return 1;
+  return RE_NIVEL3.test(`${tituloDe(p)} ${copyDe(p)}`) ? 3 : 2;
+}
+function nivelDe(p) { return Number(store.niveles[p.id]) || nivelAuto(p); }
+function nivelEsManual(p) { return !!store.niveles[p.id]; }
+function acuerdoDe() { return Object.assign({ activo: false, desde: null, dia: 4 }, store.acuerdo || {}); }
+function acuerdoActivo() { return !!acuerdoDe().activo; }
+function isoLocal(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+// Plazo de revisión: el día acordado (jueves por defecto) de la semana ANTERIOR
+// a la semana en que se publica la pieza.
+function plazoDe(p) {
+  p = piezaCompleta(p);
+  const f = p && fechaDe(p);
+  if (!f) return null;
+  const d = new Date(f + "T12:00:00");
+  if (isNaN(d)) return null;
+  const lunes = new Date(d); lunes.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  const plazo = new Date(lunes); plazo.setDate(lunes.getDate() - 7 + (acuerdoDe().dia - 1));
+  return isoLocal(plazo);
+}
+function plazoVencido(p) {
+  const pl = plazoDe(p);
+  return !!pl && Date.now() > new Date(pl + "T23:59:59").getTime();
+}
+function plazoTexto(iso) {
+  if (!iso) return "";
+  const d = new Date(iso + "T12:00:00");
+  return `${DIAS_CORTOS[d.getDay()]} ${d.getDate()}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+}
+function diasHasta(iso) {
+  const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
+  return Math.round((new Date(iso + "T12:00:00") - hoy) / 86400000);
+}
+// Aprobación que da el acuerdo cuando nadie ha marcado nada en la pieza
+function aprobacionAcuerdo(p) {
+  if (!acuerdoActivo()) return null;
+  p = piezaCompleta(p);
+  if (!p || !p.formato) return null;
+  const n = nivelDe(p);
+  if (n === 1) return { v: "Aprobado", c: "", por: "Acuerdo de revisión", auto: "sistema" };
+  if (n === 2 && plazoVencido(p)) {
+    const pl = plazoDe(p), desde = acuerdoDe().desde;
+    if (!desde || pl >= desde) return { v: "Aprobado", c: "", por: "Plazo vencido", auto: "plazo", plazo: pl };
+  }
+  return null;
+}
+function nivelChipHtml(p, { editable = false } = {}) {
+  const n = nivelDe(p), N = NIVELES[n];
+  const base = `<span class="nivel-chip n${n}" title="${esc(N.desc)}">${N.corto} · ${N.nombre}</span>`;
+  if (!editable || MODO_CLIENTE) return base;
+  return `<button class="nivel-chip n${n} editable" data-nivel-ciclo="${p.id}" title="Cambiar nivel (${esc(N.desc)})">${N.corto} · ${N.nombre}</button>`;
+}
+function plazoChipHtml(p) {
+  if (!acuerdoActivo() || nivelDe(p) === 1) return "";
+  const pl = plazoDe(p);
+  if (!pl) return "";
+  const raw = store.aprob[p.id];
+  if (raw && raw.v !== "Pendiente") return "";
+  const dias = diasHasta(pl);
+  if (dias < 0) return nivelDe(p) === 3 ? `<span class="plazo-chip vencido">Gerencia · sin respuesta</span>` : "";
+  return `<span class="plazo-chip${dias <= 1 ? " urgente" : ""}">Revisar antes del ${plazoTexto(pl)}${dias === 0 ? " · hoy" : dias === 1 ? " · mañana" : ""}</span>`;
+}
+// Selector de nivel en la ficha de la pieza (solo David)
+function nivelSelectorHtml(p) {
+  if (MODO_CLIENTE) return "";
+  const n = nivelDe(p);
+  return `
+    <section class="nivel-sel">
+      <h4>Nivel de revisión ${nivelEsManual(p) ? "· elegido por ti" : "· automático"}</h4>
+      <div class="nivel-seg">
+        ${[1, 2, 3].map(k => `<button data-nivel-set="${k}" data-id="${p.id}" class="n${k}${k === n ? " sel" : ""}">${NIVELES[k].corto} · ${NIVELES[k].nombre}</button>`).join("")}
+      </div>
+      <p class="nivel-desc">${esc(NIVELES[n].desc)}</p>
+    </section>`;
+}
+function fijarNivel(id, n) {
+  const p = PIEZAS.find(x => x.id === id);
+  if (!p || MODO_CLIENTE) return;
+  if (n === nivelAuto(p)) delete store.niveles[id]; else store.niveles[id] = n;
+  save();
+  emitirContenido({ tipo: "nivel", id, n: store.niveles[id] || 0 });
+  toastVivo(`${tituloDe(p)} → ${NIVELES[n].corto} · ${NIVELES[n].nombre}`);
+  renderAll({ keep: true });
+  if (piezaAbierta && piezaAbierta.id === id && drawer.classList.contains("open") && drawerModo === "pieza") openDrawer(id);
+}
+document.addEventListener("click", e => {
+  const set = e.target.closest("[data-nivel-set]");
+  const ciclo = e.target.closest("[data-nivel-ciclo]");
+  if (!set && !ciclo) return;
+  e.preventDefault(); e.stopPropagation();
+  if (set) return fijarNivel(set.dataset.id, Number(set.dataset.nivelSet));
+  const p = PIEZAS.find(x => x.id === ciclo.dataset.nivelCiclo);
+  if (p) fijarNivel(p.id, nivelDe(p) % 3 + 1);
+}, true);
+function cambiarAcuerdo(patch) {
+  if (MODO_CLIENTE) return;
+  store.acuerdo = Object.assign(acuerdoDe(), patch);
+  save();
+  emitirContenido({ tipo: "acuerdo", a: store.acuerdo });
+  renderAll({ keep: true });
+}
 // ---------- Mercadeo GM siempre a la vista ----------
 // Lo que dejó mercadeo en una pieza, en una palabra: "ajustar" (pide cambios),
 // "atendido" (David ya aplicó el ajuste), "aprobado", "comentado" (dejó
@@ -571,6 +726,8 @@ function mercadeoHtml(p, { compacta = false } = {}) {
   const k = mercadeoDe(p);
   if (!k) return "";
   const a = aprobDe(p), t = MERCADEO_TXT[k];
+  if (a.auto === "sistema") return `<div class="mk-linea aprobado auto">${icl("ok")} Preaprobada por el acuerdo · nivel 1</div>`;
+  if (a.auto === "plazo") return `<div class="mk-linea aprobado auto">${icl("reloj")} Aprobada por plazo · sin respuesta al ${plazoTexto(a.plazo)}</div>`;
   const autor = String(a.por || AUTOR_CLIENTE);
   const txt = String(a.c || "").trim();
   if (!txt && k === "aprobado") return `<div class="mk-linea ${k}">${icl(t.ic)} ${esc(autor)} ${t.quien} esta pieza</div>`;
@@ -578,7 +735,7 @@ function mercadeoHtml(p, { compacta = false } = {}) {
     <div class="mk-com ${k}${compacta ? " compacta" : ""}">
       <span class="mk-av" style="--c:${t.c}">${esc(inicialesDe(autor))}<i>${icl(t.ic)}</i></span>
       <div class="mk-cuerpo">
-        <span class="mk-quien">${esc(autor)} ${mercadeoQuien(a, k)}</span>
+        <span class="mk-quien">${esc(autor)} ${mercadeoQuien(a, k)} ${motivoBadgeHtml(a)}</span>
         <p class="mk-txt">${txt ? esc(txt) : `<i>${sinComentarioTxt(k)}</i>`}</p>
       </div>
     </div>`;
@@ -1407,11 +1564,21 @@ const NOMBRE_FILTRO = { Aprobado: "Aprobadas", Ajustar: "Con ajustes", Pendiente
 // veredicto: una sola acción. Si está cambiando un comentario ya guardado, el
 // cambio queda como borrador y ella decide con Guardar cambios.
 function veredictoCliente(p, v) {
-  const prev = aprobDe(p);
+  const prev = aprobRaw(p);
+  // Con el acuerdo activo, un ajuste siempre dice POR QUÉ (Marca, Negocio o
+  // Gerencia). Una sugerencia no es ajuste: David la considera y decide.
+  const motivo = criterioDe(p.id) || prev.k || "";
+  if (v === "Ajustar" && acuerdoActivo() && !(MOTIVOS[motivo] && MOTIVOS[motivo].obliga)) {
+    criterioFalta[p.id] = true;
+    toastVivo(motivo === "Sugerencia" ? "Una sugerencia no es un ajuste: elige Marca, Negocio o Gerencia, o márcala Aprobado" : "Para pedir un ajuste, elige el motivo: Marca, Negocio o Gerencia");
+    return false;
+  }
+  delete criterioFalta[p.id];
   const bd = borradorDe(p.id);
   const nuevoTexto = bd !== null ? bd.trim() : "";
   const adjuntar = !!nuevoTexto && !String(prev.c || "").trim() && !comentarioEditando[p.id];
   store.aprob[p.id] = adjuntar ? { ...prev, v, c: nuevoTexto } : { ...prev, v };
+  if (motivo) store.aprob[p.id].k = motivo;
   if (adjuntar) quitarBorrador(p.id);
   save();
   notiAprobacion(p, v);
@@ -1422,7 +1589,33 @@ function veredictoCliente(p, v) {
   else if (hayBorrador(p)) toastVivo(`${que} enviado a David. El cambio de tu comentario sigue sin guardar`);
   else toastVivo(v === "Pendiente" ? "Marcado como pendiente" : `${que} enviado a David`);
 }
-function bloqueComentario(p) {
+// Motivo del comentario de mercadeo (con el acuerdo activo)
+const CRIT_KEY = "contenidoHub.motivos." + MES.clave;
+let criterios = {};
+try { criterios = JSON.parse(localStorage.getItem(CRIT_KEY)) || {}; } catch {}
+const criterioFalta = {};
+function criterioDe(id) { return criterios[id] || ""; }
+function ponerCriterio(id, k) {
+  if (k) criterios[id] = k; else delete criterios[id];
+  try { localStorage.setItem(CRIT_KEY, JSON.stringify(criterios)); } catch {}
+}
+function motivoHtml(p) {
+  if (!MODO_CLIENTE || !acuerdoActivo()) return "";
+  const sel = criterioDe(p.id) || aprobRaw(p).k || "";
+  return `
+    <div class="motivo-fila${criterioFalta[p.id] ? " falta" : ""}">
+      <span class="motivo-lbl">Motivo</span>
+      ${Object.keys(MOTIVOS).map(k => `<button type="button" class="motivo-chip${k === sel ? " sel" : ""}${MOTIVOS[k].obliga ? "" : " sug"}" data-motivo="${k}" data-id="${p.id}" title="${esc(MOTIVOS[k].desc)}">${k}</button>`).join("")}
+      ${criterioFalta[p.id] ? `<span class="motivo-aviso">Elige Marca, Negocio o Gerencia y el ajuste se envía</span>` : sel ? `<span class="motivo-desc">${esc(MOTIVOS[sel].desc)}</span>` : ""}
+    </div>`;
+}
+function motivoBadgeHtml(a) {
+  const k = a && a.k;
+  if (!k || !MOTIVOS[k]) return "";
+  return `<span class="motivo-badge${MOTIVOS[k].obliga ? "" : " sug"}" title="${esc(MOTIVOS[k].desc)}">${k === "Sugerencia" ? "Sugerencia · tú decides" : "Motivo: " + k}</span>`;
+}
+function bloqueComentario(p) { return motivoHtml(p) + bloqueComentarioBase(p); }
+function bloqueComentarioBase(p) {
   const a = aprobDe(p);
   if (!MODO_CLIENTE) {
     // David ve el veredicto y el comentario de mercadeo como un bloque firmado;
@@ -1481,11 +1674,25 @@ function conectarComentario(cont, p, refrescar) {
     const cerrar = cont.querySelector(`[data-editar-cerrar="${p.id}"]`);
     if (cerrar) cerrar.onclick = () => { comentarioEditando[p.id] = false; save(); refrescar(); };
     if (!ta) return;
-    ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
+    ta.oninput = () => { store.aprob[p.id] = { ...aprobRaw(p), c: ta.value }; };
     ta.onchange = () => { marcarPendiente(); save(); };
     return;
   }
   const id = p.id;
+  cont.querySelectorAll(`[data-motivo][data-id="${id}"]`).forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const k = criterioDe(id) === b.dataset.motivo ? "" : b.dataset.motivo;
+    ponerCriterio(id, k);
+    const raw = store.aprob[id];
+    // Si ya había comentario o veredicto guardado, el motivo viaja de una vez
+    if (raw && (String(raw.c || "").trim() || raw.v !== "Pendiente")) {
+      store.aprob[id] = { ...raw }; if (k) store.aprob[id].k = k; else delete store.aprob[id].k;
+      save(); emitirDato(p);
+    }
+    // Intentó pedir ajuste sin motivo: al elegir uno válido, el ajuste se envía solo
+    if (criterioFalta[id] && k && MOTIVOS[k].obliga) { veredictoCliente(p, "Ajustar"); renderAll(); if (drawer.classList.contains("open")) openDrawerCliente(id); return; }
+    refrescar();
+  });
   const caja = ta ? ta.closest(".com-caja") : null;
   if (ta) ta.oninput = () => {
     // Cada letra queda en el borrador: un cambio de estado o un evento en vivo
@@ -1499,7 +1706,7 @@ function conectarComentario(cont, p, refrescar) {
   if (btnGuardar) btnGuardar.onclick = () => {
     const txt = String(ta ? ta.value : (borradorDe(id) || "")).trim();
     if (!txt) return;
-    store.aprob[id] = { ...aprobDe(p), c: txt };
+    store.aprob[id] = { ...aprobRaw(p), c: txt }; if (criterioDe(id)) store.aprob[id].k = criterioDe(id);
     quitarBorrador(id);
     comentarioEditando[id] = false;
     save();
@@ -1519,7 +1726,7 @@ function conectarComentario(cont, p, refrescar) {
   const btnBorrarSi = cont.querySelector(`[data-borrar-si="${id}"]`);
   if (btnBorrarSi) btnBorrarSi.onclick = () => {
     const anterior = String(aprobDe(p).c || "").trim();
-    store.aprob[id] = { ...aprobDe(p), c: "" };
+    store.aprob[id] = { ...aprobRaw(p), c: "" }; delete store.aprob[id].k;
     delete comentarioBorrando[id];
     quitarBorrador(id);
     save();
@@ -1533,7 +1740,7 @@ let contenidosModo = "aprobacion"; // "aprobacion" (resumen claro) | "todas" (li
 function marcarAjusteAplicado(id) {
   const p = PIEZAS.find(x => x.id === id);
   if (!p) return;
-  store.aprob[id] = { ...aprobDe(p), ok: Date.now() };
+  store.aprob[id] = { ...aprobRaw(p), ok: Date.now() };
   marcarPendiente();
   if (estadoDe(p) === "Idea") {
     store.estados[id] = "Por grabar";
@@ -1562,7 +1769,7 @@ function contenidosResumenHtml(todas) {
         <div class="cont-body">
           <div class="cont-meta">${dia.slice(0, 3)} ${num} · ${MARCAS[p.marca].nombre} · ${p.formato}</div>
           <h4>${esc(tituloDe(p))}</h4>
-          <span class="cont-estado-chip ${ESTADO_CLASS[est]}">${est}</span>
+          <div class="cont-niv"><span class="cont-estado-chip ${ESTADO_CLASS[est]}">${est}</span>${nivelChipHtml(p, { editable: true })}${plazoChipHtml(p)}</div>
         </div>
       </div>
       ${extra}
@@ -1688,6 +1895,7 @@ function renderAprobacion() {
           <div>
             <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por && mercadeoDe(p) ? ` · respondió ${esc(String(a.por))}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
+            ${acuerdoActivo() || !MODO_CLIENTE ? `<div class="cont-niv">${nivelChipHtml(p, { editable: true })}${plazoChipHtml(p)}</div>` : ""}
             <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
             ${MODO_CLIENTE ? "" : `<button class="ver-mas" data-open="${p.id}">Ver pieza completa →</button>`}
           </div>
@@ -1718,7 +1926,7 @@ function renderAprobacion() {
   el.querySelectorAll("[data-ajuste-ok]").forEach(b => b.onclick = () => marcarAjusteAplicado(b.dataset.ajusteOk));
   el.querySelectorAll("[data-ajuste-reabrir]").forEach(b => b.onclick = () => {
     const id = b.dataset.ajusteReabrir;
-    const ap = { ...aprobDe({ id }) }; delete ap.ok; store.aprob[id] = ap;
+    const ap = { ...aprobRaw({ id }) }; delete ap.ok; store.aprob[id] = ap;
     marcarPendiente(); save(); renderAll({ keep: "aprobacion" });
   });
   // Mercadeo comentó sin marcar veredicto: David decide tratarlo como ajuste
@@ -1726,12 +1934,12 @@ function renderAprobacion() {
   // marcó mercadeo en su link no se toca: solo se anota la bandera `ajuste`).
   el.querySelectorAll("[data-como-ajuste]").forEach(b => b.onclick = () => {
     const id = b.dataset.comoAjuste;
-    const ap = { ...aprobDe({ id }), ajuste: true }; delete ap.ok; store.aprob[id] = ap;
+    const ap = { ...aprobRaw({ id }), ajuste: true }; delete ap.ok; store.aprob[id] = ap;
     marcarPendiente(); save(); renderAll({ keep: "aprobacion" });
   });
   el.querySelectorAll("[data-no-ajuste]").forEach(b => b.onclick = () => {
     const id = b.dataset.noAjuste;
-    const ap = { ...aprobDe({ id }) }; delete ap.ajuste; delete ap.ok; store.aprob[id] = ap;
+    const ap = { ...aprobRaw({ id }) }; delete ap.ajuste; delete ap.ok; store.aprob[id] = ap;
     marcarPendiente(); save(); renderAll({ keep: "aprobacion" });
   });
   el.querySelectorAll("[data-estado-quick]").forEach(b => b.onclick = () => {
@@ -1754,7 +1962,7 @@ function renderAprobacion() {
     row.querySelectorAll(".aprob-pills button").forEach(b => {
       b.onclick = () => {
         if (MODO_CLIENTE) { veredictoCliente(PIEZAS.find(x => x.id === id), b.dataset.v); renderAll(); return; }
-        const prev = aprobDe({ id });
+        const prev = aprobRaw({ id });
         const ap = { ...prev, v: b.dataset.v };
         if (prev.v !== ap.v) { delete ap.ok; delete ap.ajuste; }
         store.aprob[id] = ap;
@@ -2235,6 +2443,7 @@ function openDrawer(id) {
       ${mk === "ajustar" || mk === "atendido" ? `<span class="chip ajustar${mk === "atendido" ? " atendido" : ""}">${mk === "atendido" ? "Ajuste aplicado" : `${esc(String(a.por || AUTOR_CLIENTE))} pide ajustes`}</span>` : ""}
       ${mk === "comentado" ? `<span class="chip comentado">Comentario de mercadeo</span>` : ""}
     </div>
+    ${nivelSelectorHtml(p)}
     ${mk ? `
     <div class="ajuste-banner ${mk}">
       <span class="ajuste-lbl">${icl(MERCADEO_TXT[mk].ic)} ${esc(String(a.por || AUTOR_CLIENTE))} ${mercadeoQuien(a, mk)}${mk === "aprobado" ? " · lista para producir" : ""}</span>
@@ -2324,11 +2533,11 @@ function openDrawer(id) {
   const btnAj = drawer.querySelector("#btnAjusteListo");
   if (btnAj) btnAj.onclick = () => { marcarAjusteAplicado(p.id); openDrawer(p.id); };
   const btnReabrir = drawer.querySelector("#btnAjusteReabrir");
-  if (btnReabrir) btnReabrir.onclick = () => { const ap = { ...aprobDe(p) }; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
+  if (btnReabrir) btnReabrir.onclick = () => { const ap = { ...aprobRaw(p) }; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
   const btnComo = drawer.querySelector("#btnComoAjuste");
-  if (btnComo) btnComo.onclick = () => { const ap = { ...aprobDe(p), ajuste: true }; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
+  if (btnComo) btnComo.onclick = () => { const ap = { ...aprobRaw(p), ajuste: true }; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
   const btnNoAj = drawer.querySelector("#btnNoAjuste");
-  if (btnNoAj) btnNoAj.onclick = () => { const ap = { ...aprobDe(p) }; delete ap.ajuste; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
+  if (btnNoAj) btnNoAj.onclick = () => { const ap = { ...aprobRaw(p) }; delete ap.ajuste; delete ap.ok; store.aprob[p.id] = ap; marcarPendiente(); save(); renderAll({ keep: true }); openDrawer(p.id); };
   const btnEditarCom = drawer.querySelector("#drawerEditarCom");
   if (btnEditarCom) btnEditarCom.onclick = () => { comentarioEditando[p.id] = true; openDrawer(p.id); setTimeout(() => { const t = drawer.querySelector("#drawerComment"); if (t) t.focus(); }, 50); };
   const btnListoCom = drawer.querySelector("#drawerListoCom");
@@ -2369,7 +2578,7 @@ function openDrawer(id) {
   });
   drawer.querySelectorAll("[data-aprob]").forEach(b => {
     b.onclick = () => {
-      const prev = aprobDe(p);
+      const prev = aprobRaw(p);
       const ap = { ...prev, v: b.dataset.aprob };
       if (prev.v !== ap.v) { delete ap.ok; delete ap.ajuste; }
       store.aprob[p.id] = ap;
@@ -2381,7 +2590,7 @@ function openDrawer(id) {
   });
   const ta = drawer.querySelector("#drawerComment");
   if (ta) {
-    ta.oninput = () => { store.aprob[p.id] = { ...aprobDe(p), c: ta.value }; };
+    ta.oninput = () => { store.aprob[p.id] = { ...aprobRaw(p), c: ta.value }; };
     ta.onchange = () => { marcarPendiente(); save(); };
   }
   drawer.querySelectorAll("[data-check]").forEach(cb => {
@@ -2419,6 +2628,7 @@ function openDrawerCliente(id) {
     <div class="tag-row">
       <span class="chip">${FORMATO_ICONO[p.formato] || "🎬"} ${p.formato} · ${FORMATO_DESC[p.formato] || ""}</span>
       <span class="chip estado ${ESTADO_CLASS[estadoDe(p)]}">${estadoDe(p)}</span>
+      ${acuerdoActivo() ? nivelChipHtml(p) + plazoChipHtml(p) : ""}
     </div>
 
     <section>
@@ -2838,8 +3048,8 @@ document.getElementById("main").addEventListener("click", e => {
 // ---------- Navegación (gestos estilo iOS entre secciones) ----------
 let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo aprobado por producir
 const VISTAS_ORDEN = MODO_CLIENTE
-  ? ["aprobacion", "pipeline"]
-  : ["aprobacion", "calendario", "historias", "rodaje", "feed"];
+  ? ["aprobacion", "acuerdo", "pipeline"]
+  : ["aprobacion", "acuerdo", "calendario", "historias", "rodaje", "feed"];
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;
@@ -4308,8 +4518,157 @@ function abrirEditorHistorias() {
 }
 
 // ---------- Init ----------
+// ---------- Vista: Acuerdo de revisión (David y mercadeo la ven igual) ----------
+function lunesSemana(offset) {
+  const d = new Date(); d.setHours(12, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7) + 7 * offset);
+  return d;
+}
+function paqueteSemana(offset) {
+  const lun = lunesSemana(offset), dom = new Date(lun); dom.setDate(lun.getDate() + 6);
+  const li = isoLocal(lun), di = isoLocal(dom);
+  const pl = new Date(lun); pl.setDate(lun.getDate() - 7 + (acuerdoDe().dia - 1));
+  const piezas = piezasVisibles()
+    .filter(p => { const f = fechaDe(p); return f >= li && f <= di && nivelDe(p) >= 2; })
+    .sort((a, b) => fechaDe(a).localeCompare(fechaDe(b)) || porOrden(a, b));
+  return { lunes: li, plazo: isoLocal(pl), piezas };
+}
+function revisadaPorMercadeo(p) {
+  const r = store.aprob[p.id];
+  return !!r && (r.v !== "Pendiente" || !!String(r.c || "").trim());
+}
+function estadoRevisionHtml(p) {
+  const r = store.aprob[p.id], a = aprobDe(p);
+  if (r && r.v === "Aprobado") return `<span class="rev-est ok">${icl("ok")} Aprobada</span>`;
+  if (r && r.v === "Ajustar") return `<span class="rev-est aj">${icl("ajuste")} Ajuste${r.k ? " · " + esc(r.k) : ""}</span>`;
+  if (r && String(r.c || "").trim()) return `<span class="rev-est com">${icl("coment")} Comentó${r.k ? " · " + esc(r.k) : ""}</span>`;
+  if (a.auto === "plazo") return `<span class="rev-est ok auto">${icl("reloj")} Aprobada por plazo</span>`;
+  return `<span class="rev-est pend">${icl("reloj")} Por revisar</span>`;
+}
+function mensajePaquete(paq) {
+  const L = [`*Paquete de contenidos · semana del ${plazoTexto(paq.lunes)}*`,
+    `Revisión antes del *${plazoTexto(paq.plazo)}*.`,
+    `Las piezas de nivel 2 que no alcances a revisar quedan aprobadas al vencer el plazo. Las de gerencia (nivel 3) esperan tu respuesta.`, ""];
+  paq.piezas.forEach((p, i) => {
+    const n = nivelDe(p);
+    L.push(`*${i + 1}. ${tituloDe(p)}*`, `${plazoTexto(fechaDe(p))} · ${MARCAS[p.marca].nombre} · ${p.formato} · ${NIVELES[n].corto} ${NIVELES[n].nombre}`, "");
+  });
+  L.push(`Revisa y aprueba aquí: ${ENLACE_PUBLICO}?modo=cliente`);
+  return L.join("\n");
+}
+function renderAcuerdo() {
+  const el = document.getElementById("view-acuerdo");
+  if (!el) return;
+  const ac = acuerdoDe();
+  const todas = piezasVisibles();
+  const paq = paqueteSemana(1);
+  const hechas = paq.piezas.filter(revisadaPorMercadeo).length;
+  const pct = paq.piezas.length ? Math.round(hechas / paq.piezas.length * 100) : 0;
+  const diasPlazo = diasHasta(paq.plazo);
+  const plazoTxt = diasPlazo < 0 ? "Plazo vencido" : diasPlazo === 0 ? "Vence hoy" : diasPlazo === 1 ? "Vence mañana" : `Faltan ${diasPlazo} días`;
+  const desdeTxt = ac.desde ? plazoTexto(ac.desde) : "";
+  const fila = p => {
+    const { dia, num } = fmtFecha(fechaDe(p));
+    return `
+      <button class="paq-fila" data-paq="${p.id}">
+        <span class="paq-dia">${dia.slice(0, 3)} ${num}</span>
+        <span class="paq-tit"><b>${esc(tituloDe(p))}</b><small>${MARCAS[p.marca].nombre} · ${p.formato}</small></span>
+        ${nivelChipHtml(p)}
+        ${estadoRevisionHtml(p)}
+      </button>`;
+  };
+  el.innerHTML = `
+    <div class="acu">
+      <header class="acu-head">
+        <div>
+          <p class="acu-eyebrow">Cómo revisamos los contenidos</p>
+          <h2 class="acu-tit">Acuerdo de revisión</h2>
+          <p class="acu-sub">Contenido propone y decide. Mercadeo valida la alineación comercial y trae la voz de gerencia.</p>
+        </div>
+        <div class="acu-estado">
+          <span class="acu-pill ${ac.activo ? "on" : ""}">${ac.activo ? `Activo desde el ${desdeTxt}` : "Aún no está activo"}</span>
+          ${MODO_CLIENTE ? "" : `
+            <div class="acu-ctrl">
+              <button class="btn-primary" id="acuToggle">${ac.activo ? "Pausar acuerdo" : "Activar desde hoy"}</button>
+              <label class="acu-dia">Plazo semanal
+                <select id="acuDia" class="edit-input">
+                  ${[3, 4, 5].map(d => `<option value="${d}"${d === ac.dia ? " selected" : ""}>${DIAS[d].toLowerCase()}</option>`).join("")}
+                </select>
+              </label>
+            </div>`}
+        </div>
+      </header>
+
+      <section class="acu-roles">
+        <article class="acu-card">
+          <span class="acu-num">Contenido · David</span>
+          <h3>Propone y decide</h3>
+          <p>Qué se publica, en qué formato, con qué tono y cuándo. Asigna el nivel de revisión de cada pieza y publica.</p>
+        </article>
+        <article class="acu-card">
+          <span class="acu-num">Mercadeo</span>
+          <h3>Valida y trae a gerencia</h3>
+          <p>Revisa el paquete semanal y aprueba o pide ajustes con un motivo claro. Canaliza lo que pida gerencia.</p>
+        </article>
+      </section>
+
+      <section class="acu-paq">
+        <div class="acu-paq-head">
+          <div>
+            <h3>Paquete de la semana del ${plazoTexto(paq.lunes)}</h3>
+            <p>${paq.piezas.length ? `${hechas} de ${paq.piezas.length} revisadas · revisión hasta el <b>${plazoTexto(paq.plazo)}</b>` : "Sin piezas de nivel 2 o 3 esa semana."}</p>
+          </div>
+          ${paq.piezas.length ? `<span class="acu-plazo${diasPlazo <= 1 ? " urgente" : ""}">${plazoTxt}</span>` : ""}
+        </div>
+        ${paq.piezas.length ? `<div class="acu-barra" role="progressbar" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100" aria-label="Piezas revisadas"><span style="width:${pct}%"></span></div>
+          <div class="paq-lista">${paq.piezas.map(fila).join("")}</div>`
+          : `<p class="acu-vacio">${MODO_CLIENTE ? "Cuando David arme el paquete, aquí verás las piezas por revisar." : `El hub tiene cargado ${esc(MES.titulo)}. Renueva el mes de contenidos para que el paquete se arme solo.`}</p>`}
+        <div class="acu-acc">
+          ${MODO_CLIENTE
+            ? `<button class="btn-primary" id="acuRevisar">${icl("ok")} Revisar pendientes</button>`
+            : `<a class="btn-primary" id="acuWa" href="https://wa.me/" target="_blank" rel="noopener">${icl("enviar")} Enviar paquete por WhatsApp</a>
+               <button class="btn-ghost" id="acuVer">Ver en Contenidos</button>`}
+        </div>
+      </section>
+
+      <section class="acu-niveles">
+        ${[1, 2, 3].map(n => `
+          <article class="acu-card nivel n${n}">
+            <div class="acu-niv-top"><span class="nivel-chip n${n}">${NIVELES[n].corto}</span><span class="acu-cuenta">${todas.filter(p => nivelDe(p) === n).length} este mes</span></div>
+            <h3>${NIVELES[n].nombre}</h3>
+            <p>${esc(NIVELES[n].desc)}</p>
+            <p class="acu-regla">${n === 1 ? "Se aprueban una vez como sistema, no pieza por pieza." : n === 2 ? `Si no hay respuesta al ${DIAS[ac.dia].toLowerCase()}, quedan aprobadas.` : "Esperan una respuesta explícita. Nunca se aprueban solas."}</p>
+          </article>`).join("")}
+      </section>
+
+      <section class="acu-motivos">
+        <h3>Cada ajuste dice por qué</h3>
+        <p class="acu-sub2">Un ajuste necesita un motivo. Las sugerencias son bienvenidas: David las considera y decide.</p>
+        <div class="motivo-grid">
+          ${Object.entries(MOTIVOS).map(([k, m]) => `<div class="motivo-item${m.obliga ? "" : " sug"}"><b>${k}</b><span>${esc(m.desc)}</span><em>${m.obliga ? "Pide ajuste" : "No obliga a cambiar"}</em></div>`).join("")}
+        </div>
+      </section>
+    </div>`;
+
+  el.querySelectorAll("[data-paq]").forEach(b => b.onclick = () => openDrawer(b.dataset.paq));
+  const tg = el.querySelector("#acuToggle");
+  if (tg) tg.onclick = () => {
+    if (ac.activo) { if (confirm("¿Pausar el acuerdo? Las piezas dejan de aprobarse por plazo.")) cambiarAcuerdo({ activo: false }); }
+    else cambiarAcuerdo({ activo: true, desde: ac.desde || isoLocal(new Date()) });
+  };
+  const dsel = el.querySelector("#acuDia");
+  if (dsel) dsel.onchange = () => cambiarAcuerdo({ dia: Number(dsel.value) });
+  const rev = el.querySelector("#acuRevisar");
+  if (rev) rev.onclick = () => { aprobFiltro = "Pendiente"; aprobFijas = null; renderAprobacion(); activarVista("aprobacion"); };
+  const ver = el.querySelector("#acuVer");
+  if (ver) ver.onclick = () => { contenidosModo = "aprobacion"; renderAprobacion(); activarVista("aprobacion"); };
+  const wa = el.querySelector("#acuWa");
+  if (wa) wa.addEventListener("click", function () { this.href = "https://wa.me/?text=" + encodeURIComponent(mensajePaquete(paq)); });
+}
+
 function renderAll() {
   renderCampanita();
+  renderAcuerdo();
   renderHero();
   renderCalendario();
   renderPipeline();
