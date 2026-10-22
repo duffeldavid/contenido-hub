@@ -3106,7 +3106,7 @@ function cambiarVista(dir) {
 }
 // Zonas que se desplazan horizontalmente por su cuenta (no roban el gesto),
 // más las tarjetas (su deslizado izquierdo ya significa "quitar").
-const NO_SWIPE = ".ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .cont-cols, .deck, .fx-chart, .fx-range, .fx-controles, .fx-menu";
+const NO_SWIPE = ".cf-escena, .cf-barra, .ref-rail, .mas-rail, .pipeline, .cal-mes-wrap, .cal-cols, .flujo-cols, .hoja-wrap, .fin-tabla-wrap, .phone-grid, .piece, .drawer, .pro-tipos, .hist-rail, .cont-cols, .deck, .fx-chart, .fx-range, .fx-controles, .fx-menu";
 const mainEl = document.getElementById("main");
 let swX = 0, swY = 0, swOk = false;
 mainEl.addEventListener("touchstart", e => {
@@ -4623,48 +4623,214 @@ function miniHistHtml(k, { boton = true } = {}) {
     </${boton ? "button" : "div"}>`;
 }
 
-// ---------- Vista del link de mercadeo: Historias ----------
+// ---------- Vista del link de mercadeo: Historias (carrusel) ----------
+// Carrusel de historias: la historia actual al centro y grande, las demás a
+// los lados más pequeñas. Se desliza a izquierda o derecha (dedo, flechas o
+// teclado); tocar la del centro la abre a pantalla completa.
+let rvIdx = -1;
 function renderRevHistorias() {
   const el = document.getElementById("view-revhist");
   if (!el || !MODO_CLIENTE) return;
   if (document.getElementById("storyViewer")) return; // no repintar debajo del visor
   const lista = historiasParaRevision();
   const res = resumenRev(lista);
-  const porDia = {};
-  lista.forEach(k => { (porDia[k.slice(0, 10)] = porDia[k.slice(0, 10)] || []).push(k); });
-  const primera = lista.find(k => ["pendiente", "nueva"].includes(revHist(k).estado)) || lista[0];
   const m = MARCAS[MARCA_REV_HIST];
+  const h = historiasStore();
+  if (!lista.length) {
+    el.innerHTML = `
+      <div class="cf">
+        <header class="cf-head">
+          <p class="cf-eyebrow">${m.nombre} · ${m.handle}</p>
+          <h2 class="cf-tit">Historias para revisar</h2>
+        </header>
+        <div class="rv-vacio"><b>Todo al día</b><span>No hay historias nuevas por revisar. Cuando David cargue las próximas, aparecen aquí.</span></div>
+      </div>`;
+    return;
+  }
+  if (rvIdx < 0 || rvIdx >= lista.length) {
+    const p = lista.findIndex(k => ["pendiente", "nueva"].includes(revHist(k).estado));
+    rvIdx = p >= 0 ? p : 0;
+  }
   const waTxt = encodeURIComponent(`Hola David, ya revisé las historias de Café Forestal: ${res.Aprobada} aprobadas${res.Ajustar ? ` y ${res.Ajustar} con ajuste` : ""}${res.pendiente ? `. Me faltan ${res.pendiente}` : ""}.`);
   el.innerHTML = `
-    <div class="rv">
-      <header class="rv-head">
-        <div class="rv-cuenta" style="--brand-color:${m.color}">
-          <span class="rv-avatar"><b>F</b></span>
-          <span><b>${m.nombre}</b><small>${m.handle}</small></span>
-        </div>
-        <h2 class="rv-tit">Historias para revisar</h2>
-        <p class="rv-sub">Toca una historia para verla como en Instagram. Apruébala con un toque o escríbele a David si hay que ajustar algo.</p>
+    <div class="cf">
+      <div class="cf-fondo" aria-hidden="true"></div>
+      <header class="cf-head">
+        <p class="cf-eyebrow">${m.nombre} · ${m.handle}</p>
+        <h2 class="cf-tit">Historias para revisar</h2>
+        <p class="cf-sub">Desliza para ver cada historia. Apruébala o escríbele a David si hay que ajustar algo.</p>
         <div class="rv-conteo">
           <span class="rv-pill pend">${res.pendiente} por revisar</span>
           <span class="rv-pill ok">${res.Aprobada} aprobadas</span>
           <span class="rv-pill aj">${res.Ajustar} con ajuste</span>
         </div>
-        ${lista.length ? `<div class="rv-acc">
-          <button class="btn-primary rv-empezar" id="rvEmpezar">${res.pendiente ? `Revisar ahora (${res.pendiente})` : "Ver todas"}</button>
-          <a class="btn-ghost rv-wa" href="https://wa.me/573003748788?text=${waTxt}" target="_blank" rel="noopener">${icl("enviar")} Avisar a David</a>
-        </div>` : ""}
       </header>
-      ${lista.length ? Object.keys(porDia).map(iso => `
-        <section class="rv-dia">
-          <h3>${fechaHistTxt(iso)}${iso === hoyISO() ? ` <span class="rv-hoy">hoy</span>` : ""}</h3>
-          <div class="rv-rail">${porDia[iso].map(k => miniHistHtml(k)).join("")}</div>
-        </section>`).join("")
-      : `<div class="rv-vacio"><b>Todo al día</b><span>No hay historias nuevas por revisar. Cuando David cargue las próximas, aparecen aquí.</span></div>`}
+
+      <div class="cf-guia">
+        <button class="cf-flecha izq" id="cfAntes" aria-label="Historia anterior"><svg viewBox="0 0 48 32" aria-hidden="true"><path d="M4 30V8h38M34 1l9 7-9 7"/></svg></button>
+        <span class="cf-dia" id="cfDia" aria-live="polite"></span>
+        <button class="cf-flecha der" id="cfDespues" aria-label="Historia siguiente"><svg viewBox="0 0 48 32" aria-hidden="true"><path d="M44 30V8H6M14 1 5 8l9 7"/></svg></button>
+      </div>
+
+      <div class="cf-escena" id="cfEscena">
+        ${lista.map((k, n) => {
+          const pr = h.prog[k];
+          const e = revHist(k), t = REV_TXT[e.estado];
+          const com = e.r && String(e.r.c || "").trim();
+          return `
+          <div class="cf-card rv-${t.cls}" data-n="${n}" data-k="${esc(k)}" role="group" aria-roledescription="historia" aria-label="${esc(fechaHistTxt(k.slice(0, 10)))}, ${esc(tituloHist(k))}">
+            <img src="${pr.img || pr.poster}" alt="" draggable="false">
+            <div class="cf-top">
+              <div class="sv-barras">${lista.map((x, j) => `<span class="${j <= n ? "vista" : ""}"></span>`).join("")}</div>
+              <div class="cf-cuenta">
+                <span class="sv-avatar" style="--brand-color:${m.color}"><b>F</b></span>
+                <span class="sv-quien"><b>forestalcafea</b><small>${fechaHistTxt(k.slice(0, 10), true)} · ${esc(pr.hora || "12:00")}</small></span>
+                <span class="sv-chip ${t.cls}">${t.lbl}</span>
+              </div>
+            </div>
+            ${pr.video ? `<span class="sv-video">Video · portada</span>` : ""}
+            ${com ? `<div class="sv-burbuja"><b>${esc(e.r.por || AUTOR_CLIENTE)}</b>${esc(com)}${e.estado === "nueva" ? `<small>David subió una versión nueva después de este comentario</small>` : ""}</div>` : ""}
+            <span class="cf-ampliar">Toca para ver en grande</span>
+          </div>`;
+        }).join("")}
+      </div>
+
+      <p class="cf-tema" id="cfTema"></p>
+      <form class="cf-barra" id="cfBarra" autocomplete="off">
+        <input class="sv-input" name="c" id="cfInput" placeholder="Escribe un ajuste para David…" aria-label="Comentario para David" enterkeyhint="send">
+        <button class="sv-enviar" type="submit" id="cfEnviar" aria-label="Enviar comentario" disabled>${icl("enviar")}</button>
+        <button class="sv-aprobar" type="button" id="cfAprobar">${icl("ok")} Aprobar</button>
+      </form>
+      <div class="cf-pie">
+        <span class="cf-cont" id="cfCont"></span>
+        <a class="cf-wa" href="https://wa.me/573003748788?text=${waTxt}" target="_blank" rel="noopener">${icl("enviar")} Avisar a David por WhatsApp</a>
+      </div>
     </div>`;
-  el.querySelectorAll("[data-rv]").forEach(b => b.onclick = () => abrirVisorHistorias(b.dataset.rv));
-  const emp = el.querySelector("#rvEmpezar");
-  if (emp) emp.onclick = () => abrirVisorHistorias(primera);
+
+  const escena = el.querySelector("#cfEscena");
+  const cards = [...el.querySelectorAll(".cf-card")];
+  const fondo = el.querySelector(".cf-fondo");
+  const input = el.querySelector("#cfInput"), enviar = el.querySelector("#cfEnviar"), aprobar = el.querySelector("#cfAprobar");
+
+  function colocar(arrastre = 0) {
+    cards.forEach((c, n) => {
+      const d = n - rvIdx + arrastre;
+      const a = Math.abs(d);
+      const x = a <= 1 ? 60 * d : Math.sign(d) * (60 + (a - 1) * 32);
+      const esc2 = a < 1 ? 1 - a * 0.2 : Math.max(0.56, 0.8 - (a - 1) * 0.14);
+      c.style.transform = `translateX(${x}%) scale(${esc2})`;
+      c.style.zIndex = String(100 - Math.round(a * 10));
+      c.style.opacity = a > 2.6 ? "0" : a > 1.5 ? "0.55" : "1";
+      c.classList.toggle("centro", Math.round(d) === 0);
+      c.setAttribute("aria-hidden", Math.round(d) === 0 ? "false" : "true");
+      c.tabIndex = Math.round(d) === 0 ? 0 : -1;
+    });
+  }
+  function actualizar() {
+    const k = lista[rvIdx];
+    const pr = h.prog[k];
+    const e = revHist(k);
+    fondo.style.backgroundImage = `url('${pr.img || pr.poster}')`;
+    el.querySelector("#cfDia").textContent = `${fechaHistTxt(k.slice(0, 10))} · ${pr.hora || "12:00"}`;
+    el.querySelector("#cfTema").textContent = tituloHist(k);
+    el.querySelector("#cfCont").textContent = `${rvIdx + 1} de ${lista.length}`;
+    el.querySelector("#cfAntes").disabled = rvIdx === 0;
+    el.querySelector("#cfDespues").disabled = rvIdx === lista.length - 1;
+    const ok = e.estado === "Aprobada";
+    aprobar.classList.toggle("on", ok);
+    aprobar.setAttribute("aria-pressed", String(ok));
+    aprobar.innerHTML = `${icl("ok")} ${ok ? "Aprobada" : "Aprobar"}`;
+    input.placeholder = e.estado === "Ajustar" ? "Agrega otro comentario…" : "Escribe un ajuste para David…";
+    colocar();
+  }
+  function ir(n) {
+    rvIdx = Math.max(0, Math.min(lista.length - 1, n));
+    input.value = ""; enviar.disabled = true;
+    actualizar();
+  }
+  function siguientePendiente() {
+    const j = lista.findIndex((x, n) => n > rvIdx && ["pendiente", "nueva"].includes(revHist(x).estado));
+    setTimeout(() => {
+      renderRevHistorias();
+      if (j >= 0) rvIdx = j; else if (rvIdx < lista.length - 1) rvIdx++;
+      const v = document.getElementById("view-revhist");
+      if (v && v._ir) v._ir(rvIdx);
+    }, 600);
+  }
+  el._ir = ir;
+
+  el.querySelector("#cfAntes").onclick = () => ir(rvIdx - 1);
+  el.querySelector("#cfDespues").onclick = () => ir(rvIdx + 1);
+  cards.forEach(c => c.addEventListener("click", () => {
+    if (escena._arrastro) return;
+    const n = Number(c.dataset.n);
+    if (n === rvIdx) abrirVisorHistorias(lista[n]); else ir(n);
+  }));
+  cards.forEach(c => c.addEventListener("keydown", ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); abrirVisorHistorias(lista[rvIdx]); } }));
+  // Deslizar con el dedo o arrastrar con el mouse
+  let x0 = null, y0 = 0, ancho = 1, horizontal = null;
+  escena.addEventListener("pointerdown", ev => {
+    x0 = ev.clientX; y0 = ev.clientY; horizontal = null; escena._arrastro = false;
+    ancho = (cards[rvIdx] && cards[rvIdx].offsetWidth) || 280;
+  });
+  escena.addEventListener("pointermove", ev => {
+    if (x0 === null) return;
+    const dx = ev.clientX - x0, dy = ev.clientY - y0;
+    if (horizontal === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) horizontal = Math.abs(dx) > Math.abs(dy);
+    if (!horizontal) return;
+    escena._arrastro = Math.abs(dx) > 8;
+    escena.classList.add("arrastrando");
+    try { escena.setPointerCapture(ev.pointerId); } catch {}
+    colocar(Math.max(-1.2, Math.min(1.2, dx / (ancho * 0.9))));
+  });
+  const soltar = ev => {
+    if (x0 === null) return;
+    const dx = ev.clientX - x0;
+    escena.classList.remove("arrastrando");
+    x0 = null;
+    if (horizontal && Math.abs(dx) > ancho * 0.18) ir(rvIdx + (dx < 0 ? 1 : -1));
+    else colocar();
+    setTimeout(() => { escena._arrastro = false; }, 0);
+  };
+  escena.addEventListener("pointerup", soltar);
+  escena.addEventListener("pointercancel", soltar);
+
+  input.oninput = () => { enviar.disabled = !input.value.trim(); };
+  el.querySelector("#cfBarra").onsubmit = ev => {
+    ev.preventDefault();
+    const k = lista[rvIdx];
+    const c = input.value.trim();
+    if (!c) return;
+    const prev = (store.hrev || {})[k];
+    const total = prev && prev.v === "Ajustar" && prev.c && revHist(k).estado !== "nueva" ? `${prev.c}\n${c}` : c;
+    guardarRevHist(k, "Ajustar", total);
+    toastVivo("Comentario enviado a David");
+    input.blur();
+    siguientePendiente();
+  };
+  aprobar.onclick = () => {
+    const k = lista[rvIdx];
+    if (revHist(k).estado === "Aprobada") {
+      guardarRevHist(k, null);
+      toastVivo("Aprobación quitada");
+      const n = rvIdx; renderRevHistorias(); const v = document.getElementById("view-revhist"); if (v && v._ir) v._ir(n);
+      return;
+    }
+    guardarRevHist(k, "Aprobada", "");
+    toastVivo("Historia aprobada");
+    siguientePendiente();
+  };
+  actualizar();
 }
+// Flechas del teclado en la vista de historias (link de mercadeo)
+document.addEventListener("keydown", ev => {
+  if (!MODO_CLIENTE || vistaActiva !== "revhist" || document.getElementById("storyViewer")) return;
+  if (ev.target && ev.target.matches && ev.target.matches("input, textarea, select")) return;
+  const v = document.getElementById("view-revhist");
+  if (!v || !v._ir) return;
+  if (ev.key === "ArrowRight") { ev.preventDefault(); ev.stopPropagation(); v._ir(rvIdx + 1); }
+  if (ev.key === "ArrowLeft") { ev.preventDefault(); ev.stopPropagation(); v._ir(rvIdx - 1); }
+}, true);
 
 // ---------- Visor a pantalla completa (estilo historias de Instagram) ----------
 function abrirVisorHistorias(kInicial) {

@@ -41,7 +41,7 @@ La primera pestaña es **Contenidos**. Para David tiene dos modos: **Aprobación
 
 ## Revisión de historias (link de mercadeo)
 
-El link `?modo=cliente` abre directo en **Historias**: las historias de Café Forestal con imagen (o portada de video), de hoy en adelante, en tarjetas 9:16. Al tocar una se abre un visor tipo Instagram (barras de progreso, tocar a los lados o deslizar para avanzar, deslizar hacia abajo para cerrar). Abajo: **Aprobar** con un toque (otro toque la quita) o escribir un comentario y enviarlo (queda como *Ajuste pedido*). Tras responder pasa sola a la siguiente por revisar.
+El link `?modo=cliente` abre directo en **Historias**: un carrusel con la historia actual grande al centro y las demás a los lados (deslizar, flechas o teclado), con aprobar y comentar debajo. Las historias son las de Café Forestal con imagen (o portada de video), de hoy en adelante. Al tocar una se abre un visor tipo Instagram (barras de progreso, tocar a los lados o deslizar para avanzar, deslizar hacia abajo para cerrar). Abajo: **Aprobar** con un toque (otro toque la quita) o escribir un comentario y enviarlo (queda como *Ajuste pedido*). Tras responder pasa sola a la siguiente por revisar.
 
 - David carga la imagen en su pestaña Historias y toca **Enviar a revisión** (guarda el estado y abre WhatsApp con el link). **Ver como mercadeo** abre el mismo visor.
 - Cada tarjeta de Forestal muestra el estado (Por revisar / Aprobada / Ajuste pedido / Versión nueva) y la ficha muestra el comentario.

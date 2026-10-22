@@ -2679,3 +2679,83 @@ body.sv-abierto .toast-live { z-index: 1300; }
 .hist-rev-banner { margin-top: 14px; padding: 12px 14px; border-radius: 14px; border-left: 4px solid var(--ring, #E9C46A); background: rgba(255,255,255,.06); }
 .hist-rev-banner b { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; }
 .hist-rev-banner p { margin-top: 4px; font-size: 14px; white-space: pre-wrap; }
+
+/* ═══════════ HISTORIAS · CARRUSEL (link de mercadeo) ═══════════ */
+.cf {
+  position: relative; isolation: isolate; overflow: hidden;
+  margin: -28px -24px 0; padding: 44px 24px 130px; border-radius: 28px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center; color: #fff;
+}
+.cf-fondo {
+  position: absolute; inset: -60px; z-index: -1;
+  background-color: #1d2a20; background-size: cover; background-position: center;
+  filter: blur(46px) saturate(1.2) brightness(.55); transform: scale(1.1);
+  transition: background-image .4s ease;
+}
+.cf::before { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(rgba(14,22,16,.45), rgba(14,22,16,.2) 40%, rgba(14,22,16,.55)); }
+.cf-head { display: flex; flex-direction: column; align-items: center; gap: 10px; max-width: 640px; }
+.cf-eyebrow { font-size: 12px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: rgba(255,255,255,.75); }
+.cf-tit { font-family: var(--font-head); font-weight: 700; font-size: clamp(32px, 5vw, 52px); line-height: .98; letter-spacing: -.02em; text-wrap: balance; text-shadow: 0 2px 20px rgba(0,0,0,.35); }
+.cf-sub { font-size: 16px; color: rgba(255,255,255,.88); max-width: 40ch; }
+.cf .rv-conteo { justify-content: center; }
+.cf-guia { display: flex; align-items: flex-end; justify-content: center; gap: 10px; margin-top: 10px; width: 100%; max-width: 620px; }
+.cf-dia {
+  background: #fff; color: #211C16; border-radius: 999px; padding: 11px 24px;
+  font-family: var(--font-head); font-size: 17px; font-weight: 600; white-space: nowrap;
+  box-shadow: 0 10px 30px -12px rgba(0,0,0,.5);
+}
+.cf-flecha { width: 64px; height: 44px; border: 0; background: transparent; cursor: pointer; padding: 0; flex: none; }
+.cf-flecha svg { width: 56px; height: 38px; fill: none; stroke: #fff; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s ease, opacity .2s; }
+.cf-flecha:hover:not(:disabled) svg { opacity: .8; }
+.cf-flecha:disabled { opacity: .25; cursor: default; }
+.cf-escena {
+  position: relative; width: 100%; height: clamp(340px, calc(100vh - 500px), 600px); margin-top: 6px;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; cursor: grab;
+  --card-w: calc(clamp(340px, calc(100vh - 500px), 600px) * 9 / 16);
+}
+.cf-escena.arrastrando { cursor: grabbing; }
+.cf-card {
+  position: absolute; top: 0; left: 50%; width: var(--card-w); margin-left: calc(var(--card-w) / -2);
+  aspect-ratio: 9 / 16; border-radius: 20px; overflow: hidden; background: #000;
+  box-shadow: 0 30px 60px -24px rgba(0,0,0,.75);
+  transition: transform .42s cubic-bezier(.32,.72,.28,1), opacity .3s ease, filter .3s ease;
+  filter: brightness(.7) saturate(.9); cursor: pointer;
+}
+.cf-escena.arrastrando .cf-card { transition: none; }
+.cf-card.centro { filter: none; box-shadow: 0 0 0 3px var(--ring, transparent), 0 34px 70px -24px rgba(0,0,0,.85); }
+.cf-card img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; pointer-events: none; }
+.cf-top { position: absolute; left: 0; right: 0; top: 0; padding: 12px 12px 34px; background: linear-gradient(rgba(0,0,0,.55), transparent); text-align: left; }
+.cf-card:not(.centro) .cf-top .sv-barras, .cf-card:not(.centro) .sv-chip, .cf-card:not(.centro) .sv-burbuja, .cf-card:not(.centro) .cf-ampliar { opacity: 0; }
+.cf-cuenta { display: flex; align-items: center; gap: 9px; color: #fff; }
+.cf-card .sv-burbuja { bottom: 64px; text-align: left; transition: opacity .3s; }
+.cf-ampliar {
+  position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+  background: rgba(255,255,255,.94); color: #211C16; border-radius: 999px; padding: 8px 16px;
+  font-size: 13px; font-weight: 700; white-space: nowrap; transition: opacity .3s; box-shadow: 0 8px 20px -8px rgba(0,0,0,.6);
+}
+.cf-tema { font-size: 14.5px; font-weight: 600; color: rgba(255,255,255,.92); max-width: 40ch; min-height: 1.4em; margin-top: 4px; }
+.cf-barra { display: flex; gap: 8px; align-items: center; width: min(520px, 100%); }
+.cf-barra .sv-input { background: rgba(0,0,0,.18); }
+.cf-pie { display: flex; gap: 16px; align-items: center; justify-content: center; flex-wrap: wrap; font-size: 13px; color: rgba(255,255,255,.8); }
+.cf-cont { font-variant-numeric: tabular-nums; font-weight: 600; }
+.cf-wa { display: inline-flex; align-items: center; gap: 6px; color: #fff; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
+.cf-wa .icl { width: 14px; height: 14px; }
+@media (max-width: 640px) {
+  .cf { margin: -22px -14px 0; padding: 30px 14px 120px; gap: 14px; }
+  .cf-sub { font-size: 14.5px; }
+  .cf { border-radius: 0; }
+  .cf-tit { font-size: 34px; }
+  .cf-sub { display: none; }
+  .cf-escena { height: clamp(300px, calc(100dvh - 450px), 520px); --card-w: calc(clamp(300px, calc(100dvh - 450px), 520px) * 9 / 16); }
+  .cf-card { border-radius: 14px; }
+  .cf-card .sv-burbuja { bottom: 52px; font-size: 12.5px; }
+  .cf-ampliar { font-size: 11.5px; padding: 6px 12px; bottom: 12px; }
+  .cf-top { padding: 9px 9px 26px; }
+  .cf-cuenta .sv-avatar { width: 26px; height: 26px; font-size: 12px; }
+  .cf-cuenta .sv-quien b { font-size: 12px; }
+  .cf-cuenta .sv-quien small, .cf-cuenta .sv-chip { font-size: 10px; }
+  .cf-dia { font-size: 15px; padding: 9px 18px; }
+  .cf-flecha { width: 48px; }
+  .cf-flecha svg { width: 44px; height: 30px; }
+}
+@media (prefers-reduced-motion: reduce) { .cf-card { transition: none; } }
