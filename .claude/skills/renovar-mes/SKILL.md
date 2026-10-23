@@ -23,6 +23,7 @@ Genera el calendario del mes que David indique (si no lo indica, el mes siguient
 4. **Escribe cada pieza** con el formato de `data.js`: id (`f-MMDD`/`m-MMDD`), copy accionable (qué grabar, hook sugerido, equipo), `checklist` de 4 pasos, `gear` (usar los presets `GEAR`), `refs` (búsquedas de Pinterest/TikTok relevantes).
 
 5. **Actualiza** `MES` (titulo, clave) y las piezas en `data.js`. No toques `referentes.js` salvo que David pida refrescar referentes.
+   Si el periodo arranca antes del 1.º (cerrar lo que queda del mes en curso), agrega `desde: "AAAA-MM-DD"` a `MES`: la cuadrícula del Planificador, los selectores de fecha y las piezas nuevas toman el periodo desde ese día; `clave` es el mes final.
 
 6. **Sincroniza con Notion**: crea las páginas nuevas en las bases "Calendario Forestal" (collection://1fabd923-a0c8-4f7e-aa31-8b9db162fbfb) y "Calendario Manzanares" (collection://8025589e-72b2-4318-bd90-d9ac54edf01a) con las mismas propiedades, y actualiza los enlaces `notion` de cada pieza en data.js.
 

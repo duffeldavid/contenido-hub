@@ -41,6 +41,9 @@ let store = load();
 function load() {
   let ls = null, emb = null;
   try { ls = JSON.parse(localStorage.getItem(LS_KEY)); } catch {}
+  // Mes renovado: sin avance con la clave nueva, se arranca del último mes
+  // guardado en este navegador (historias, aprobaciones y cambios sin guardar).
+  if (!ls) ls = avanceAnterior();
   const el = document.getElementById("hub-state");
   if (el) { try { emb = JSON.parse(el.textContent); } catch {} }
   const candidatos = [ls, emb].filter(x => x && typeof x === "object");
@@ -58,6 +61,18 @@ function load() {
     pubTs: s.pubTs || 0, pendientePub: !!s.pendientePub,
     updatedAt: s.updatedAt || 0,
   };
+}
+function avanceAnterior() {
+  let mejor = null;
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k === LS_KEY || !/^contenidoHub\.\d{4}-\d{2}$/.test(k)) continue;
+      const s = JSON.parse(localStorage.getItem(k));
+      if (s && typeof s === "object" && (!mejor || (s.updatedAt || 0) > (mejor.updatedAt || 0))) mejor = s;
+    }
+  } catch {}
+  return mejor;
 }
 function save() {
   store.updatedAt = Date.now();
@@ -87,7 +102,7 @@ window.addEventListener("pagehide", () => {
 });
 function notiAprobacion(p, valor) {
   const icono = valor === "Aprobado" ? "✅" : valor === "Ajustar" ? "✏️" : "⏳";
-  notificarDavid(`${icono} ${fechaDe(p).slice(8)}/09 · ${MARCAS[p.marca].nombre} · ${tituloDe(p)} → ${valor}`);
+  notificarDavid(`${icono} ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${MARCAS[p.marca].nombre} · ${tituloDe(p)} → ${valor}`);
 }
 function notiComentario(p, texto) {
   if (texto.trim()) notificarDavid(`💬 ${tituloDe(p)}: "${texto.trim().slice(0, 200)}"`);
@@ -793,13 +808,14 @@ function conceptoDe(p) { return (store.ediciones[p.id] || {}).copy || p.concepto
 function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
 // Todas las fechas L-M-V del mes (los "espacios" fijos del calendario)
 const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
-// Nombre del mes en minúscula ("Septiembre 2026" → "septiembre")
-const MES_NOMBRE = (MES.titulo.split(" ")[0] || "").toLowerCase();
-// Todos los días del mes (para organizar contenidos en cualquier fecha)
+// Todos los días del mes (para organizar contenidos en cualquier fecha).
+// Si el periodo arranca en el mes anterior (MES.desde), empieza ese día.
 function fechasDelMes() {
   const [y, m] = MES.clave.split("-").map(Number);
-  const total = new Date(y, m, 0).getDate();
-  return Array.from({ length: total }, (_, i) => `${MES.clave}-${String(i + 1).padStart(2, "0")}`);
+  const d = new Date(`${MES.desde || MES.clave + "-01"}T12:00:00`), fin = new Date(y, m, 0, 12);
+  const dias = [];
+  for (; d <= fin; d.setDate(d.getDate() + 1)) dias.push(isoDe(d));
+  return dias;
 }
 // Festivos oficiales de Colombia + celebraciones que mueven contenido
 const FESTIVOS_CO = {
@@ -824,6 +840,8 @@ const FESTIVOS_CO = {
   "2026-09-19": { n: "Amor y Amistad", t: "celebracion" },
   "2026-10-01": { n: "Día Internacional del Café", t: "celebracion" },
   "2026-10-31": { n: "Halloween", t: "celebracion" },
+  "2026-11-27": { n: "Black Friday", t: "celebracion" },
+  "2026-11-30": { n: "Cyber Monday", t: "celebracion" },
   "2026-12-07": { n: "Día de las Velitas", t: "celebracion" },
   "2026-12-24": { n: "Nochebuena", t: "celebracion" },
 };
@@ -838,8 +856,10 @@ function hidratarNuevas() {
   for (let i = PIEZAS.length - 1; i >= 0; i--) {
     if (PIEZAS[i].id.startsWith("n-") && !store.nuevas.some(n => n.id === PIEZAS[i].id)) PIEZAS.splice(i, 1);
   }
+  const inicio = fechasDelMes()[0];
   for (const n of store.nuevas) {
     if (PIEZAS.some(p => p.id === n.id)) continue;
+    if ((store.fechas[n.id] || n.fecha) < inicio) continue;
     PIEZAS.push({
       id: n.id, marca: n.marca, fecha: n.fecha,
       titulo: n.titulo, formato: n.formato || "Reel",
@@ -895,10 +915,11 @@ function piezasVisibles() {
 }
 
 // ---------- Helpers ----------
+const MESES_LARGO = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 function fmtFecha(iso) {
   const [y, m, d] = iso.split("-").map(Number);
   const date = new Date(y, m - 1, d);
-  return { dia: DIAS[date.getDay()], num: d, date };
+  return { dia: DIAS[date.getDay()], num: d, mes: MESES_LARGO[m - 1], date };
 }
 function hoyISO() {
   const n = new Date();
@@ -1071,7 +1092,7 @@ let calModo = "semanas"; // "mes" | "semanas" | "dias" | "flujo" — Semanas (L�
 let calFiltro = "todas"; // "todas" | "aprobadas" | "programadas"
 
 function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
-  const { dia, num } = fmtFecha(f);
+  const { dia, num, mes } = fmtFecha(f);
   const esHoy = f === hoy;
   const fest = FESTIVOS_CO[f];
   const grupo = (porFecha[f] || []).sort(porOrden);
@@ -1079,7 +1100,7 @@ function bloqueDia(f, porFecha, hoy, { conDia = true } = {}) {
     <div class="cal-day" data-fecha="${f}">
       <div class="cal-day-head ${esHoy ? "today" : ""}">
         ${conDia ? `<span class="cal-day-name">${dia}</span>` : ""}
-        <span class="cal-day-date">${num} de ${MES_NOMBRE}</span>
+        <span class="cal-day-date">${num} de ${mes}</span>
         ${esHoy ? `<span class="today-chip">Hoy</span>` : ""}
         ${fest ? `<span class="mes-fest ${fest.t}">${esc(fest.n)}</span>` : ""}
       </div>
@@ -1209,19 +1230,18 @@ function renderCalendario() {
     // Cuadrícula del mes completo (estilo Google Calendar): cada día es un
     // destino de arrastre, con los festivos marcados.
     const dias = fechasDelMes();
-    const [y, m] = MES.clave.split("-").map(Number);
-    const offset = (new Date(y, m - 1, 1).getDay() + 6) % 7; // columnas desde lunes
+    const offset = (fmtFecha(dias[0]).date.getDay() + 6) % 7; // columnas desde lunes
     html += `<div class="cal-mes-wrap"><div class="cal-mes">`;
     ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].forEach(d => { html += `<div class="mes-head">${d}</div>`; });
     for (let i = 0; i < offset; i++) html += `<div class="mes-celda vacia"></div>`;
-    dias.forEach(f => {
+    dias.forEach((f, i) => {
       const fest = FESTIVOS_CO[f];
       const grupo = (porFecha[f] || []).filter(filtroFn).sort(porOrden);
-      const col = (offset + Number(f.slice(8)) - 1) % 7;
+      const col = (offset + i) % 7;
       html += `
         <div class="mes-celda cal-day ${f === hoy ? "hoy" : ""} ${col >= 5 ? "finde" : ""} ${fest ? "con-" + fest.t : ""}" data-fecha="${f}">
           <div class="mes-celda-top">
-            <span class="mes-num">${Number(f.slice(8))}</span>
+            <span class="mes-num">${Number(f.slice(8))}${MES.desde && (i === 0 || f.endsWith("-01")) ? ` ${fmtFecha(f).mes.slice(0, 3)}` : ""}</span>
             ${fest ? `<span class="mes-fest ${fest.t}">${esc(fest.n)}</span>` : ""}
           </div>
           ${grupo.map(chipPieza).join("")}
@@ -1547,7 +1567,7 @@ function renderFeed() {
                   : `<img src="${IMG((p.fotos || [])[0] || "")}" alt="" loading="lazy">
                      <span class="cell-grad"></span>
                      <span class="cell-tit-over">${esc(tituloDe(p))}</span>`}
-                <span class="cell-date">${d} sep</span>
+                <span class="cell-date">${d} ${fmtFecha(fechaDe(p)).mes.slice(0, 3)}</span>
                 <span class="cell-hint">${img ? "Toca para abrir" : "Referencia · toca para abrir y subir tu portada"}</span>
               </button>`;
           }).join("")}
@@ -1914,7 +1934,7 @@ function renderAprobacion() {
         <div class="aprob-info">
           ${coverHtml(p, "cover-thumb")}
           <div>
-            <div class="fecha">${dia} ${num} sep · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por && mercadeoDe(p) ? ` · respondió ${esc(String(a.por))}` : ""}</div>
+            <div class="fecha">${dia} ${num} ${fmtFecha(fechaDe(p)).mes.slice(0, 3)} · ${MARCAS[p.marca].nombre} · ${p.formato}${!MODO_CLIENTE && a.por && mercadeoDe(p) ? ` · respondió ${esc(String(a.por))}` : ""}</div>
             <h4>${esc(tituloDe(p))}</h4>
             ${acuerdoActivo() || !MODO_CLIENTE ? `<div class="cont-niv">${nivelChipHtml(p, { editable: true })}${plazoChipHtml(p)}</div>` : ""}
             <div class="copy">${esc(MODO_CLIENTE ? conceptoDe(p) : copyDe(p))}</div>
@@ -2043,7 +2063,7 @@ function renderAprobacion() {
       const L = ["¡Hola! Estos son los comentarios de los contenidos:", ""];
       for (const p of revisadas) {
         const a = aprobDe(p);
-        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)} — *${a.v}*${a.c ? `\n💬 "${a.c}"` : ""}`);
+        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${tituloDe(p)} — *${a.v}*${a.c ? `\n💬 "${a.c}"` : ""}`);
       }
       if (!revisadas.length) L.push("(Aún no he revisado piezas)");
       if (pendientes.length) L.push("", `Me quedan ${pendientes.length} por revisar.`);
@@ -2061,7 +2081,7 @@ function renderAprobacion() {
         const com = String(aprobDe(p).c || "").trim();
         L.push("",
           `*${i + 1}️⃣  ${tituloDe(p)}*`,
-          `${f.dia} ${f.num}/09 · ${MARCAS[p.marca].nombre} · ${p.formato} ${FORMATO_ICONO[p.formato] || ""}`,
+          `${f.dia} ${f.num}/${fechaDe(p).slice(5, 7)} · ${MARCAS[p.marca].nombre} · ${p.formato} ${FORMATO_ICONO[p.formato] || ""}`,
           `💡 ${concepto}`);
         if (com) L.push(`💬 Tu comentario: "${com}"`);
       });
@@ -2070,7 +2090,7 @@ function renderAprobacion() {
       L.push("", `— — —`, `*Ya revisadas (${revisadas.length}):*`);
       for (const p of revisadas) {
         const a = aprobDe(p);
-        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/09 · ${tituloDe(p)}${a.c ? ` — 💬 ${a.c}` : ""}${mercadeoDe(p) === "atendido" ? " · ajuste aplicado" : ""}`);
+        L.push(`${a.v === "Aprobado" ? "✅" : "✏️"} ${fechaDe(p).slice(8)}/${fechaDe(p).slice(5, 7)} · ${tituloDe(p)}${a.c ? ` — 💬 ${a.c}` : ""}${mercadeoDe(p) === "atendido" ? " · ajuste aplicado" : ""}`);
       }
     }
     L.push("", `👀 Revísalo y aprueba aquí (se abre en cualquier celular): ${ENLACE_PUBLICO}?modo=cliente`);
@@ -2266,7 +2286,7 @@ function construirPdf() {
 
       if (img) { try { doc.addImage(img, "JPEG", M, y, 22, 29); } catch {} }
       doc.setFont("helvetica", "bold").setFontSize(9).setTextColor(...rgb);
-      doc.text(`${f.dia} ${f.num} de septiembre  ·  ${MARCAS[p.marca].nombre}  ·  ${p.formato}`, xTexto, y + 3.5);
+      doc.text(`${f.dia} ${f.num} de ${f.mes}  ·  ${MARCAS[p.marca].nombre}  ·  ${p.formato}`, xTexto, y + 3.5);
       doc.setFontSize(12.5).setTextColor(...PDF_COLORES.ink);
       doc.text(titulo, xTexto, y + 10);
       doc.setFont("helvetica", "normal").setFontSize(10).setTextColor(...PDF_COLORES.suave);
@@ -2456,7 +2476,7 @@ function openDrawer(id) {
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
     <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${brandTint(p)}">${m.nombre} · ${m.handle}</span>
     <h2>${esc(tituloDe(p))}</h2>
-    <div class="sub">${dia} ${num} de septiembre · ${p.formato}${p.reencauche ? " · Reencauche" : ""}${editadaDe(p) ? " · Editada" : ""}</div>
+    <div class="sub">${dia} ${num} de ${fmtFecha(fechaDe(p)).mes} · ${p.formato}${p.reencauche ? " · Reencauche" : ""}${editadaDe(p) ? " · Editada" : ""}</div>
     <div class="tag-row">
       <span class="chip">${esc(p.mensaje)}</span>
       <span class="chip">${esc(p.tono)}</span>
@@ -2508,7 +2528,7 @@ function openDrawer(id) {
         ${fechasDelMes().map(f => {
           const d = fmtFecha(f);
           const fest = FESTIVOS_CO[f];
-          return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de ${MES_NOMBRE}${fest ? ` · ${fest.n}` : ""}</option>`;
+          return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de ${d.mes}${fest ? ` · ${fest.n}` : ""}</option>`;
         }).join("")}
       </select>
     </section>
@@ -2645,7 +2665,7 @@ function openDrawerCliente(id) {
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
     <span class="chip brand" style="--brand-color:${m.color};--brand-tint:${brandTint(p)}">${m.nombre} · ${m.handle}</span>
     <h2>${esc(tituloDe(p))}</h2>
-    <div class="sub">Se publica el ${dia.toLowerCase()} ${num} de septiembre</div>
+    <div class="sub">Se publica el ${dia.toLowerCase()} ${num} de ${fmtFecha(fechaDe(p)).mes}</div>
     <div class="tag-row">
       <span class="chip">${FORMATO_ICONO[p.formato] || "🎬"} ${p.formato} · ${FORMATO_DESC[p.formato] || ""}</span>
       <span class="chip estado ${ESTADO_CLASS[estadoDe(p)]}">${estadoDe(p)}</span>
@@ -2758,7 +2778,7 @@ function openPublicar(id) {
         <select id="pubFecha" class="edit-input">
           ${fechasDelMes().map(f => {
             const d = fmtFecha(f);
-            return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de ${MES_NOMBRE}</option>`;
+            return `<option value="${f}" ${f === fechaDe(p) ? "selected" : ""}>${d.dia} ${d.num} de ${d.mes}</option>`;
           }).join("")}
         </select>
         <input type="time" id="pubHora" class="edit-input" value="${horaDe(p)}">
@@ -2857,12 +2877,12 @@ function openPublicar(id) {
 
 // ---------- Crear contenido nuevo (solo David) + ideas ----------
 function abrirCreador(fecha) {
-  const { dia, num } = fmtFecha(fecha);
+  const { dia, num, mes } = fmtFecha(fecha);
   const marcaIni = marcaActiva !== "todas" ? marcaActiva : "forestal";
   drawer.innerHTML = `
     <button class="close-btn" id="drawerClose" aria-label="Cerrar">✕</button>
     <h2>Nuevo contenido</h2>
-    <div class="sub">Se publicará el ${dia.toLowerCase()} ${num} de septiembre</div>
+    <div class="sub">Se publicará el ${dia.toLowerCase()} ${num} de ${mes}</div>
     <section>
       <h4>Marca</h4>
       <div class="aprob-pills" id="creadorMarca">
@@ -2921,7 +2941,7 @@ function abrirCreador(fecha) {
     emitirContenido({ tipo: "nueva", pieza: nueva });
     closeDrawer();
     renderAll();
-    toastVivo(`➕ Agregado al ${num} de septiembre: ${titulo}`);
+    toastVivo(`➕ Agregado al ${num} de ${mes}: ${titulo}`);
   };
 }
 
