@@ -3071,6 +3071,186 @@ let vistaActiva = "aprobacion"; // Contenidos primero: lo que pide mercadeo y lo
 const VISTAS_ORDEN = MODO_CLIENTE
   ? ["revhist", "aprobacion", "pipeline"]
   : ["aprobacion", "calendario", "historias", "rodaje", "feed"];
+// ═══════════ MOVIMIENTO · lenguaje Duff Studio (estilo Awwwards) ═══════════
+// Curvas expo, entradas escalonadas, slider con foco al centro y cursor con
+// etiqueta. Todo se apaga con "reducir movimiento" del sistema.
+const MOV_REDUCIDO = matchMedia("(prefers-reduced-motion: reduce)");
+// Al ENTRAR a una sección sus bloques suben escalonados y las tarjetas
+// visibles aparecen en cascada. Los repintados por sincronización no animan.
+const REVELA_SEL = ".hs-item, .cont-card, .piece, .cell, .aprob-row, .phone, .ref-slide, .tactic-card, .cf-card";
+function revelarVista(el) {
+  if (!el || MOV_REDUCIDO.matches || MODO_CLIENTE) return; // el link de mercadeo se queda como estaba
+  clearTimeout(el._animT);
+  el.querySelectorAll(".rv").forEach(n => n.classList.remove("rv"));
+  el.classList.remove("anim"); void el.offsetWidth; el.classList.add("anim");
+  el._animT0 = performance.now();
+  el.style.setProperty("--anim-t", "0ms");
+  const vh = innerHeight, vw = innerWidth;
+  let i = 0;
+  el.querySelectorAll(REVELA_SEL).forEach(n => {
+    if (i >= 16 || (n.parentElement && n.parentElement.closest(".rv"))) return;
+    const r = n.getBoundingClientRect();
+    if (r.width && r.top < vh && r.bottom > 0 && r.left < vw && r.right > 0) { n.style.setProperty("--rv", i++); n.classList.add("rv"); }
+  });
+  el._animT = setTimeout(() => {
+    el.classList.remove("anim");
+    el.querySelectorAll(".rv").forEach(n => n.classList.remove("rv"));
+  }, 2200);
+}
+
+// Si llegan datos (sincronización) mientras una sección entra, lo repintado
+// sigue la animación donde iba en vez de empezarla de cero.
+function continuarEntradas() {
+  document.querySelectorAll(".view.anim, .hero.entra").forEach(el => {
+    if (el._animT0) el.style.setProperty("--anim-t", Math.round(performance.now() - el._animT0) + "ms");
+  });
+}
+// El héroe de Contenidos (Home): titular con máscara y cifras en cascada
+function animarHero() {
+  const h = document.getElementById("hero");
+  if (!h || MOV_REDUCIDO.matches || MODO_CLIENTE) return;
+  clearTimeout(h._animT);
+  h.classList.remove("entra"); void h.offsetWidth; h.classList.add("entra");
+  h._animT0 = performance.now();
+  h.style.setProperty("--anim-t", "0ms");
+  h._animT = setTimeout(() => h.classList.remove("entra"), 2200);
+}
+
+// Slider de Historias: la historia del centro queda en foco (grande y
+// encendida), las de los lados se alejan; la imagen hace parallax dentro de
+// su marco. Desplazamiento libre (sin imán, regla del trackpad); con mouse
+// se arrastra con inercia. Contador y línea de avance abajo.
+let sliderActual = null;
+function activarSliderHist(rail) {
+  const items = [...rail.querySelectorAll(".hs-item")];
+  const caja = rail.closest(".hist-marca");
+  const actual = caja && caja.querySelector(".hp-actual");
+  const fill = caja && caja.querySelector(".hp-fill");
+  let centros = [], tick = 0;
+  const medir = () => { centros = items.map(it => it.offsetLeft + it.offsetWidth / 2); };
+  const pintar = () => {
+    tick = 0;
+    if (!rail.clientWidth) return;
+    const mitad = rail.clientWidth / 2, x = rail.scrollLeft + mitad;
+    let mejor = -1, dmin = Infinity;
+    items.forEach((it, i) => {
+      const d = Math.max(-1.6, Math.min(1.6, (centros[i] - x) / mitad));
+      it.style.setProperty("--d", d.toFixed(3));
+      it.style.setProperty("--a", Math.min(1, Math.abs(d)).toFixed(3));
+      if (Math.abs(d) < dmin) { dmin = Math.abs(d); mejor = i; }
+    });
+    items.forEach((it, i) => it.classList.toggle("foco", i === mejor));
+    const max = rail.scrollWidth - rail.clientWidth;
+    if (fill) fill.style.transform = `scaleX(${max > 0 ? Math.min(1, Math.max(0, rail.scrollLeft / max)) : 1})`;
+    if (actual && mejor >= 0) actual.textContent = String(mejor + 1).padStart(2, "0");
+  };
+  rail.addEventListener("scroll", () => {
+    if (rail.clientWidth) histScrollMem = rail.scrollLeft;
+    if (!tick) tick = requestAnimationFrame(pintar);
+  }, { passive: true });
+
+  // Arrastrar con el mouse (el trackpad y el dedo ya desplazan nativo)
+  let abajo = false, movido = false, x0 = 0, s0 = 0, vx = 0, ux = 0, ut = 0, inercia = 0;
+  rail.addEventListener("pointerdown", e => {
+    if (e.pointerType !== "mouse" || e.button !== 0) return;
+    if (e.target.closest("button, input, textarea, a, .hist-check")) return;
+    abajo = true; movido = false; x0 = ux = e.clientX; s0 = rail.scrollLeft; vx = 0; ut = performance.now();
+    cancelAnimationFrame(inercia);
+  });
+  rail.addEventListener("pointermove", e => {
+    if (!abajo) return;
+    if (!(e.buttons & 1)) { abajo = false; return; }
+    const dx = e.clientX - x0;
+    if (!movido) {
+      if (Math.abs(dx) < 6) return;
+      movido = true; rail.classList.add("arrastrando");
+      try { rail.setPointerCapture(e.pointerId); } catch {}
+    }
+    rail.scrollLeft = s0 - dx;
+    const t = performance.now();
+    vx = (e.clientX - ux) / Math.max(1, t - ut); ux = e.clientX; ut = t;
+  });
+  const soltar = () => {
+    if (!abajo) return;
+    abajo = false;
+    if (!movido) return;
+    rail.classList.remove("arrastrando");
+    rail._arrastreTs = performance.now();
+    let v = -vx * 16;
+    const paso = () => { if (Math.abs(v) < .5) return; rail.scrollLeft += v; v *= .95; inercia = requestAnimationFrame(paso); };
+    inercia = requestAnimationFrame(paso);
+  };
+  rail.addEventListener("pointerup", soltar);
+  rail.addEventListener("pointercancel", soltar);
+  // Un arrastre nunca abre la historia sobre la que se soltó
+  rail.addEventListener("click", e => {
+    if (performance.now() - (rail._arrastreTs || 0) < 320) { e.stopPropagation(); e.preventDefault(); }
+  }, true);
+
+  sliderActual = { rail, medir, pintar };
+  medir(); pintar();
+}
+// Coloca el slider: centra hoy (semana o marca nueva) o vuelve a donde ibas.
+// Solo funciona con la vista visible (oculta no tiene medidas).
+function posicionarSlider() {
+  const s = sliderActual;
+  if (!s || !s.rail.isConnected || !s.rail.clientWidth) return;
+  if (histCentrarPend) {
+    histCentrarPend = false;
+    const hoyEl = histSemana === 0 && (s.rail.querySelector("[data-hoy] .hs-item") || s.rail.querySelector("[data-hoy]"));
+    s.rail.scrollLeft = hoyEl ? Math.max(0, hoyEl.offsetLeft + hoyEl.offsetWidth / 2 - s.rail.clientWidth / 2) : 0;
+  } else {
+    s.rail.scrollLeft = histScrollMem;
+  }
+  histScrollMem = s.rail.scrollLeft;
+  s.medir(); s.pintar();
+}
+window.addEventListener("resize", () => { if (sliderActual && sliderActual.rail.isConnected) { sliderActual.medir(); sliderActual.pintar(); } }, { passive: true });
+
+// Cursor del portafolio: punto que sigue al mouse, anillo sobre lo tocable y
+// círculo con etiqueta en el slider ("Arrastra" / "Abrir"). Solo con mouse.
+(function cursorDuff() {
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches || MOV_REDUCIDO.matches || MODO_CLIENTE) return;
+  const raiz = document.createElement("div");
+  raiz.className = "dx-cursor";
+  raiz.setAttribute("aria-hidden", "true");
+  raiz.innerHTML = '<div class="dx-cursor-bola"><span class="dx-cursor-txt"></span></div>';
+  document.body.appendChild(raiz);
+  document.documentElement.classList.add("con-cursor");
+  const txt = raiz.querySelector(".dx-cursor-txt");
+  let x = 0, y = 0, tx = 0, ty = 0, puesto = false, raf = 0;
+  const mover = () => {
+    x += (tx - x) * .3; y += (ty - y) * .3;
+    raiz.style.transform = `translate3d(${x.toFixed(1)}px, ${y.toFixed(1)}px, 0)`;
+    raf = Math.abs(tx - x) + Math.abs(ty - y) > .2 ? requestAnimationFrame(mover) : 0;
+  };
+  const seguir = e => {
+    tx = e.clientX; ty = e.clientY;
+    if (!puesto) { x = tx; y = ty; puesto = true; }
+    raiz.dataset.visible = "1";
+    if (!raf) raf = requestAnimationFrame(mover);
+  };
+  addEventListener("pointermove", e => { if (e.pointerType === "mouse") seguir(e); }, { passive: true });
+  addEventListener("dragover", seguir, { passive: true }); // arrastrar piezas del calendario
+  const estado = (st, lbl) => {
+    if (st) raiz.dataset.estado = st; else delete raiz.dataset.estado;
+    if (lbl) txt.textContent = lbl;
+  };
+  document.addEventListener("pointerover", e => {
+    const t = e.target instanceof Element ? e.target : null;
+    if (!t) return;
+    if (t.closest('input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]), textarea, select, [contenteditable="true"]')) return estado("texto");
+    if (t.closest(".hist-check, .hist-quitar, .hs-mas")) return estado("enlace");
+    if (t.closest(".hist-story")) return estado("etiqueta", "Abrir");
+    if (t.closest(".hist-rail")) return estado("etiqueta", "Arrastra");
+    if (t.closest('a, button, label, summary, [role="button"], [draggable="true"], .piece, .cell, .cont-card, .clicable')) return estado("enlace");
+    estado("");
+  });
+  document.documentElement.addEventListener("pointerleave", () => delete raiz.dataset.visible);
+  addEventListener("pointerdown", e => { if (e.pointerType === "mouse") raiz.classList.add("presion"); });
+  addEventListener("pointerup", () => raiz.classList.remove("presion"));
+})();
+
 function activarVista(v, dir) {
   const previa = vistaActiva;
   vistaActiva = v;
@@ -3091,6 +3271,8 @@ function activarVista(v, dir) {
       void el.offsetWidth; // reinicia la animación
       el.classList.add(dir > 0 ? "entra-izq" : "entra-der");
     }
+    if (v === "historias") posicionarSlider();
+    if (v !== previa) { revelarVista(el); if (v === "aprobacion") animarHero(); }
   }
   // La pestaña activa siempre visible en la barra (en celular la barra se desliza)
   const tabAct = document.querySelector(`#tabs button[data-view="${v}"]`);
@@ -3827,10 +4009,18 @@ const SVG_LAPIZ = '<path d="M12 20h9"/><path d="M16.5 3.5l4 4L7 21l-4 1 1-4L16.5
 const SVG_CHECK = '<path d="M5.5 12.5l4.2 4.2L18.5 8"/>';
 
 let histMarcaVista = "forestal"; // en "Ambas" se ve UNA fila por vez; el botón › cambia de marca
+// Slider estilo portafolio: recuerda dónde ibas entre repintados (marcar una
+// historia publicada no te devuelve a hoy); cambiar de semana o de marca sí.
+let histFirmaVista = "", histScrollMem = 0, histCentrarPend = true;
+const SVG_FLECHA_IZQ = '<path d="M19 12H5M11 6l-6 6 6 6"/>';
+const SVG_FLECHA_DER = '<path d="M5 12h14M13 6l6 6-6 6"/>';
 function renderHistorias() {
   const el = document.getElementById("view-historias");
   if (!el || MODO_CLIENTE) return;
-  if (el.contains(document.activeElement)) return;
+  // Solo se protege lo que se está escribiendo (un botón enfocado tras el
+  // clic —las flechas de semana en Chrome— no debe frenar el repintado)
+  const foco = document.activeElement;
+  if (foco && el.contains(foco) && foco.matches("input, textarea, select, [contenteditable='true']")) return;
   const h = historiasStore();
   const lunes = lunesDe(histSemana);
   const hoy = hoyISO();
@@ -3838,41 +4028,59 @@ function renderHistorias() {
   const marcas = marcaActiva === "todas" ? [histMarcaVista] : [marcaActiva];
   const fechas = Array.from({ length: 7 }, (_, i) => { const d = new Date(lunes); d.setDate(lunes.getDate() + i); return d; });
   const MESES = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
-  const rango = `${fechas[0].getDate()} ${MESES[fechas[0].getMonth()]} – ${fechas[6].getDate()} ${MESES[fechas[6].getMonth()]}`;
+  const mismoMes = fechas[0].getMonth() === fechas[6].getMonth();
+  const rango = mismoMes
+    ? `${fechas[0].getDate()} — ${fechas[6].getDate()} ${MESES[fechas[6].getMonth()]}`
+    : `${fechas[0].getDate()} ${MESES[fechas[0].getMonth()]} — ${fechas[6].getDate()} ${MESES[fechas[6].getMonth()]}`;
   const nombreCorto = { forestal: "Forestal", manzanares: "Manzanares" };
+  const mk0 = marcas[0];
+  const firma = histSemana + "|" + mk0;
+  const railViejo = el.querySelector(".hist-rail");
+  const mismaVista = firma === histFirmaVista;
+  histFirmaVista = firma;
+  const diasCubiertos = fechas.filter((d, i) => historiasDeDia(mk0, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk0, it.txt)])).length;
 
   let html = `
-    ${(() => { const mk = marcas[0], m = MARCAS[mk]; const COPY = {
-      forestal: { t: "Historias con aroma a café,<br>todos los días.", s: "Que @forestalcafea nunca pase un día apagada." },
-      manzanares: { t: "Historias con sabor a parrilla,<br>todos los días.", s: "Que @carnesmanzanares nunca pase un día apagada." },
+    ${(() => { const mk = mk0, m = MARCAS[mk]; const COPY = {
+      forestal: { t: ["Historias con aroma a café,", "todos los días."], s: "Que @forestalcafea nunca pase un día apagada." },
+      manzanares: { t: ["Historias con sabor a parrilla,", "todos los días."], s: "Que @carnesmanzanares nunca pase un día apagada." },
     }[mk]; return `
     <div class="hist-hero">
-      <div class="hist-cuenta" style="--brand-color:${m.color};--brand-fuerte:${m.colorFuerte}">
-        <span class="hist-avatar"><b>${m.nombre[0]}</b></span>
-        <button type="button" class="hist-cuenta-nom" id="histCuentaBtn" ${marcaActiva === "todas" ? "" : "disabled"} aria-haspopup="menu" aria-expanded="false">
-          <span class="hist-cuenta-nombre">${m.nombre}${marcaActiva === "todas" ? `<i class="hist-chev" aria-hidden="true"></i>` : ""}</span>
-          <span class="hist-cuenta-handle">${m.handle}</span>
-        </button>
-        ${marcaActiva === "todas" ? `
-        <div class="hist-cuenta-menu" id="histCuentaMenu" role="menu" hidden>
-          ${todasMarcas.map(k => `<button type="button" role="menuitem" data-hist-marca="${k}" class="${k === mk ? "sel" : ""}" style="--brand-color:${MARCAS[k].color};--brand-fuerte:${MARCAS[k].colorFuerte}">
-            <span class="hist-avatar chico"><b>${MARCAS[k].nombre[0]}</b></span>
-            <span class="hist-menu-txt"><b>${MARCAS[k].nombre}</b><small>${MARCAS[k].handle}</small></span>
-            ${k === mk ? `<span class="hist-menu-ok">${icl("ok")}</span>` : ""}
-          </button>`).join("")}
-        </div>` : ""}
+      <div class="hh-top">
+        <div class="hist-cuenta" style="--brand-color:${m.color};--brand-fuerte:${m.colorFuerte}">
+          <span class="hist-avatar"><b>${m.nombre[0]}</b></span>
+          <button type="button" class="hist-cuenta-nom" id="histCuentaBtn" ${marcaActiva === "todas" ? "" : "disabled"} aria-haspopup="menu" aria-expanded="false">
+            <span class="hist-cuenta-nombre">${m.nombre}${marcaActiva === "todas" ? `<i class="hist-chev" aria-hidden="true"></i>` : ""}</span>
+            <span class="hist-cuenta-handle">${m.handle}</span>
+          </button>
+          ${marcaActiva === "todas" ? `
+          <div class="hist-cuenta-menu" id="histCuentaMenu" role="menu" hidden>
+            ${todasMarcas.map(k => `<button type="button" role="menuitem" data-hist-marca="${k}" class="${k === mk ? "sel" : ""}" style="--brand-color:${MARCAS[k].color};--brand-fuerte:${MARCAS[k].colorFuerte}">
+              <span class="hist-avatar chico"><b>${MARCAS[k].nombre[0]}</b></span>
+              <span class="hist-menu-txt"><b>${MARCAS[k].nombre}</b><small>${MARCAS[k].handle}</small></span>
+              ${k === mk ? `<span class="hist-menu-ok">${icl("ok")}</span>` : ""}
+            </button>`).join("")}
+          </div>` : ""}
+        </div>
+        <p class="hist-copy-sub">${COPY.s} Toca una historia para planificarla; el círculo la marca publicada.</p>
       </div>
-      <h2 class="hist-copy">${COPY.t}</h2>
-      <p class="hist-copy-sub">${COPY.s} Toca una historia para planificarla; el círculo la marca publicada.</p>
+      <h2 class="hist-copy dx-titulo"><span class="dx-l"><span>${COPY.t[0]}</span></span> <span class="dx-l"><span><em>${COPY.t[1]}</em></span></span></h2>
     </div>`; })()}
     <div class="hist-barra">
       <div class="hist-nav">
-        <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">‹</button>
+        <button class="hist-flecha" id="histAntes" aria-label="Semana anterior">${iconoHist(SVG_FLECHA_IZQ, "currentColor")}</button>
         <div class="hist-titulo">
           <span class="hist-rango">${histSemana === 0 ? "Esta semana" : histSemana === 1 ? "Próxima semana" : histSemana === -1 ? "Semana pasada" : "Semana"}</span>
           <span class="hist-rango-fechas">${rango}</span>
         </div>
-        <button class="hist-flecha" id="histDespues" aria-label="Semana siguiente">›</button>
+        <button class="hist-flecha" id="histDespues" aria-label="Semana siguiente">${iconoHist(SVG_FLECHA_DER, "currentColor")}</button>
+      </div>
+      <div class="hist-semaforo" title="${diasCubiertos}/7 días con historias">
+        ${fechas.map((d, i) => {
+          const cubierto = historiasDeDia(mk0, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk0, it.txt)]);
+          return `<span class="hist-punto ${cubierto ? "on" : ""} ${isoDe(d) === hoy ? "hoy" : ""}"></span>`;
+        }).join("")}
+        <span class="hist-cobertura">${diasCubiertos}/7 días</span>
       </div>
       <div class="hist-rachas">
         ${(marcaActiva === "todas" ? todasMarcas : marcas).map(mk => {
@@ -3882,101 +4090,107 @@ function renderHistorias() {
             <b>${r}</b><span class="hist-racha-lbl">día${r === 1 ? "" : "s"} · ${nombreCorto[mk]}</span>
           </span>`;
         }).join("")}
-        <button class="btn-restaurar hist-btn-plan" id="histEditar">${iconoHist(SVG_LAPIZ, "#fff")} Plan semanal</button>
+        <button class="btn-restaurar hist-btn-plan" id="histEditar">${iconoHist(SVG_LAPIZ, "currentColor")} Plan semanal</button>
       </div>
-    </div>
-    ${marcas.includes(MARCA_REV_HIST) ? revResumenDavidHtml() : ""}`;
+    </div>`;
 
   for (const mk of marcas) {
     const m = MARCAS[mk];
-    const diasCubiertos = fechas.filter((d, i) => historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)])).length;
+    let n = 0;
+    const rail = fechas.map((d, i) => {
+      const iso = isoDe(d);
+      const items = historiasDeDia(mk, iso, i);
+      const hechasDia = items.filter(it => h.hechas[histKey(iso, mk, it.txt)]).length;
+      const esHoy = iso === hoy;
+      const pasado = iso < hoy;
+      const completo = items.length && hechasDia >= items.length;
+      const apagado = pasado && !hechasDia && items.length;
+      return `
+        <div class="hist-grupo ${esHoy ? "hoy" : ""} ${pasado ? "pasado" : ""}" ${esHoy ? 'data-hoy="1"' : ""}>
+          <div class="hist-grupo-head">
+            <span class="hist-numdia ${esHoy ? "hoy" : ""}">${String(d.getDate()).padStart(2, "0")}</span>
+            <span class="hist-dow">${["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"][i]}${esHoy ? `<i class="hist-hoy">Hoy</i>` : ""}</span>
+            <span class="hist-estado">
+              ${completo
+                ? `<span class="hist-listo">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>`
+                : apagado
+                ? `<span class="hist-alerta">Sin historia</span>`
+                : `<span class="hist-conteo">${hechasDia}/${items.length}</span>`}
+            </span>
+          </div>
+          <div class="hist-cards">
+            ${items.map(it => {
+              const k = histKey(iso, mk, it.txt);
+              const t = tipoHistoria(it.txt);
+              const pr = h.prog[k];
+              const img = pr && pr.img;
+              const video = pr && pr.video;
+              const hecha = !!h.hechas[k];
+              const hora = (pr && pr.hora) || "12:00";
+              const est = hecha ? ["ok", "Publicada"]
+                : pr && (img || video) ? ["lista", "Lista · " + hora]
+                : pr ? ["falta", "Falta imagen · " + hora]
+                : ["nada", "Por planificar"];
+              n++;
+              return `
+              <figure class="hs-item" style="--i:${n};--tc:${t.color}">
+                <div class="hs-ring ${hecha ? "vista" : ""}">
+                  <div class="hist-story ${hecha ? "hecha" : ""}" data-hist="${esc(k)}" role="button" tabindex="0" title="${esc(t.resto)}">
+                    ${img
+                      ? `<img class="hs-img" src="${img}" alt="" draggable="false">
+                         <span class="hs-grad"></span>`
+                      : video && pr.poster
+                      ? `<img class="hs-img" src="${pr.poster}" alt="" draggable="false">
+                         <span class="hs-grad"></span>
+                         <span class="hist-play hs-play-centro">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>`
+                      : `<div class="hs-placeholder ${video ? "hs-es-video" : ""}" style="--tc:${t.color}">
+                           <span class="hs-ph-glow"></span>
+                           <span class="hs-ph-ico">${video
+                             ? iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', t.color)
+                             : iconoHist(t.svg, t.color)}</span>
+                           <span class="hs-ph-pie">
+                             <span class="hs-ph-txt">${esc(t.resto)}</span>
+                             <span class="hs-ph-formato">${video ? esc(video) : "1080 × 1920"}</span>
+                           </span>
+                         </div>`}
+                    <span class="hs-velo" aria-hidden="true"></span>
+                    <button class="hist-quitar hs-quitar" data-quitar-hist="${esc(k)}" title="Quitar de este día" aria-label="Quitar de este día">✕</button>
+                    ${revBadgeHist(k, mk)}
+                    <span class="hist-check hs-check" title="${hecha ? "Publicada · toca para desmarcar" : "Marcar publicada"}">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
+                  </div>
+                </div>
+                <figcaption class="hs-cap">
+                  <span class="hs-cap-n">${String(n).padStart(2, "0")}</span>
+                  ${img || (video && pr.poster) ? `<span class="hs-cap-t">${esc(t.resto)}</span>` : ""}
+                  <span class="hs-cap-e ${est[0]}">${est[1]}</span>
+                </figcaption>
+              </figure>`;
+            }).join("")}
+            <button class="hs-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día" aria-label="Agregar historia a este día"><span>＋</span></button>
+          </div>
+        </div>`;
+    }).join("");
     html += `
       <div class="hist-marca" style="--brand-color:${m.color}">
-        <div class="hist-marca-head">
-          <div class="hist-semaforo" title="${diasCubiertos}/7 días con historias">
-            ${fechas.map((d, i) => {
-              const cubierto = historiasDeDia(mk, isoDe(d), i).some(it => h.hechas[histKey(isoDe(d), mk, it.txt)]);
-              return `<span class="hist-punto ${cubierto ? "on" : ""} ${isoDe(d) === hoy ? "hoy" : ""}"></span>`;
-            }).join("")}
-            <span class="hist-cobertura">${diasCubiertos}/7 días</span>
-          </div>
-        </div>
-        <div class="hist-rail">
-          ${fechas.map((d, i) => {
-            const iso = isoDe(d);
-            const items = historiasDeDia(mk, iso, i);
-            const hechasDia = items.filter(it => h.hechas[histKey(iso, mk, it.txt)]).length;
-            const esHoy = iso === hoy;
-            const pasado = iso < hoy;
-            const completo = items.length && hechasDia >= items.length;
-            const apagado = pasado && !hechasDia && items.length;
-            return `
-              <div class="hist-grupo ${esHoy ? "hoy" : ""}" ${esHoy ? 'data-hoy="1"' : ""}>
-                <div class="hist-grupo-head">
-                  <span class="hist-dow">${["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"][i]}</span>
-                  <span class="hist-numdia ${esHoy ? "hoy" : ""}">${d.getDate()}</span>
-                  <span class="hist-estado">
-                    ${completo
-                      ? `<span class="hist-listo">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>`
-                      : apagado
-                      ? `<span class="hist-alerta">sin historia</span>`
-                      : `<span class="hist-conteo">${hechasDia}/${items.length}</span>`}
-                  </span>
-                </div>
-                <div class="hist-cards">
-                  ${items.map(it => {
-                    const k = histKey(iso, mk, it.txt);
-                    const t = tipoHistoria(it.txt);
-                    const pr = h.prog[k];
-                    const img = pr && pr.img;
-                    const video = pr && pr.video;
-                    const hecha = !!h.hechas[k];
-                    return `
-                    <div class="hs-ring ${hecha ? "vista" : ""}">
-                      <div class="hist-story ${hecha ? "hecha" : ""}" data-hist="${esc(k)}" role="button" tabindex="0" title="${esc(t.resto)}">
-                        ${img
-                          ? `<img class="hs-img" src="${img}" alt="">
-                             <span class="hs-grad"></span>
-                             <span class="hs-txt">${esc(t.resto)}</span>`
-                          : video && pr.poster
-                          ? `<img class="hs-img" src="${pr.poster}" alt="">
-                             <span class="hs-grad"></span>
-                             <span class="hist-play hs-play-centro">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>
-                             <span class="hs-txt">${esc(t.resto)}</span>`
-                          : video
-                          ? `<div class="hs-placeholder hs-es-video" style="--tc:${t.color};--tb:${t.color}14">
-                               <span class="hist-play">${iconoHist('<path d="M8.5 5.5v13l10-6.5-10-6.5z"/>', "#fff", "hist-ic hist-ic-play")}</span>
-                               <span class="hs-ph-txt">${esc(t.resto)}</span>
-                               <span class="hs-ph-formato hs-ph-video">${esc(video)}</span>
-                             </div>`
-                          : `<div class="hs-placeholder" style="--tc:${t.color};--tb:${t.color}14">
-                               <span class="hist-badge hs-ph-badge" style="--tc:${t.color};--tb:${t.color}1E">${iconoHist(t.svg, t.color)}</span>
-                               <span class="hs-ph-txt">${esc(t.resto)}</span>
-                               <span class="hs-ph-formato">1080 × 1920</span>
-                             </div>`}
-                        ${pr ? `<span class="hs-hora ${img || video ? "" : "falta"}" title="${img || video ? "A esta hora la subes tú — te llega un aviso al celular" : "Aún falta la imagen o el video"}">${pr.hora || "12:00"}</span>` : ""}
-                        <button class="hist-quitar hs-quitar" data-quitar-hist="${esc(k)}" title="Quitar de este día" aria-label="Quitar de este día">✕</button>
-                        ${revBadgeHist(k, mk)}
-                        <span class="hist-check hs-check" title="Marcar publicada">${iconoHist(SVG_CHECK, "#fff", "hist-ic hist-ic-mini")}</span>
-                      </div>
-                    </div>`;
-                  }).join("")}
-                  <button class="hs-mas" data-extra="${iso}|${mk}" title="Agregar historia a este día"><span>＋</span></button>
-                </div>
-              </div>`;
-          }).join("")}
+        <div class="hist-rail">${rail}</div>
+        <div class="hist-progreso" aria-hidden="true">
+          <span class="hp-cont"><b class="hp-actual">01</b><i>/</i>${String(n).padStart(2, "0")}</span>
+          <span class="hp-linea"><i class="hp-fill"></i></span>
+          <span class="hp-ayuda">Arrastra o desliza</span>
         </div>
       </div>`;
   }
+  if (marcas.includes(MARCA_REV_HIST)) html += revResumenDavidHtml();
   el.innerHTML = html;
 
-  // El carrusel llega solo hasta el día de hoy
-  if (histSemana === 0) {
-    el.querySelectorAll(".hist-rail").forEach(rail => {
-      const grupoHoy = rail.querySelector("[data-hoy]");
-      if (grupoHoy) rail.scrollLeft = Math.max(0, grupoHoy.offsetLeft - rail.offsetLeft - 14);
-    });
+  // Misma semana: el slider se queda donde ibas. Semana o marca nueva: centra hoy.
+  if (!mismaVista) histCentrarPend = true;
+  el.querySelectorAll(".hist-rail").forEach(activarSliderHist);
+  if (el.classList.contains("active")) {
+    posicionarSlider();
+    if (!mismaVista && railViejo) revelarVista(el); // cambio de semana o de marca: entra animado
   }
+  continuarEntradas();
   // Los gestos SOLO mueven el carrusel — la semana se cambia únicamente con
   // las flechas. En el borde, el gesto se absorbe (nada de "atrás" del
   // navegador ni saltos de semana accidentales): overscroll-behavior en CSS
@@ -5195,6 +5409,7 @@ function renderAll() {
   renderFinanzas();
   renderProyectos();
   renderReferentes();
+  continuarEntradas();
 }
 // ---------- Candados de acceso (protección básica del navegador) ----------
 const CLAVE_DAVID = "Duffel21";
@@ -5264,6 +5479,12 @@ if (MODO_CLIENTE) {
   pintarGuardar();
   restoreUI();
   renderAll();
+  // Primera impresión: la sección con la que abre entra animada
+  requestAnimationFrame(() => {
+    if (vistaActiva === "historias") posicionarSlider();
+    if (vistaActiva === "aprobacion") animarHero();
+    revelarVista(document.getElementById("view-" + vistaActiva));
+  });
   // ?ir=contenidos (o #contenidos): llegar desde el Estudio directo a los ajustes de mercadeo
   if (new URLSearchParams(location.search).get("ir") === "contenidos" || location.hash === "#contenidos") {
     contenidosModo = "aprobacion";

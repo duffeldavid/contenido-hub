@@ -6,11 +6,13 @@
   <title>Contenido Hub</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css?v=1792693426">
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter+Tight:wght@400..700&family=JetBrains+Mono:wght@400;500&family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=Instrument+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css?v=1792784721">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
 </head>
 <body data-marca="todas">
+  <!-- El link de mercadeo conserva su diseño desde el primer cuadro -->
+  <script>if (new URLSearchParams(location.search).get("modo") === "cliente") document.body.classList.add("modo-cliente");</script>
 
   <!-- Fondo fotográfico de toda la página -->
   <div class="page-bg" id="pageBg" aria-hidden="true"></div>
@@ -36,6 +38,7 @@
       <div class="nav-right">
         <span class="sync-badge" id="syncBadge" hidden></span>
         <span class="month-pill" id="monthPill"></span>
+        <a class="estudio-link archivo-link" id="linkArchivo" href="archivo.html" hidden title="Tu archivo privado de Grupo Manzanares: reels y fotografía">Archivo</a>
         <a class="estudio-link" id="linkEstudio" href="estudio.html" title="Tu espacio privado: proyectos, objetivos y finanzas">Estudio</a>
       </div>
       <div class="noti-panel" id="notiPanel" hidden></div>
@@ -89,8 +92,8 @@
 
   <!-- Generador de PDF (aprobación para cliente) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-  <script src="data.js?v=1792693426"></script>
+  <script src="data.js?v=1792784721"></script>
   <script src="referentes.js"></script>
-  <script src="app.js?v=1792693426"></script>
+  <script src="app.js?v=1792784721"></script>
 </body>
 </html>

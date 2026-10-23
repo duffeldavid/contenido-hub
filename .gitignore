@@ -5,4 +5,5 @@ finanzas.semilla.js
 # URLs de los artifacts (privados): se usan solo al construir
 hub.url
 estudio.url
+archivo.url
 estudio-artifact.html

@@ -16,6 +16,7 @@ body = re.search(r"<body[^>]*>\s*([\s\S]*?)\s*<script>", html).group(1)
 css = (ROOT / "finanzas.css").read_text() + "\n" + (ROOT / "estudio.css").read_text()
 js = (ROOT / "finanzas.js").read_text() + "\n" + (ROOT / "estudio.js").read_text()
 HUB_URL = (ROOT / "hub.url").read_text().strip() if (ROOT / "hub.url").exists() else "https://duffeldavid.github.io/contenido-hub/"
+ARCHIVO_URL = (ROOT / "archivo.url").read_text().strip() if (ROOT / "archivo.url").exists() else ""
 
 out = f"""<title>Estudio</title>
 {fuentes}
@@ -30,6 +31,8 @@ window.ENLACE_HUB = {HUB_URL!r};
 {js}
 </script>
 """
+if ARCHIVO_URL:  # el archivo de proyectos solo se enlaza en la versión privada (artifact)
+    out = out.replace('href="archivo.html" hidden', f'href="{ARCHIVO_URL}" target="_blank" rel="noopener"', 1)
 (ROOT / "estudio-artifact.html").write_text(out)
 print(f"estudio-artifact.html generado ({len(out):,} bytes)")
 

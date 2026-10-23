@@ -13,6 +13,8 @@ data = (ROOT / "data.js").read_text()
 referentes = (ROOT / "referentes.js").read_text()
 # Enlace al Estudio (artifact privado aparte). Si está vacío, queda el enlace local.
 ESTUDIO_URL = (ROOT / "estudio.url").read_text().strip() if (ROOT / "estudio.url").exists() else ""
+# Archivo privado de proyectos (portafolio-manzanares): solo existe como artifact, nunca en Pages
+ARCHIVO_URL = (ROOT / "archivo.url").read_text().strip() if (ROOT / "archivo.url").exists() else ""
 app = (ROOT / "app.js").read_text()
 
 body = re.search(r"<body[^>]*>\s*([\s\S]*?)\s*<script src=", index).group(1)
@@ -95,6 +97,8 @@ for ruta in sorted((ROOT / "assets").rglob("*.jpg")):
 artifact = artifact.replace("{img_map}", json.dumps(mapa), 1)
 if ESTUDIO_URL:
     artifact = artifact.replace('href="estudio.html"', f'href="{ESTUDIO_URL}" target="_blank" rel="noopener"', 1)
+if ARCHIVO_URL:
+    artifact = artifact.replace('href="archivo.html" hidden', f'href="{ARCHIVO_URL}" target="_blank" rel="noopener"', 1)
 
 (ROOT / "artifact.html").write_text(artifact)
 print(f"artifact.html generado ({len(artifact):,} bytes)")
