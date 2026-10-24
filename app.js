@@ -74,9 +74,18 @@ function avanceAnterior() {
   } catch {}
   return mejor;
 }
+let avisoLleno = false;
 function save() {
   store.updatedAt = Date.now();
-  try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch {}
+  try { localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+  catch (e) {
+    // El navegador guarda ~5 MB por sitio. Si se llena, se avisa una vez: lo que
+    // no quepa aquí sigue a salvo con «Guardar cambios» (queda en el repo).
+    if (!avisoLleno && typeof toastVivo === "function") {
+      avisoLleno = true;
+      toastVivo("⚠️ La memoria de este navegador se llenó con las imágenes. Toca «Guardar cambios» para no perder nada.");
+    }
+  }
   if (window.hubSync) window.hubSync();
 }
 // ---------- Notificaciones al celular/compu de David (solo modo cliente) ----------
@@ -417,8 +426,41 @@ function estadoPublicable(ts) {
 // Envía el estado como adjunto al canal de datos (sin cuentas ni tokens)
 function enviarEstadoNtfy(cuerpo) {
   return fetch(NTFY_DATOS, { method: "PUT", headers: { "Filename": "estado-hub.json" }, body: cuerpo })
-    .then(r => { if (!r.ok) throw 0; return r.json(); });
+    .then(r => { if (!r.ok) throw { status: r.status }; return r.json(); });
 }
+// ntfy.sh sin cuenta rechaza adjuntos de más de ~2 MB con un 413 (probado el
+// 24/10/2026: 2 MB pasa, 3 MB no). Antes se creía que aguantaba 15 MB y el
+// guardado fallaba en silencio con "revisa tu internet".
+const LIMITE_NTFY = 1900000;
+// Copia liviana del estado para publicar: baja las imágenes por escalones SIN
+// tocar las de este navegador (David conserva su calidad completa para publicar).
+async function estadoLiviano(estado, limite) {
+  const copia = JSON.parse(JSON.stringify(estado));
+  const pasos = [[480, .62, 1280, .74], [360, .58, 1080, .68], [280, .55, 860, .62], [220, .5, 720, .56]];
+  for (const [pH, pQ, hH, hQ] of pasos) {
+    const tareas = [];
+    for (const id of Object.keys(copia.portadas || {})) {
+      if (copia.portadas[id]) tareas.push(reducirDataUri(copia.portadas[id], pH, pQ).then(u => { copia.portadas[id] = u; }));
+    }
+    const prog = (copia.historias && copia.historias.prog) || {};
+    for (const k of Object.keys(prog)) {
+      const pr = prog[k];
+      if (!pr) continue;
+      if (pr.img) tareas.push(reducirDataUri(pr.img, hH, hQ).then(u => { pr.img = u; }));
+      if (pr.poster) tareas.push(reducirDataUri(pr.poster, 480, .55).then(u => { pr.poster = u; }));
+    }
+    await Promise.all(tareas);
+    if (JSON.stringify(copia).length <= limite) return copia;
+  }
+  // Último recurso: las historias de semanas pasadas viajan sin imagen (ya salieron)
+  const corte = isoDe(lunesDe(0));
+  const prog = (copia.historias && copia.historias.prog) || {};
+  for (const k of Object.keys(prog)) {
+    if (k.slice(0, 10) < corte && prog[k]) { delete prog[k].img; delete prog[k].poster; }
+  }
+  return copia;
+}
+function mb(n) { return (n / 1e6).toFixed(1).replace(".", ",") + " MB"; }
 // Si el estado supera el límite de adjuntos (~2MB), se reencogen las imágenes
 function reducirDataUri(uri, maxH, calidad) {
   return new Promise(res => {
@@ -474,11 +516,17 @@ async function publicarCambios() {
       const db = await window.claude.use("db");
       if (!db) throw new Error("sin canal");
       let cola = colaPublicable();
-      let cuerpo = JSON.stringify(cola);
-      if (cuerpo.length > 800000) {
-        await reducirPortadas();
-        cola = colaPublicable(cola.ts);
+      // El documento de la base del artifact aguanta 256 KB: la cola viaja sin
+      // las imágenes de las historias (el trabajador del Mac solo usa la hora)
+      const hist = JSON.parse(JSON.stringify(cola.historias || {}));
+      for (const k of Object.keys(hist.prog || {})) { if (hist.prog[k]) { delete hist.prog[k].img; delete hist.prog[k].poster; } }
+      cola.historias = hist;
+      if (JSON.stringify(cola).length > 250000) {
+        const port = {};
+        for (const id of Object.keys(cola.portadas || {})) port[id] = await reducirDataUri(cola.portadas[id], 360, .58);
+        cola.portadas = port;
       }
+      if (JSON.stringify(cola).length > 250000) throw new Error("cola muy pesada");
       await db.doc("cola/actual").set(cola);
       store.pendientePub = false;
       store.pubTs = cola.ts;
@@ -501,19 +549,23 @@ async function publicarCambios() {
   try {
     let estado = estadoPublicable();
     let cuerpo = JSON.stringify(estado);
-    // ntfy acepta adjuntos de hasta 15 MB: solo se reduce si el estado es enorme
-    if (cuerpo.length > 6000000) {
-      await reducirPortadas();
-      estado = estadoPublicable(estado.ts);
+    if (cuerpo.length > LIMITE_NTFY) {
+      if (b) b.querySelector(".guardar-txt").textContent = "Aligerando imágenes…";
+      estado = await estadoLiviano(estado, LIMITE_NTFY);
       cuerpo = JSON.stringify(estado);
     }
+    if (cuerpo.length > LIMITE_NTFY) throw { pesado: cuerpo.length };
+    if (b) b.querySelector(".guardar-txt").textContent = "Guardando…";
     await enviarEstadoNtfy(cuerpo);
     store.pendientePub = false;
     store.pubTs = estado.ts;
     save();
     toastVivo("✅ Cambios guardados: el equipo ya ve tu versión, portadas incluidas");
-  } catch {
-    toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
+  } catch (e) {
+    if (e && e.pesado) toastVivo(`⚠️ No se pudo guardar: hay demasiadas imágenes (${mb(e.pesado)}; el canal acepta 2 MB). Quita historias o portadas que ya no uses e inténtalo de nuevo.`);
+    else if (e && e.status === 413) toastVivo("⚠️ El canal rechazó el guardado por tamaño. Quita algunas imágenes e inténtalo de nuevo.");
+    else if (e && e.status === 429) toastVivo("⚠️ El canal pidió esperar un momento. Inténtalo de nuevo en un minuto.");
+    else toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
   } finally {
     if (b) b.disabled = false;
     pintarGuardar();
