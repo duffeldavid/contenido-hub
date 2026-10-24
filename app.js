@@ -4122,6 +4122,7 @@ function renderHistorias() {
           </span>`;
         }).join("")}
         <button class="btn-restaurar hist-btn-plan" id="histEditar">${iconoHist(SVG_LAPIZ, "currentColor")} Plan semanal</button>
+        <button class="btn-restaurar hist-btn-plan" id="histImportar" title="Trae las historias diseñadas en el Estudio Forestal">${icl("chispa")} Importar del Estudio</button>
       </div>
     </div>`;
 
@@ -4250,6 +4251,7 @@ function renderHistorias() {
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;
+  el.querySelector("#histImportar").onclick = () => estudioPicker.click();
   conectarRevDavid(el);
   el.querySelectorAll(".hist-story").forEach(card => {
     const k = card.dataset.hist;
@@ -4318,6 +4320,59 @@ function abrirHistoriaClave(k, medio) {
   const sep = resto.indexOf("|");
   openHistoria(iso, resto.slice(0, sep), resto.slice(sep + 1), medio);
 }
+// ── Importar del Estudio Forestal ──────────────────────────────
+// El Estudio (app de historias con agentes) exporta un paquete .json con
+// cada historia ya diseñada: fecha, hora, título, propósito, sticker e imagen
+// en calidad de revisión. Aquí entra al plan de la semana como historia
+// planificada, lista para que mercadeo la apruebe en su link.
+const estudioPicker = document.createElement("input");
+estudioPicker.type = "file";
+estudioPicker.accept = "application/json,.json";
+estudioPicker.hidden = true;
+document.body.appendChild(estudioPicker);
+estudioPicker.onchange = async () => {
+  const f = estudioPicker.files[0];
+  estudioPicker.value = "";
+  if (!f) return;
+  let pack = null;
+  try { pack = JSON.parse(await f.text()); } catch {}
+  if (!pack || pack.tipo !== "estudio-forestal" || !Array.isArray(pack.historias)) {
+    toast("Ese archivo no es un paquete del Estudio Forestal.");
+    return;
+  }
+  const h = historiasStore();
+  const mk = MARCAS[pack.marca] ? pack.marca : "forestal";
+  let n = 0;
+  for (const x of pack.historias) {
+    if (!x || !/^\d{4}-\d{2}-\d{2}$/.test(x.fecha || "") || !/^data:image\//.test(x.img || "")) continue;
+    const txt = String(x.titulo || "✨ Historia del Estudio").trim();
+    const k = histKey(x.fecha, mk, txt);
+    // Si el Estudio ya había mandado esta historia, la versión nueva la reemplaza en su sitio
+    const previa = Object.keys(h.prog).find(q => q !== k && h.prog[q] && h.prog[q].estudio && h.prog[q].estudio.id === x.id);
+    if (previa) {
+      const pp = partesClave(previa), kp = pp.iso + "|" + pp.mk;
+      if (h.extras[kp]) { h.extras[kp] = h.extras[kp].filter(t => t !== pp.txt); if (!h.extras[kp].length) delete h.extras[kp]; }
+      delete h.prog[previa];
+    }
+    const key = x.fecha + "|" + mk;
+    h.extras[key] = h.extras[key] || [];
+    if (!h.extras[key].includes(txt)) h.extras[key].push(txt);
+    delete h.quitadas[k];
+    h.prog[k] = {
+      ...(h.prog[k] || {}), auto: true, red: "ambas", hora: x.hora || "12:00", img: x.img, video: null,
+      estudio: { id: x.id, porque: x.porque || x.proposito || "", proposito: x.proposito || "", sticker: x.sticker || null, animada: !!x.animada, venta: !!x.venta, formato: x.formato || "" },
+    };
+    n++;
+  }
+  if (!n) { toast("El paquete no traía historias con imagen."); return; }
+  if (pack.semana) {
+    const sem = Math.round((new Date(pack.semana + "T12:00:00") - lunesDe(0)) / (7 * 864e5));
+    if (Number.isFinite(sem)) histSemana = sem;
+  }
+  if (MARCAS[mk] && histMarcaVista !== mk) histMarcaVista = mk;
+  marcarPendiente(); save(); renderHistorias();
+  toast(`${n} historias del Estudio en el plan. Toca «Guardar cambios» para que mercadeo las vea.`);
+};
 // La entrada de programación se crea sola al primer gesto (imagen, video, hora…)
 function progDe(k) {
   const h = historiasStore();
@@ -5015,6 +5070,7 @@ function renderRevHistorias() {
         <span class="rvh-eyebrow">Historia ${pad2(rvIdx + 1)} de ${pad2(lista.length)}${pr.video ? " · video (se ve la portada)" : ""}</span>
         <h3 class="rvh-tit">${esc(tituloHist(k))}</h3>
         <span class="hs-cap-e ${t.cls}">${t.lbl}</span>
+        ${pr.estudio && (pr.estudio.porque || pr.estudio.sticker) ? `<div class="rvh-estudio">${pr.estudio.porque ? `<p><b>Para qué sirve:</b> ${esc(pr.estudio.porque)}</p>` : ""}${pr.estudio.sticker && pr.estudio.sticker.tipo && pr.estudio.sticker.tipo !== "ninguno" ? `<p><b>Sticker al publicar:</b> ${esc({ enlace: "enlace a la web", ubicacion: "ubicación", encuesta: "encuesta", pregunta: "pregunta", quiz: "cuestionario", cuenta: "cuenta regresiva", deslizador: "deslizador" }[pr.estudio.sticker.tipo] || pr.estudio.sticker.tipo)}${pr.estudio.sticker.texto ? " · " + esc(pr.estudio.sticker.texto) : ""}</p>` : ""}${pr.estudio.animada ? `<p><b>Sale animada</b> (video de 7 s)</p>` : ""}</div>` : ""}
         ${com ? `<div class="rvh-com"><b>${esc(e.r.por || AUTOR_CLIENTE)} · comentario</b><p>${esc(com)}</p>${e.estado === "nueva" ? `<small>David subió una versión nueva después de este comentario</small>` : ""}</div>` : ""}
       </div>
       <form class="rvh-form" autocomplete="off">
