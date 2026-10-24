@@ -3318,9 +3318,13 @@ window.addEventListener("resize", () => { if (sliderActual && sliderActual.rail.
 
 // Cursor del portafolio: punto que sigue al mouse, anillo sobre lo tocable y
 // círculo con etiqueta en el slider ("Arrastra" / "Abrir"). Solo con mouse.
-// En el link de mercadeo solo vive en Historias (activarVista lo prende).
+// APAGADO el 24/10/2026: a David no le gusta; el Hub usa el cursor normal en
+// todas las vistas (también en el link de mercadeo). Para volverlo a prender,
+// cambiar CURSOR_DUFF a true.
+const CURSOR_DUFF = false;
 let cursorDuffListo = false;
 (function cursorDuff() {
+  if (!CURSOR_DUFF) return;
   if (!matchMedia("(hover: hover) and (pointer: fine)").matches || MOV_REDUCIDO.matches) return;
   cursorDuffListo = true;
   const raiz = document.createElement("div");

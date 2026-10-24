@@ -4287,6 +4287,28 @@ function enviarEstadoNtfy(cuerpo) {
 // 24/10/2026: 2 MB pasa, 3 MB no). Antes se creía que aguantaba 15 MB y el
 // guardado fallaba en silencio con "revisa tu internet".
 const LIMITE_NTFY = 1900000;
+// Versión del código: sale en los avisos de error para saber qué corre el navegador
+const HUB_VERSION = "v24.10c";
+// Si se publica una versión nueva mientras la página está abierta, se ofrece
+// recargar (una página vieja abierta seguía fallando aunque el arreglo ya existía).
+(function vigilarVersion() {
+  if (EN_ARTIFACT || !location.protocol.startsWith("http")) return;
+  const mia = ((document.querySelector('script[src*="app.js"]') || {}).src || "").split("v=")[1] || "";
+  if (!mia) return;
+  let avisado = false;
+  const revisar = () => {
+    if (avisado || document.hidden) return;
+    fetch("index.html?nc=" + Date.now(), { cache: "no-store" }).then(r => r.text()).then(t => {
+      const m = t.match(/app\.js\?v=(\d+)/);
+      if (m && m[1] !== mia && !avisado) {
+        avisado = true;
+        toastAccion("Hay una versión nueva del Hub", "Recargar", () => location.reload());
+      }
+    }).catch(() => {});
+  };
+  setInterval(revisar, 5 * 60 * 1000);
+  document.addEventListener("visibilitychange", revisar);
+})();
 // Copia liviana del estado para publicar: baja las imágenes por escalones SIN
 // tocar las de este navegador (David conserva su calidad completa para publicar).
 async function estadoLiviano(estado, limite) {
@@ -4402,25 +4424,38 @@ async function publicarCambios() {
   const b = document.getElementById("btnGuardarCambios");
   if (b) { b.disabled = true; b.querySelector(".guardar-txt").textContent = "Guardando…"; }
   try {
-    let estado = estadoPublicable();
-    let cuerpo = JSON.stringify(estado);
-    if (cuerpo.length > LIMITE_NTFY) {
-      if (b) b.querySelector(".guardar-txt").textContent = "Aligerando imágenes…";
-      estado = await estadoLiviano(estado, LIMITE_NTFY);
-      cuerpo = JSON.stringify(estado);
+    const original = estadoPublicable();
+    let estado = original, ultimo = null;
+    // Se mide en bytes reales (UTF-8). Si el canal no responde o rechaza por
+    // tamaño, se reintenta solo con una copia todavía más liviana.
+    for (const limite of [LIMITE_NTFY, 1300000, 900000]) {
+      let cuerpo = JSON.stringify(estado);
+      if (new Blob([cuerpo]).size > limite) {
+        if (b) b.querySelector(".guardar-txt").textContent = "Aligerando imágenes…";
+        estado = await estadoLiviano(original, limite);
+        cuerpo = JSON.stringify(estado);
+      }
+      const bytes = new Blob([cuerpo]).size;
+      if (bytes > LIMITE_NTFY) { ultimo = { pesado: bytes }; continue; }
+      if (b) b.querySelector(".guardar-txt").textContent = "Guardando…";
+      try { await enviarEstadoNtfy(cuerpo); ultimo = null; break; }
+      catch (e) {
+        ultimo = e;
+        console.warn("[Guardar cambios] intento fallido", { bytes, limite, error: e });
+        if (!(e instanceof TypeError) && !(e && e.status === 413)) break;
+      }
     }
-    if (cuerpo.length > LIMITE_NTFY) throw { pesado: cuerpo.length };
-    if (b) b.querySelector(".guardar-txt").textContent = "Guardando…";
-    await enviarEstadoNtfy(cuerpo);
+    if (ultimo) throw ultimo;
     store.pendientePub = false;
     store.pubTs = estado.ts;
     save();
     toastVivo("✅ Cambios guardados: el equipo ya ve tu versión, portadas incluidas");
   } catch (e) {
-    if (e && e.pesado) toastVivo(`⚠️ No se pudo guardar: hay demasiadas imágenes (${mb(e.pesado)}; el canal acepta 2 MB). Quita historias o portadas que ya no uses e inténtalo de nuevo.`);
-    else if (e && e.status === 413) toastVivo("⚠️ El canal rechazó el guardado por tamaño. Quita algunas imágenes e inténtalo de nuevo.");
-    else if (e && e.status === 429) toastVivo("⚠️ El canal pidió esperar un momento. Inténtalo de nuevo en un minuto.");
-    else toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
+    if (e && e.pesado) toastVivo(`⚠️ No se pudo guardar: hay demasiadas imágenes (${mb(e.pesado)}; el canal acepta 2 MB). Quita historias o portadas que ya no uses e inténtalo de nuevo. · ${HUB_VERSION}`);
+    else if (e && e.status === 413) toastVivo(`⚠️ El canal rechazó el guardado por tamaño. Quita algunas imágenes e inténtalo de nuevo. · ${HUB_VERSION}`);
+    else if (e && e.status === 429) toastVivo(`⚠️ El canal pidió esperar un momento. Inténtalo de nuevo en un minuto. · ${HUB_VERSION}`);
+    else if (e instanceof TypeError) toastVivo(`⚠️ El canal de guardado no respondió. Revisa tu internet e inténtalo de nuevo. · ${HUB_VERSION}`);
+    else toastVivo(`⚠️ No se pudo guardar${e && e.status ? " (error " + e.status + ")" : ""}. Inténtalo de nuevo. · ${HUB_VERSION}`);
   } finally {
     if (b) b.disabled = false;
     pintarGuardar();
@@ -7138,9 +7173,13 @@ window.addEventListener("resize", () => { if (sliderActual && sliderActual.rail.
 
 // Cursor del portafolio: punto que sigue al mouse, anillo sobre lo tocable y
 // círculo con etiqueta en el slider ("Arrastra" / "Abrir"). Solo con mouse.
-// En el link de mercadeo solo vive en Historias (activarVista lo prende).
+// APAGADO el 24/10/2026: a David no le gusta; el Hub usa el cursor normal en
+// todas las vistas (también en el link de mercadeo). Para volverlo a prender,
+// cambiar CURSOR_DUFF a true.
+const CURSOR_DUFF = false;
 let cursorDuffListo = false;
 (function cursorDuff() {
+  if (!CURSOR_DUFF) return;
   if (!matchMedia("(hover: hover) and (pointer: fine)").matches || MOV_REDUCIDO.matches) return;
   cursorDuffListo = true;
   const raiz = document.createElement("div");
