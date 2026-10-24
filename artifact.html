@@ -3099,6 +3099,10 @@ body.dx-cliente .hist-story.rvh-aprobada .hs-check:hover .hist-ic-mini { opacity
   font-family: var(--font-display); font-weight: 340; font-optical-sizing: auto;
   font-size: clamp(30px, 3.4vw, 48px); line-height: 1; letter-spacing: -.032em; color: var(--hueso); text-wrap: balance;
 }
+/* Historias que vienen del Estudio Forestal: para qué sirve y qué sticker lleva */
+.rvh-estudio { width: 100%; display: grid; gap: 6px; padding: 12px 16px; border-left: 2px solid var(--ambar); background: rgba(236,228,214,.04); border-radius: 0 10px 10px 0; }
+.rvh-estudio p { margin: 0; font-size: 15px; line-height: 1.45; color: var(--hueso); }
+.rvh-estudio b { font: 500 10.5px/1.2 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--ambar); margin-right: 6px; }
 .rvh-com { width: 100%; margin-top: 4px; padding: 14px 16px; border-left: 2px solid #EE8A76; background: rgba(236,228,214,.04); border-radius: 0 10px 10px 0; }
 .rvh-com b { display: block; margin-bottom: 8px; font: 500 10.5px/1.2 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; color: #EE8A76; }
 .rvh-com p { font-size: 15.5px; line-height: 1.5; color: var(--hueso); white-space: pre-wrap; }
@@ -3925,9 +3929,18 @@ function avanceAnterior() {
   } catch {}
   return mejor;
 }
+let avisoLleno = false;
 function save() {
   store.updatedAt = Date.now();
-  try { localStorage.setItem(LS_KEY, JSON.stringify(store)); } catch {}
+  try { localStorage.setItem(LS_KEY, JSON.stringify(store)); }
+  catch (e) {
+    // El navegador guarda ~5 MB por sitio. Si se llena, se avisa una vez: lo que
+    // no quepa aquí sigue a salvo con «Guardar cambios» (queda en el repo).
+    if (!avisoLleno && typeof toastVivo === "function") {
+      avisoLleno = true;
+      toastVivo("⚠️ La memoria de este navegador se llenó con las imágenes. Toca «Guardar cambios» para no perder nada.");
+    }
+  }
   if (window.hubSync) window.hubSync();
 }
 // ---------- Notificaciones al celular/compu de David (solo modo cliente) ----------
@@ -4268,8 +4281,41 @@ function estadoPublicable(ts) {
 // Envía el estado como adjunto al canal de datos (sin cuentas ni tokens)
 function enviarEstadoNtfy(cuerpo) {
   return fetch(NTFY_DATOS, { method: "PUT", headers: { "Filename": "estado-hub.json" }, body: cuerpo })
-    .then(r => { if (!r.ok) throw 0; return r.json(); });
+    .then(r => { if (!r.ok) throw { status: r.status }; return r.json(); });
 }
+// ntfy.sh sin cuenta rechaza adjuntos de más de ~2 MB con un 413 (probado el
+// 24/10/2026: 2 MB pasa, 3 MB no). Antes se creía que aguantaba 15 MB y el
+// guardado fallaba en silencio con "revisa tu internet".
+const LIMITE_NTFY = 1900000;
+// Copia liviana del estado para publicar: baja las imágenes por escalones SIN
+// tocar las de este navegador (David conserva su calidad completa para publicar).
+async function estadoLiviano(estado, limite) {
+  const copia = JSON.parse(JSON.stringify(estado));
+  const pasos = [[480, .62, 1280, .74], [360, .58, 1080, .68], [280, .55, 860, .62], [220, .5, 720, .56]];
+  for (const [pH, pQ, hH, hQ] of pasos) {
+    const tareas = [];
+    for (const id of Object.keys(copia.portadas || {})) {
+      if (copia.portadas[id]) tareas.push(reducirDataUri(copia.portadas[id], pH, pQ).then(u => { copia.portadas[id] = u; }));
+    }
+    const prog = (copia.historias && copia.historias.prog) || {};
+    for (const k of Object.keys(prog)) {
+      const pr = prog[k];
+      if (!pr) continue;
+      if (pr.img) tareas.push(reducirDataUri(pr.img, hH, hQ).then(u => { pr.img = u; }));
+      if (pr.poster) tareas.push(reducirDataUri(pr.poster, 480, .55).then(u => { pr.poster = u; }));
+    }
+    await Promise.all(tareas);
+    if (JSON.stringify(copia).length <= limite) return copia;
+  }
+  // Último recurso: las historias de semanas pasadas viajan sin imagen (ya salieron)
+  const corte = isoDe(lunesDe(0));
+  const prog = (copia.historias && copia.historias.prog) || {};
+  for (const k of Object.keys(prog)) {
+    if (k.slice(0, 10) < corte && prog[k]) { delete prog[k].img; delete prog[k].poster; }
+  }
+  return copia;
+}
+function mb(n) { return (n / 1e6).toFixed(1).replace(".", ",") + " MB"; }
 // Si el estado supera el límite de adjuntos (~2MB), se reencogen las imágenes
 function reducirDataUri(uri, maxH, calidad) {
   return new Promise(res => {
@@ -4325,11 +4371,17 @@ async function publicarCambios() {
       const db = await window.claude.use("db");
       if (!db) throw new Error("sin canal");
       let cola = colaPublicable();
-      let cuerpo = JSON.stringify(cola);
-      if (cuerpo.length > 800000) {
-        await reducirPortadas();
-        cola = colaPublicable(cola.ts);
+      // El documento de la base del artifact aguanta 256 KB: la cola viaja sin
+      // las imágenes de las historias (el trabajador del Mac solo usa la hora)
+      const hist = JSON.parse(JSON.stringify(cola.historias || {}));
+      for (const k of Object.keys(hist.prog || {})) { if (hist.prog[k]) { delete hist.prog[k].img; delete hist.prog[k].poster; } }
+      cola.historias = hist;
+      if (JSON.stringify(cola).length > 250000) {
+        const port = {};
+        for (const id of Object.keys(cola.portadas || {})) port[id] = await reducirDataUri(cola.portadas[id], 360, .58);
+        cola.portadas = port;
       }
+      if (JSON.stringify(cola).length > 250000) throw new Error("cola muy pesada");
       await db.doc("cola/actual").set(cola);
       store.pendientePub = false;
       store.pubTs = cola.ts;
@@ -4352,19 +4404,23 @@ async function publicarCambios() {
   try {
     let estado = estadoPublicable();
     let cuerpo = JSON.stringify(estado);
-    // ntfy acepta adjuntos de hasta 15 MB: solo se reduce si el estado es enorme
-    if (cuerpo.length > 6000000) {
-      await reducirPortadas();
-      estado = estadoPublicable(estado.ts);
+    if (cuerpo.length > LIMITE_NTFY) {
+      if (b) b.querySelector(".guardar-txt").textContent = "Aligerando imágenes…";
+      estado = await estadoLiviano(estado, LIMITE_NTFY);
       cuerpo = JSON.stringify(estado);
     }
+    if (cuerpo.length > LIMITE_NTFY) throw { pesado: cuerpo.length };
+    if (b) b.querySelector(".guardar-txt").textContent = "Guardando…";
     await enviarEstadoNtfy(cuerpo);
     store.pendientePub = false;
     store.pubTs = estado.ts;
     save();
     toastVivo("✅ Cambios guardados: el equipo ya ve tu versión, portadas incluidas");
-  } catch {
-    toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
+  } catch (e) {
+    if (e && e.pesado) toastVivo(`⚠️ No se pudo guardar: hay demasiadas imágenes (${mb(e.pesado)}; el canal acepta 2 MB). Quita historias o portadas que ya no uses e inténtalo de nuevo.`);
+    else if (e && e.status === 413) toastVivo("⚠️ El canal rechazó el guardado por tamaño. Quita algunas imágenes e inténtalo de nuevo.");
+    else if (e && e.status === 429) toastVivo("⚠️ El canal pidió esperar un momento. Inténtalo de nuevo en un minuto.");
+    else toastVivo("⚠️ No se pudo guardar. Revisa tu internet e inténtalo de nuevo.");
   } finally {
     if (b) b.disabled = false;
     pintarGuardar();
@@ -7973,6 +8029,7 @@ function renderHistorias() {
           </span>`;
         }).join("")}
         <button class="btn-restaurar hist-btn-plan" id="histEditar">${iconoHist(SVG_LAPIZ, "currentColor")} Plan semanal</button>
+        <button class="btn-restaurar hist-btn-plan" id="histImportar" title="Trae las historias diseñadas en el Estudio Forestal">${icl("chispa")} Importar del Estudio</button>
       </div>
     </div>`;
 
@@ -8101,6 +8158,7 @@ function renderHistorias() {
   el.querySelector("#histAntes").onclick = () => { histSemana--; renderHistorias(); };
   el.querySelector("#histDespues").onclick = () => { histSemana++; renderHistorias(); };
   el.querySelector("#histEditar").onclick = abrirEditorHistorias;
+  el.querySelector("#histImportar").onclick = () => estudioPicker.click();
   conectarRevDavid(el);
   el.querySelectorAll(".hist-story").forEach(card => {
     const k = card.dataset.hist;
@@ -8169,6 +8227,59 @@ function abrirHistoriaClave(k, medio) {
   const sep = resto.indexOf("|");
   openHistoria(iso, resto.slice(0, sep), resto.slice(sep + 1), medio);
 }
+// ── Importar del Estudio Forestal ──────────────────────────────
+// El Estudio (app de historias con agentes) exporta un paquete .json con
+// cada historia ya diseñada: fecha, hora, título, propósito, sticker e imagen
+// en calidad de revisión. Aquí entra al plan de la semana como historia
+// planificada, lista para que mercadeo la apruebe en su link.
+const estudioPicker = document.createElement("input");
+estudioPicker.type = "file";
+estudioPicker.accept = "application/json,.json";
+estudioPicker.hidden = true;
+document.body.appendChild(estudioPicker);
+estudioPicker.onchange = async () => {
+  const f = estudioPicker.files[0];
+  estudioPicker.value = "";
+  if (!f) return;
+  let pack = null;
+  try { pack = JSON.parse(await f.text()); } catch {}
+  if (!pack || pack.tipo !== "estudio-forestal" || !Array.isArray(pack.historias)) {
+    toast("Ese archivo no es un paquete del Estudio Forestal.");
+    return;
+  }
+  const h = historiasStore();
+  const mk = MARCAS[pack.marca] ? pack.marca : "forestal";
+  let n = 0;
+  for (const x of pack.historias) {
+    if (!x || !/^\d{4}-\d{2}-\d{2}$/.test(x.fecha || "") || !/^data:image\//.test(x.img || "")) continue;
+    const txt = String(x.titulo || "✨ Historia del Estudio").trim();
+    const k = histKey(x.fecha, mk, txt);
+    // Si el Estudio ya había mandado esta historia, la versión nueva la reemplaza en su sitio
+    const previa = Object.keys(h.prog).find(q => q !== k && h.prog[q] && h.prog[q].estudio && h.prog[q].estudio.id === x.id);
+    if (previa) {
+      const pp = partesClave(previa), kp = pp.iso + "|" + pp.mk;
+      if (h.extras[kp]) { h.extras[kp] = h.extras[kp].filter(t => t !== pp.txt); if (!h.extras[kp].length) delete h.extras[kp]; }
+      delete h.prog[previa];
+    }
+    const key = x.fecha + "|" + mk;
+    h.extras[key] = h.extras[key] || [];
+    if (!h.extras[key].includes(txt)) h.extras[key].push(txt);
+    delete h.quitadas[k];
+    h.prog[k] = {
+      ...(h.prog[k] || {}), auto: true, red: "ambas", hora: x.hora || "12:00", img: x.img, video: null,
+      estudio: { id: x.id, porque: x.porque || x.proposito || "", proposito: x.proposito || "", sticker: x.sticker || null, animada: !!x.animada, venta: !!x.venta, formato: x.formato || "" },
+    };
+    n++;
+  }
+  if (!n) { toast("El paquete no traía historias con imagen."); return; }
+  if (pack.semana) {
+    const sem = Math.round((new Date(pack.semana + "T12:00:00") - lunesDe(0)) / (7 * 864e5));
+    if (Number.isFinite(sem)) histSemana = sem;
+  }
+  if (MARCAS[mk] && histMarcaVista !== mk) histMarcaVista = mk;
+  marcarPendiente(); save(); renderHistorias();
+  toast(`${n} historias del Estudio en el plan. Toca «Guardar cambios» para que mercadeo las vea.`);
+};
 // La entrada de programación se crea sola al primer gesto (imagen, video, hora…)
 function progDe(k) {
   const h = historiasStore();
@@ -8866,6 +8977,7 @@ function renderRevHistorias() {
         <span class="rvh-eyebrow">Historia ${pad2(rvIdx + 1)} de ${pad2(lista.length)}${pr.video ? " · video (se ve la portada)" : ""}</span>
         <h3 class="rvh-tit">${esc(tituloHist(k))}</h3>
         <span class="hs-cap-e ${t.cls}">${t.lbl}</span>
+        ${pr.estudio && (pr.estudio.porque || pr.estudio.sticker) ? `<div class="rvh-estudio">${pr.estudio.porque ? `<p><b>Para qué sirve:</b> ${esc(pr.estudio.porque)}</p>` : ""}${pr.estudio.sticker && pr.estudio.sticker.tipo && pr.estudio.sticker.tipo !== "ninguno" ? `<p><b>Sticker al publicar:</b> ${esc({ enlace: "enlace a la web", ubicacion: "ubicación", encuesta: "encuesta", pregunta: "pregunta", quiz: "cuestionario", cuenta: "cuenta regresiva", deslizador: "deslizador" }[pr.estudio.sticker.tipo] || pr.estudio.sticker.tipo)}${pr.estudio.sticker.texto ? " · " + esc(pr.estudio.sticker.texto) : ""}</p>` : ""}${pr.estudio.animada ? `<p><b>Sale animada</b> (video de 7 s)</p>` : ""}</div>` : ""}
         ${com ? `<div class="rvh-com"><b>${esc(e.r.por || AUTOR_CLIENTE)} · comentario</b><p>${esc(com)}</p>${e.estado === "nueva" ? `<small>David subió una versión nueva después de este comentario</small>` : ""}</div>` : ""}
       </div>
       <form class="rvh-form" autocomplete="off">
