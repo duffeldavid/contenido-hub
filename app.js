@@ -433,7 +433,7 @@ function enviarEstadoNtfy(cuerpo) {
 // guardado fallaba en silencio con "revisa tu internet".
 const LIMITE_NTFY = 1900000;
 // Versión del código: sale en los avisos de error para saber qué corre el navegador
-const HUB_VERSION = "v24.10c";
+const HUB_VERSION = "v30.10a";
 // Si se publica una versión nueva mientras la página está abierta, se ofrece
 // recargar (una página vieja abierta seguía fallando aunque el arreglo ya existía).
 (function vigilarVersion() {
@@ -873,14 +873,14 @@ function mercadeoLineaHtml(p) {
 }
 function portadaDe(p) { return store.portadas[p.id] || null; }
 function fechaDe(p) { return store.fechas[p.id] || p.fecha; }
-function horaDe(p) { return store.horas[p.id] || "18:00"; }
+function horaDe(p) { return store.horas[p.id] || p.hora || "18:00"; }
 // Cola de publicación automática (la lee el trabajador de Meta en el Mac)
 function metaDe(p) { return store.meta[p.id] || null; }
 function actualizarMeta(p, patch) {
   const m = store.meta[p.id];
   if (!m || !m.auto) return;
   Object.assign(m, {
-    copy: copyDe(p), fecha: fechaDe(p), hora: horaDe(p),
+    copy: captionDe(p), fecha: fechaDe(p), hora: horaDe(p),
     titulo: tituloDe(p), marca: p.marca, ts: Date.now(),
   }, patch || {});
   marcarPendiente();
@@ -890,9 +890,11 @@ function ordenDe(p) { return store.orden[p.id] ?? PIEZAS.findIndex(x => x.id ===
 function porOrden(a, b) { return ordenDe(a) - ordenDe(b); }
 function tituloDe(p) { return (store.ediciones[p.id] || {}).titulo || p.titulo; }
 function copyDe(p) { return (store.ediciones[p.id] || {}).copy || p.copy; }
+// Caption listo para publicar (piezas con brief en data.js); si no hay, el copy de siempre.
+function captionDe(p) { return (store.ediciones[p.id] || {}).caption || p.caption || copyDe(p); }
 // Versión para cliente: sin jerga de producción. Si David editó el copy, van sus palabras.
 function conceptoDe(p) { return (store.ediciones[p.id] || {}).copy || p.concepto || p.copy; }
-function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy)); }
+function editadaDe(p) { const e = store.ediciones[p.id]; return !!(e && (e.titulo || e.copy || e.caption)); }
 // Todas las fechas L-M-V del mes (los "espacios" fijos del calendario)
 const FECHAS_MES = [...new Set(PIEZAS.map(p => p.fecha))].sort();
 // Todos los días del mes (para organizar contenidos en cualquier fecha).
@@ -2545,6 +2547,100 @@ function posicionarDrawer() {
   drawer.style.top = Math.round(top) + "px";
 }
 
+// ============================================================
+// BRIEF DE PUBLICACIÓN — pilar, objetivo, hora, caption, CTA, fotos en
+// orden e historias de apoyo (piezas con brief en data.js). Lo ven David
+// y mercadeo en la ficha: mercadeo aprueba el plan completo de una vez.
+// ============================================================
+function horaTxt(h) {
+  const [hh, mm] = String(h || "").split(":").map(Number);
+  if (isNaN(hh)) return "";
+  if (hh === 12 && !mm) return "12:00 m.";
+  return `${((hh + 11) % 12) + 1}:${String(mm || 0).padStart(2, "0")} ${hh < 12 ? "a. m." : "p. m."}`;
+}
+// Días de historias de apoyo de una pieza: desde su fecha hasta la víspera
+// de la siguiente publicación de la marca (máximo una semana).
+function diasApoyo(p) {
+  const f = fechaDe(p);
+  const sig = PIEZAS.filter(x => x.marca === p.marca && x.id !== p.id && !store.ocultas[x.id] && fechaDe(x) > f)
+    .map(fechaDe).sort()[0];
+  const dias = [];
+  const d = new Date(f + "T12:00:00");
+  for (let i = 0; i < 7; i++) {
+    const iso = isoDe(d);
+    if (i > 0 && sig && iso >= sig) break;
+    dias.push(iso);
+    d.setDate(d.getDate() + 1);
+  }
+  return dias;
+}
+function briefHtml(p) {
+  if (!p.caption && !p.secuencia) return "";
+  const cliente = MODO_CLIENTE;
+  const { dia, num, mes } = fmtFecha(fechaDe(p));
+  const filas = [
+    ["Pilar", p.pilar],
+    ["Cuándo", `${dia} ${num} de ${mes} · ${horaTxt(horaDe(p))}`],
+    ["Objetivo", p.objetivo],
+    ["Llamado a la acción", p.cta],
+    ["Por qué así", p.porque],
+  ].filter(f => f[1]);
+  const seq = p.secuencia || [];
+  const h = historiasStore();
+  const dias = diasApoyo(p)
+    .map(iso => ({ iso, items: (planFechaHist(iso, p.marca) || []).filter(x => !h.quitadas[histKey(iso, p.marca, x.txt)]) }))
+    .filter(g => g.items.length);
+  return `
+    <section class="brief">
+      <h4>La publicación</h4>
+      <dl class="brief-datos">${filas.map(([k, v]) => `<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+    </section>
+    ${p.caption ? `<section class="brief">
+      <h4>Caption listo para publicar</h4>
+      <div class="copy-text brief-caption">${esc(captionDe(p))}</div>
+      ${cliente ? "" : `<button class="btn-ghost brief-copiar" data-copiar-caption>${icl("copiar")} Copiar caption</button>`}
+    </section>` : ""}
+    ${seq.length ? `<section class="brief">
+      <h4>${p.formato === "Carrusel" ? `Fotos en orden · ${seq.length} slides` : "Portada y material"}</h4>
+      <ol class="brief-fotos">${seq.map((s, i) => `
+        <li>
+          <div class="bf-img ${s.img ? "" : s.diseno ? "diseno" : "falta"}">${s.img ? `<img src="${IMG(s.img)}" alt="">` : `<span>${s.diseno ? "Diseño" : "Por elegir"}</span>`}<b>${i + 1}</b></div>
+          <div class="bf-txt">
+            ${s.texto ? `<span class="bf-texto">«${esc(s.texto)}»</span>` : ""}
+            <span>${esc(s.nota || "")}</span>
+            ${!cliente && s.archivo ? `<code>${esc(s.archivo)}</code>` : ""}
+          </div>
+        </li>`).join("")}
+      </ol>
+    </section>` : ""}
+    ${dias.length ? `<section class="brief">
+      <h4>Historias de apoyo</h4>
+      ${cliente ? `<p class="brief-nota">Al aprobar esta publicación apruebas también este plan de historias. Las que ya estén diseñadas te llegan para revisión en Historias.</p>` : ""}
+      ${dias.map(g => `
+        <div class="brief-dia">${esc(fechaHistTxt(g.iso))}</div>
+        <ul class="brief-hist">${g.items.map(x => {
+          const t = tipoHistoria(x.txt);
+          return `<li>
+            <div class="bh-img">${x.img ? `<img src="${IMG(x.img)}" alt="">` : iconoHist(t.svg, t.color)}</div>
+            <div class="bh-txt">
+              <span class="bh-tit"><b>${horaTxt(x.hora)}</b> · ${esc(t.resto)}</span>
+              ${x.texto ? `<span>${esc(x.texto)}</span>` : ""}
+              ${x.sticker && x.sticker !== "Ninguno" ? `<span class="bh-meta">Sticker · ${esc(x.sticker)}</span>` : ""}
+              ${x.porque ? `<span class="bh-meta">Para qué · ${esc(x.porque)}</span>` : ""}
+              ${!cliente && x.archivo ? `<code>${esc(x.archivo)}</code>` : ""}
+            </div>
+          </li>`;
+        }).join("")}</ul>`).join("")}
+    </section>` : ""}`;
+}
+function conectarBrief(p) {
+  const b = drawer.querySelector("[data-copiar-caption]");
+  if (b) b.onclick = async function () {
+    try { await navigator.clipboard.writeText(captionDe(p)); this.innerHTML = `${icl("ok")} Copiado`; }
+    catch { this.textContent = "Selecciona y copia con ⌘C"; }
+  };
+}
+
 function openDrawer(id) {
   if (MODO_CLIENTE) return openDrawerCliente(id);
   const p = PIEZAS.find(x => x.id === id);
@@ -2609,6 +2705,8 @@ function openDrawer(id) {
       ${editadaDe(p) ? `<button class="link-btn" id="btnRestaurar" style="margin-top:6px">Restablecer versión original</button>` : ""}
     </section>
 
+    ${briefHtml(p)}
+
     <section>
       <h4>Fecha de publicación</h4>
       <select id="selFecha" class="edit-input">
@@ -2672,6 +2770,7 @@ function openDrawer(id) {
   if (btnListoCom) btnListoCom.onclick = () => { comentarioEditando[p.id] = false; save(); renderAll({ keep: true }); openDrawer(p.id); };
   drawer.querySelector("#btnPortada").onclick = () => pedirPortada(p.id);
   drawer.querySelector("#btnIrPublicar").onclick = () => openPublicar(p.id);
+  conectarBrief(p);
 
   // Edición de contenido
   const inTit = drawer.querySelector("#editTitulo");
@@ -2769,6 +2868,8 @@ function openDrawerCliente(id) {
       <div class="copy-text">${esc(conceptoDe(p))}</div>
     </section>
 
+    ${briefHtml(p)}
+
     <section>
       <h4>Referencias del estilo (toca para ver ejemplos)</h4>
       <div class="ref-links">
@@ -2855,7 +2956,7 @@ function openPublicar(id) {
 
     <section class="pub-paso">
       <h4><span class="paso-num">2</span> Copy</h4>
-      <textarea id="pubCopy" class="aprob-comment" style="min-height:110px">${esc(copyDe(p))}</textarea>
+      <textarea id="pubCopy" class="aprob-comment" style="min-height:110px">${esc(captionDe(p))}</textarea>
       <button class="btn-primary" id="pubCopiar" style="margin-top:8px">${icl("copiar")} Copiar copy</button>
     </section>
 
@@ -2912,7 +3013,9 @@ function openPublicar(id) {
   taCopy.onchange = () => {
     const e = { ...(store.ediciones[p.id] || {}) };
     const c = taCopy.value.trim();
-    if (c && c !== p.copy) e.copy = c; else delete e.copy;
+    // Con caption en data.js lo que se edita aquí es el caption, no las notas de producción
+    const campo = p.caption ? "caption" : "copy";
+    if (c && c !== p[campo]) e[campo] = c; else delete e[campo];
     if (Object.keys(e).length) store.ediciones[p.id] = e; else delete store.ediciones[p.id];
     save();
     emitirContenido({ tipo: "edicion", id: p.id, e: store.ediciones[p.id] || null });
@@ -2939,7 +3042,7 @@ function openPublicar(id) {
     if (cbAuto.checked) {
       store.meta[p.id] = {
         auto: true, red: (metaDe(p) || {}).red || "ambas",
-        copy: copyDe(p), fecha: fechaDe(p), hora: horaDe(p),
+        copy: captionDe(p), fecha: fechaDe(p), hora: horaDe(p),
         titulo: tituloDe(p), marca: p.marca, ts: Date.now(),
       };
       if (estadoDe(p) !== "Programado" && estadoDe(p) !== "Publicado") store.estados[p.id] = "Programado";
@@ -4004,9 +4107,22 @@ function lunesDe(offsetSemanas) {
   return lunes;
 }
 function isoDe(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+// Plan de historias fijado por fecha en data.js (HISTORIAS_FECHA): ese día
+// reemplaza al plan semanal genérico y trae texto, sticker y para qué sirve.
+function planFechaHist(fechaIso, marca) {
+  return (typeof HISTORIAS_FECHA !== "undefined" && HISTORIAS_FECHA[fechaIso + "|" + marca]) || null;
+}
+function infoPlanHist(k) {
+  const { iso, mk, txt } = partesClave(k);
+  return (planFechaHist(iso, mk) || []).find(x => x.txt === txt) || null;
+}
+function planDelDia(h, marca, fechaIso, dow) {
+  const fijo = planFechaHist(fechaIso, marca);
+  return fijo ? fijo.map(x => x.txt) : ((h.plan[marca] && h.plan[marca][dow]) || []);
+}
 function historiasDeDia(marca, fechaIso, dow) {
   const h = historiasStore();
-  const plan = ((h.plan[marca] && h.plan[marca][dow]) || [])
+  const plan = planDelDia(h, marca, fechaIso, dow)
     .filter(txt => !h.quitadas[histKey(fechaIso, marca, txt)]);
   const extras = h.extras[fechaIso + "|" + marca] || [];
   return plan.map(txt => ({ txt, extra: false })).concat(extras.map(txt => ({ txt, extra: true })));
@@ -4031,7 +4147,7 @@ function moverHistoria(k, nuevaFecha) {
   }
   const d2 = new Date(nuevaFecha + "T12:00:00");
   const dow2 = (d2.getDay() + 6) % 7;
-  const enPlanDestino = ((h.plan[mk] && h.plan[mk][dow2]) || []).includes(txt);
+  const enPlanDestino = planDelDia(h, mk, nuevaFecha, dow2).includes(txt);
   delete h.quitadas[k2];
   if (!enPlanDestino && !(h.extras[nuevaFecha + "|" + mk] || []).includes(txt)) {
     (h.extras[nuevaFecha + "|" + mk] = h.extras[nuevaFecha + "|" + mk] || []).push(txt);
@@ -4249,11 +4365,12 @@ function renderHistorias() {
               const img = pr && pr.img;
               const video = pr && pr.video;
               const hecha = !!h.hechas[k];
-              const hora = (pr && pr.hora) || "12:00";
+              const plan = infoPlanHist(k);
+              const hora = (pr && pr.hora) || (plan && plan.hora) || "12:00";
               const est = hecha ? ["ok", "Publicada"]
                 : pr && (img || video) ? ["lista", "Lista · " + hora]
                 : pr ? ["falta", "Falta imagen · " + hora]
-                : ["nada", "Por planificar"];
+                : ["nada", plan ? "Por planificar · " + hora : "Por planificar"];
               n++;
               return `
               <figure class="hs-item" style="--i:${n};--tc:${t.color}">
@@ -4467,7 +4584,7 @@ estudioPicker.onchange = async () => {
 // La entrada de programación se crea sola al primer gesto (imagen, video, hora…)
 function progDe(k) {
   const h = historiasStore();
-  if (!h.prog[k]) h.prog[k] = { auto: true, red: "ambas", hora: "12:00", img: null };
+  if (!h.prog[k]) h.prog[k] = { auto: true, red: "ambas", hora: (infoPlanHist(k) || {}).hora || "12:00", img: null };
   h.prog[k].auto = true;
   return h.prog[k];
 }
@@ -4580,6 +4697,17 @@ function openHistoria(iso, mk, txt, medioVista) {
       if (mk !== MARCA_REV_HIST || !pr || !(pr.img || pr.poster)) return "";
       const e = revHist(k), com = e.r && String(e.r.c || "").trim();
       return `<div class="hist-rev-banner rv-${REV_TXT[e.estado].cls}"><b>Mercadeo · ${REV_TXT[e.estado].lbl}</b>${com ? `<p>${esc(com)}</p>` : e.estado === "nueva" ? `<p>Cambiaste la imagen: mercadeo la verá como versión nueva.</p>` : e.estado === "pendiente" ? `<p>Toca "Enviar a revisión" en Historias para que la vea.</p>` : ""}</div>`;
+    })()}
+    ${(() => {
+      const pl = infoPlanHist(k);
+      if (!pl) return "";
+      return `<div class="brief-hist-info">
+        <b>Del plan de la parrilla · ${horaTxt(pl.hora)}</b>
+        ${pl.texto ? `<span>Texto: ${esc(pl.texto)}</span>` : ""}
+        ${pl.sticker ? `<span>Sticker: ${esc(pl.sticker)}</span>` : ""}
+        ${pl.porque ? `<span>Para qué: ${esc(pl.porque)}</span>` : ""}
+        ${pl.archivo ? `<code>${esc(pl.archivo)}</code>` : ""}
+      </div>`;
     })()}
 
     <section class="pub-paso pub-auto" style="margin-top:18px">
