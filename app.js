@@ -2601,7 +2601,7 @@ function briefHtml(p) {
       ${cliente ? "" : `<button class="btn-ghost brief-copiar" data-copiar-caption>${icl("copiar")} Copiar caption</button>`}
     </section>` : ""}
     ${seq.length ? `<section class="brief">
-      <h4>${p.formato === "Carrusel" ? `Fotos en orden · ${seq.length} slides` : "Portada y material"}</h4>
+      <h4>${p.formato !== "Carrusel" ? "Portada y material" : seq.some(s => s.diseno) ? `Láminas en orden · ${seq.length}` : `Fotos en orden · ${seq.length} slides`}</h4>
       <ol class="brief-fotos">${seq.map((s, i) => `
         <li>
           <div class="bf-img ${s.img ? "" : s.diseno ? "diseno" : "falta"}">${s.img ? `<img src="${IMG(s.img)}" alt="">` : `<span>${s.diseno ? "Diseño" : "Por elegir"}</span>`}<b>${i + 1}</b></div>
