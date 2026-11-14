@@ -327,6 +327,7 @@ for (x, y, s) in [(560, 250, 1.0), (500, 300, .7), (330, 610, .8)]:
 # --- logo (traced from the brand's vector file) ---
 svg = open(sys.argv[1]).read()
 paths = re.findall(r'<path d="([^"]+)"', svg, re.S)
+paths = [p for p in paths if int(re.match(r'M(\d+) (\d+)', p).group(2)) > 7000]  # solo la palabra Forestal, sin 'Café Artesanal'
 LW = 380; sc = LW / 1956.0; lx, ly = 118, 100
 inner = ''.join('<path d="%s"/>' % p.replace('\n', ' ') for p in paths)
 tf = 'translate(%d,%d) scale(%.5f) translate(0,1493) scale(0.1,-0.1)' % (lx, ly, sc)
