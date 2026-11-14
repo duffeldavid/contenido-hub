@@ -204,131 +204,162 @@ def bush(cx, cy, rx, ry, n, ln=58, wd=15):
     for y, x, a in sorted(L):
         leaf(x, y, a, ln*g(.7, 1.15), wd*g(.8, 1.1), shade=R.random() < .3, sw=2.2, veins=False)
 
-# ================= SCENE =================
+
+def leaflet(x, y, s, rot, col=INK):
+    add('<ellipse cx="%.1f" cy="%.1f" rx="%.1f" ry="%.1f" fill="%s" transform="rotate(%.0f %.1f %.1f)"/>' % (x, y, s, s*.45, col, rot, x, y))
+
+LOGO = (540, 40, 1010, 330)   # keep-clear box for the logo
+def in_logo(x, y, m=30):
+    return LOGO[0]-m < x < LOGO[2]+m and LOGO[1]-m < y < LOGO[3]+m
+
+def spray(x, y, r=60, n=18, s=(4.5, 8)):
+    """Airy feathery foliage: fine twigs + loose leaflets."""
+    if in_logo(x, y): return
+    for _ in range(3):
+        a = g(0, 2*math.pi); l = r*g(.4, .9)
+        add('<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="%s" stroke-width="1.5" stroke-linecap="round"/>'
+            % (x, y, math.cos(a)*l*.5 + g(-6, 6), math.sin(a)*l*.5 + g(-6, 6), math.cos(a)*l, math.sin(a)*l*.7, INK))
+    for _ in range(n):
+        px, py = x + R.gauss(0, r*.5), y + R.gauss(0, r*.36)
+        if in_logo(px, py, 8): continue
+        if R.random() < .12:
+            bp = blob_pts(px, py, g(9, 16), g(6, 10), rough=.2)
+            add('<path d="%s" fill="%s" stroke="%s" stroke-width="1.8"/>' % (scallop(bp, (px, py), 3), BG, INK))
+        else:
+            leaflet(px, py, g(*s), g(-50, 50))
+
+def frond(x, y, ang, L, col=INK, lw=2.4, ll=13):
+    a = math.radians(ang); bend = g(-.25, .25)
+    pts = []
+    for i in range(int(L/9) + 1):
+        t = i*9
+        aa = a + bend*t/L
+        pts.append((x + math.cos(aa)*t, y + math.sin(aa)*t, math.degrees(aa)))
+    line([p[:2] for p in pts], lw*.7, stroke=col)
+    for i, (px, py, d) in enumerate(pts[1:]):
+        k = ll * (1 - .5*i/len(pts))
+        for sgn in (-1, 1):
+            r = math.radians(d + sgn*62)
+            leaflet(px + math.cos(r)*k*.55, py + math.sin(r)*k*.55, k*.6, d + sgn*62, col)
+
+def weed(x, y, s=1.0):
+    for a in sorted([g(-170, -10) for _ in range(R.randint(5, 7))], key=lambda v: abs(v + 90), reverse=True):
+        leaf(x, y, a, 52*s*g(.8, 1.2), 14*s, shade=R.random() < .3, sw=2.2, veins=False)
+
+# ================= SCENE (referencia: video de la finca) =================
 add('<rect width="%d" height="%d" fill="%s"/>' % (W, H, BG))
 
-# --- distant hills through the gap ---
-line(cr_sample([(330, 1345), (400, 1318), (470, 1300), (540, 1312), (640, 1296), (720, 1325)], 6), 2.4)
-line(cr_sample([(380, 1362), (450, 1340), (520, 1350), (600, 1338), (680, 1356)], 6), 2)
-for _ in range(14):
-    x = g(400, 660); y = g(1325, 1350)
-    add('<path d="M%.1f,%.1f l%.1f,%.1f" stroke="%s" stroke-width="1.8" stroke-linecap="round"/>' % (x, y, g(8, 18), g(-3, 3), INK))
+# --- distant airy trees (far left and behind the path) ---
+for (x, y0, y1) in [(40, 1000, 640), (300, 1100, 800), (430, 1120, 850), (560, 1130, 900), (640, 1140, 960)]:
+    lean = g(-25, 25)
+    limb([(x, y0, 7), (x + lean*.5, (y0+y1)/2, 5.5), (x + lean, y1 + 40, 4)], sw=1.8)
+    tp = []
+    for a in (-150, -120, -90, -60, -30):
+        bare(x + lean, y1 + 45, a + g(-8, 8), g(70, 110), 3.2, 1, tp, bias=a*.4 - 50, spread=28)
+    for (tx, ty) in tp: spray(tx, ty, r=g(40, 60), n=R.randint(9, 14), s=(3.5, 6))
 
-# --- tall canopy tree (centre-right, far) ---
-tips = []
-tr = limb([(668, 1400, 20), (664, 1100, 17), (656, 800, 14), (650, 560, 12), (648, 400, 10)], ticks=26)
-for (bx, by, a, ln, w) in [(648, 410, -112, 170, 9), (650, 420, -62, 200, 9), (652, 560, -142, 160, 7), (654, 600, -38, 190, 8),
-                           (656, 780, -150, 150, 6), (658, 820, -35, 140, 6), (648, 405, -88, 170, 8)]:
-    bare(bx, by, a, ln, w, 2, tips, bias=a*.5 - 45, spread=34)
-tips.sort(key=lambda p: p[1])
-for (x, y) in tips:
-    if x < 720 and y < 520: x = 720 + g(0, 50)
-    cluster(x + g(-10, 10), y + g(-8, 4), g(55, 95), g(20, 32), dark=.35)
+# --- leaning tree, centre ---
+tp = []
+limb([(705, 1180, 27), (690, 1000, 24), (672, 880, 22), (630, 790, 18), (580, 700, 15), (520, 600, 12), (450, 480, 9), (400, 380, 7)], sw=2.6, ticks=8)
+limb([(676, 895, 15), (686, 820, 14), (668, 740, 12), (624, 640, 10), (590, 540, 8), (575, 470, 6)], sw=2.4)
+for (bx, by, a, ln, w) in [(520, 600, -65, 150, 6), (450, 480, -105, 130, 5), (580, 700, -35, 140, 6), (624, 640, -75, 130, 5),
+                           (400, 380, -110, 110, 4), (575, 470, -80, 110, 4), (630, 790, -160, 120, 5)]:
+    bare(bx, by, a, ln, w, 2, tp, bias=a*.5 - 45, spread=30)
+for (tx, ty) in tp: spray(tx, ty, r=g(50, 75), n=R.randint(14, 22))
 
-# --- second tall slim tree, right ---
-tips2 = []
-limb([(905, 1400, 26), (880, 1050, 22), (842, 700, 18), (808, 380, 14), (786, 150, 11), (776, -20, 9)], ticks=34)
-for (bx, by, a, ln, w) in [(800, 300, -40, 170, 8), (812, 420, -150, 150, 7), (822, 520, -30, 150, 7), (790, 190, -135, 130, 6), (846, 730, -28, 120, 6)]:
-    bare(bx, by, a, ln, w, 2, tips2, bias=a*.5 - 45, spread=32)
-tips2.sort(key=lambda p: p[1])
-for (x, y) in tips2:
-    cluster(x + g(-8, 8), y + g(-6, 4), g(50, 84), g(19, 30), dark=.35)
+# --- twin-trunk shade tree, left ---
+tp = []
+limb([(128, 990, 44), (125, 760, 40), (132, 520, 36), (138, 330, 31), (140, 150, 25), (118, -20, 19)], sw=3, ticks=10)
+limb([(250, 292, 22), (300, 205, 19), (400, 135, 15), (510, 70, 11), (590, 0, 8)], sw=2.8)
+limb([(246, 295, 19), (254, 150, 15), (240, -20, 11)], sw=2.8)
+limb([(186, 990, 46), (205, 760, 42), (225, 560, 40), (238, 400, 34), (250, 270, 27)], sw=3, ticks=10)
+for yy in (548, 556):   # knot ring on the right stem
+    line([(206, yy), (226, yy + 6), (246, yy)], 2.4)
+bare(118, 506, -172, 120, 7, 1, [], bias=-165, spread=22)          # dry stub
+bare(206, 520, -30, 60, 6, 0, [], bias=-40)
+for (bx, by, a, ln, w) in [(330, 185, -85, 150, 8), (430, 118, -50, 130, 7), (480, 88, -115, 90, 6), (254, 160, -55, 120, 7),
+                           (250, 120, -125, 110, 6), (138, 330, -135, 150, 9), (140, 205, -55, 140, 8), (134, 420, -40, 120, 6),
+                           (300, 205, 10, 150, 6), (128, 300, -160, 110, 6)]:
+    bare(bx, by, a, ln, w, 2, tp, bias=a*.5 - 45, spread=32)
+for (tx, ty) in tp: spray(tx, ty, r=g(55, 85), n=R.randint(16, 26))
+for _ in range(16): spray(g(0, 520), g(20, 470), r=g(40, 60), n=R.randint(8, 14))
+for _ in range(5): spray(g(1010, 1080), g(20, 330), r=45, n=10)
+for _ in range(4): spray(g(600, 760), g(380, 470), r=45, n=10)
 
-# --- bare trees, left ---
-t = []
-limb([(52, 1440, 30), (70, 1150, 26), (100, 850, 21), (112, 600, 17), (104, 380, 13)], ticks=30)
-bare(104, 385, -108, 170, 12, 4, t, bias=-112, spread=22)
-bare(108, 560, -55, 150, 9, 3, t, bias=-60, spread=22)
-bare(100, 700, -125, 170, 8, 3, t, bias=-105, spread=26)
-limb([(215, 1440, 22), (224, 1200, 19), (236, 960, 15), (252, 760, 12), (262, 640, 10)], ticks=20)
-bare(262, 645, -80, 120, 9, 3, t, bias=-84, spread=24)
-bare(250, 780, -128, 130, 6, 2, t, bias=-110, spread=24)
-bare(240, 900, -48, 130, 6, 2, t, bias=-65, spread=24)
-limb([(-6, 1300, 22), (4, 900, 18), (-2, 500, 15), (14, 200, 12), (40, -20, 9)])
-bare(8, 300, -70, 120, 7, 2, t, bias=-95, spread=22)
-
-# --- understory: layered small trees ---
-trees = []
-for x in [20, 120, 190, 290, 345, 415, 500, 560, 610, 720, 770, 840, 960, 1040, 150, 460, 680, 900]:
-    trees.append((x + g(-18, 18), g(860, 1230)))
-trees.sort(key=lambda p: p[1])           # higher crowns = further back
-for (x, top) in trees:
-    lean = g(-40, 40); w = g(8, 13)
-    limb([(x, 1450, w), (x + lean*.3, 1300, w*.9), (x + lean*.7, (1300+top)/2, w*.75), (x + lean, top, w*.5)], sw=2.2, ticks=5)
-    tx = x + lean
-    for s in (-1, 1):
-        ex, ey = tx + s*g(40, 75), top - g(10, 50)
-        line(cr_sample([(tx, top + 40), (tx + s*14, top + 5), (ex, ey)], 5), 2.6)
-    k = R.randint(2, 5)
-    cl = [(tx + g(-90, 90), top + g(-60, 40), g(45, 105), g(24, 46)) for _ in range(k)]
-    for (cx, cy, rx, ry) in sorted(cl, key=lambda c: c[1]):
-        cluster(cx, cy, rx, ry, dark=.3)
-
-# dark shrub band behind the ground line (leaves the centre gap light)
-for (x0, x1) in [(-30, 400), (560, 1110)]:
-    x = x0
-    while x < x1:
-        rx = g(45, 80)
-        bp = blob_pts(x, 1425 + g(-14, 10), rx, g(34, 56))
-        add('<path d="%s" fill="%s"/>' % (scallop(bp, (x, 1430), 9), INK))
-        x += rx * 1.1
-for _ in range(60):
-    x = R.choice([g(0, 390), g(570, 1080)]); y = g(1385, 1440); s = g(5, 10)
-    add('<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="%s" stroke-width="2.2" stroke-linecap="round"/>' % (x, y, s*.5, -s, s*1.5, 0, BG))
-
-# --- ground ---
-ground = cr_sample([(-20, 1452), (120, 1436), (260, 1452), (400, 1474), (500, 1490), (600, 1484), (760, 1470), (900, 1476), (1100, 1462)], 8)
-add('<path d="%s L%d,%d L-20,%d Z" fill="%s" stroke="%s" stroke-width="3"/>' % (path(ground), W+20, H+20, H+20, BG, INK))
-# path edges
-pl = cr_sample([(505, 1496), (470, 1560), (380, 1660), (250, 1790), (150, 1930)], 10)
-pr = cr_sample([(560, 1494), (600, 1550), (690, 1640), (800, 1760), (880, 1930)], 10)
-for P in (pl, pr):
-    add('<path d="%s" fill="none" stroke="%s" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="26 16 9 18"/>' % (path(P), INK))
-# tyre-track dashes inside the path
-for i in range(46):
-    y = g(1510, 1900); k = (y - 1490) / 430
-    cxm = 532 - 20*k
-    x = cxm + g(-1, 1) * (30 + 240*k)
-    l = (8 + 30*k) * g(.6, 1.3)
-    add('<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="%s" stroke-width="%.1f" stroke-linecap="round"/>' % (x, y, l/2, g(-2, 2), l, g(-3, 3), INK, 1.6 + k))
-# grass tufts, denser on the banks
-for i in range(120):
-    y = g(1470, 1900); k = (y - 1460) / 440
-    if R.random() < .75:
-        x = R.choice([g(-10, 500 - 330*k), g(570 + 290*k, 1090)])
-    else:
-        x = g(500 - 330*k, 570 + 290*k)
-    tuft(x, y, s=.45 + 1.1*k)
-
-# --- big foreground trunk, right edge ---
-limb([(1058, 1500, 150), (1052, 1200, 138), (1040, 800, 124), (1022, 400, 112), (1000, 100, 100), (990, -40, 96)], sw=3.2, shade=.2, ticks=70)
-bare(962, 760, -150, 110, 7, 2, [], bias=-120, spread=26)
-
-# --- coffee shrubs, right mid-ground ---
-for (cx, cy, rx, ry, n) in [(760, 1470, 90, 60, 26), (900, 1440, 110, 85, 40), (1030, 1500, 100, 110, 44), (860, 1570, 95, 62, 30), (1000, 1650, 110, 85, 40)]:
-    bush(cx, cy, rx, ry, n)
-cherries(905, 1470, 4, 7); cherries(1010, 1560, 5, 7); cherries(835, 1585, 3, 7)
-# left bank shrubs
-for (cx, cy, rx, ry) in [(60, 1470, 90, 40), (210, 1482, 75, 30), (330, 1492, 55, 22)]:
+# --- mid-ground trees behind the hedge ---
+for (cx, cy, rx, ry) in [(600, 1090, 70, 34), (760, 1040, 125, 55), (930, 1080, 110, 48), (1050, 1050, 80, 44), (500, 1150, 60, 30)]:
     cluster(cx, cy, rx, ry, dark=.3)
-for _ in range(16): tuft(g(-10, 380), g(1500, 1560), s=g(.7, 1.1))
+for (a, l) in [(-150, 120), (-115, 150), (-80, 140), (-40, 125), (-10, 100)]:   # young plantain
+    leaf(805, 1120, a, l, 26, shade=R.random() < .4)
 
-# --- foreground coffee branches ---
-coffee_branch([(1110, 1900), (960, 1820), (820, 1790), (690, 1720)], 5, 150, 40, start=.12)
-coffee_branch([(1100, 1700), (1000, 1730), (930, 1760)], 2, 110, 30, start=.5, cher=False)
-coffee_branch([(-30, 1880), (90, 1800), (190, 1790), (300, 1735)], 4, 125, 34, start=.2)
-for _ in range(7): tuft(g(380, 640), g(1850, 1930), s=g(1.3, 1.8))
+# --- dense dark tree, right ---
+mass = [(930, 520, 170, 150), (880, 700, 200, 150), (990, 850, 150, 120), (800, 610, 110, 120), (1040, 400, 95, 95)]
+for (cx, cy, rx, ry) in mass:
+    add('<path d="%s" fill="%s"/>' % (scallop(blob_pts(cx, cy, rx, ry, rough=.12), (cx, cy), 10), INK))
+for (cx, cy, rx, ry) in mass:
+    for _ in range(int(rx*ry/1500)):
+        a = g(0, 2*math.pi); r = math.sqrt(g(0, 1))*.8
+        frond(cx + rx*r*math.cos(a), cy + ry*r*math.sin(a), g(110, 200), g(50, 90), col=BG, lw=2.2, ll=11)
+    for _ in range(int((rx+ry)/22)):
+        a = g(.45*math.pi, 1.6*math.pi)
+        frond(cx + rx*.9*math.cos(a), cy + ry*.9*math.sin(a), math.degrees(a) + g(-25, 25), g(60, 110))
+
+# --- grass lane ---
+add('<path d="M565,1300 L600,1288 L1100,1478 L1100,1940 L425,1940 L540,1420 Z" fill="%s"/>' % BG)
+def xl(y): return 568 - (y-1300)*.22
+def xr(y): return min(1085, 600 + (y-1290)*2.67)
+
+# --- coffee hedge along the right of the lane ---
+for (cx, cy, rx, ry, n) in [(600, 1245, 46, 44, 16), (690, 1240, 70, 70, 28), (800, 1252, 95, 95, 42), (925, 1272, 115, 125, 60), (1050, 1292, 120, 160, 74)]:
+    bush(cx, cy, rx, ry, n, ln=40 + rx*.28, wd=10 + rx*.07)
+    for _ in range(int(rx/22)):
+        cherries(cx + g(-.6, .6)*rx, cy + g(-.4, .6)*ry, R.randint(3, 5), r=3 + rx/26)
+
+# grass: long blades + tufts, larger towards the viewer
+for _ in range(300):
+    y = g(1300, 1930); k = (y - 1290) / 640
+    x = g(xl(y), xr(y)); l = (22 + 85*k) * g(.6, 1.2); dx = g(-.4, .4)*l
+    add('<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="%s" stroke-width="%.1f" stroke-linecap="round"/>'
+        % (x, y, dx*.2, -l*.6, dx, -l, INK, 1.5 + 1.2*k))
+for _ in range(150):
+    y = g(1310, 1930); k = (y - 1290) / 640
+    tuft(g(xl(y), xr(y)), y, s=.5 + 1.3*k)
+weed(645, 1445, .8); weed(870, 1615, 1.1); weed(930, 1900, 1.5); weed(700, 1760, 1.0)
+
+# --- foreground coffee tree, left (lower trunk of the shade tree behind it) ---
+limb([(118, 1440, 92), (128, 1200, 86), (152, 975, 80)], sw=3, ticks=14)
+leaf(470, 1120, -8, 150, 30, shade=True)            # plantain leaves poking out
+leaf(60, 1010, -120, 120, 26); leaf(40, 1180, -160, 130, 28, shade=True)
+for (cx, cy, rx, ry) in [(185, 1330, 110, 150), (190, 1600, 130, 180), (170, 1840, 140, 120)]:
+    add('<path d="%s" fill="%s"/>' % (scallop(blob_pts(cx, cy, rx, ry, rough=.1), (cx, cy), 12), INK))
+for (cx, cy, rx, ry, n) in [(50, 1300, 95, 85, 20), (370, 1330, 95, 75, 20), (70, 1560, 95, 95, 22), (350, 1590, 105, 95, 24), (80, 1800, 105, 95, 22), (340, 1830, 105, 85, 22)]:
+    bush(cx, cy, rx, ry, n, ln=84, wd=22)
+bush(215, 1035, 150, 70, 34, ln=92, wd=24)          # crown
+BR = [
+    [(215, 1150), (120, 1170), (30, 1240), (-30, 1330)],
+    [(225, 1170), (330, 1180), (430, 1240), (505, 1330)],
+    [(210, 1290), (110, 1330), (30, 1420), (-20, 1520)],
+    [(225, 1310), (330, 1340), (430, 1420), (500, 1530)],
+    [(205, 1450), (110, 1500), (40, 1600), (0, 1700)],
+    [(220, 1470), (320, 1520), (420, 1610), (475, 1730)],
+    [(200, 1620), (120, 1690), (60, 1790), (30, 1900)],
+    [(215, 1640), (310, 1700), (390, 1800), (430, 1920)],
+]
+line(cr_sample([(215, 1100), (212, 1400), (205, 1700), (195, 1940)], 8), 7)
+for b in BR:
+    coffee_branch(b, 5, 104, 28, start=.2)
+coffee_branch([(205, 1790), (240, 1850), (290, 1900)], 2, 95, 26, start=.5)
 
 # --- birds ---
-for (x, y, s) in [(560, 250, 1.0), (500, 300, .7), (330, 610, .8)]:
+for (x, y, s) in [(600, 420, 1.0), (665, 380, .7), (40, 470, .8)]:
     add('<path d="M%.1f,%.1f q%.1f,%.1f %.1f,%.1f q%.1f,%.1f %.1f,%.1f" fill="none" stroke="%s" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>'
         % (x, y, 10*s, -12*s, 20*s, 2*s, 8*s, -14*s, 22*s, -10*s, INK))
 
-# --- logo (traced from the brand's vector file) ---
+# --- logo (traced from the brand's vector file; wordmark only) ---
 svg = open(sys.argv[1]).read()
 paths = re.findall(r'<path d="([^"]+)"', svg, re.S)
-paths = [p for p in paths if int(re.match(r'M(\d+) (\d+)', p).group(2)) > 7000]  # solo la palabra Forestal, sin 'Café Artesanal'
-LW = 380; sc = LW / 1956.0; lx, ly = 118, 100
+paths = [p for p in paths if int(re.match(r'M(\d+) (\d+)', p).group(2)) > 7000]
+LW = 430; sc = LW / 1956.0; lx, ly = 560, 70
 inner = ''.join('<path d="%s"/>' % p.replace('\n', ' ') for p in paths)
 tf = 'translate(%d,%d) scale(%.5f) translate(0,1493) scale(0.1,-0.1)' % (lx, ly, sc)
 add('<g transform="%s" fill="%s" stroke="%s" stroke-width="620" stroke-linejoin="round">%s</g>' % (tf, BG, BG, inner))
